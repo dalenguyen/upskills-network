@@ -28,7 +28,8 @@
       "@upskills/auth": ["./libs/data-access/auth/src/index.ts"],
       "@upskills/email": ["./libs/data-access/email/src/index.ts"],
       "@upskills/stripe": ["./libs/data-access/stripe/src/index.ts"],
-      "@upskills/ui": ["./libs/ui/src/index.ts"]
+      "@upskills/ui": ["./libs/ui/src/index.ts"],
+      "@upskills/gcloud": ["./libs/gcloud/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

@@ -1,0 +1,52 @@
+{
+  "name": "gcloud",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/gcloud/src",
+  "projectType": "library",
+  "tags": [
+    "scope:tools",
+    "type:plugin"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/libs/gcloud",
+        "main": "libs/gcloud/src/index.ts",
+        "tsConfig": "libs/gcloud/tsconfig.lib.json",
+        "assets": [
+          "libs/gcloud/*.md",
+          {
+            "input": "./libs/gcloud/src",
+            "glob": "**/!(*.ts)",
+            "output": "./src"
+          },
+          {
+            "input": "./libs/gcloud/src",
+            "glob": "**/*.d.ts",
+            "output": "./src"
+          },
+          {
+            "input": "./libs/gcloud",
+            "glob": "generators.json",
+            "output": "."
+          },
+          {
+            "input": "./libs/gcloud",
+            "glob": "executors.json",
+            "output": "."
+          }
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/gcloud/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}

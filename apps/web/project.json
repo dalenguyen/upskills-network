@@ -76,6 +76,55 @@
       "options": {
         "command": "tsc -p apps/web/tsconfig.editor.json --noEmit"
       }
+    },
+    "deploy-docker": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "commands": [
+          "docker build --platform linux/amd64 -f apps/web/Dockerfile -t us-central1-docker.pkg.dev/upskills-network/upskills/web:${BUILD_NUMBER:-latest} .",
+          "gcloud auth configure-docker us-central1-docker.pkg.dev --quiet",
+          "docker push us-central1-docker.pkg.dev/upskills-network/upskills/web:${BUILD_NUMBER:-latest}"
+        ],
+        "parallel": false
+      }
+    },
+    "deploy-cloudrun": {
+      "executor": "@upskills/gcloud:cloud-run",
+      "configurations": {
+        "production": {
+          "project": "upskills-network",
+          "serviceName": "upskills-web",
+          "containerImageName": "web",
+          "containerRegistry": "us-central1-docker.pkg.dev/upskills-network/upskills",
+          "allowUnauthenticated": true,
+          "port": 8080,
+          "concurrency": 80,
+          "minInstances": 0,
+          "secrets": [
+            "RESEND_API_KEY=RESEND_API_KEY:latest",
+            "STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest",
+            "STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
+            "LOOKUP_TOKEN_SECRET=LOOKUP_TOKEN_SECRET:latest"
+          ],
+          "envVars": {
+            "NODE_ENV": "production",
+            "GCP_PROJECT_ID": "upskills-network"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx deploy-docker web",
+          "nx deploy-cloudrun web --configuration production"
+        ],
+        "parallel": false
+      }
     }
   }
 }

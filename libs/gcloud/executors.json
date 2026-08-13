@@ -1,0 +1,9 @@
+{
+  "executors": {
+    "cloud-run": {
+      "implementation": "./src/executors/cloud-run/executor",
+      "schema": "./src/executors/cloud-run/schema.json",
+      "description": "Deploy a service to Google Cloud Run"
+    }
+  }
+}

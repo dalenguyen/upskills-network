@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "version": 2,
+  "title": "Cloud Run Deploy Executor",
+  "description": "Deploy a service to Google Cloud Run",
+  "type": "object",
+  "properties": {
+    "project": { "type": "string", "description": "GCP project ID" },
+    "serviceName": {
+      "type": "string",
+      "description": "Cloud Run service name"
+    },
+    "containerRegistry": { "type": "string" },
+    "containerImageName": { "type": "string" },
+    "regions": { "type": "array", "items": { "type": "string" } },
+    "memory": { "type": "string" },
+    "cpu": { "type": "number" },
+    "minInstances": { "type": "number" },
+    "maxInstances": { "type": "number" },
+    "concurrency": { "type": "number" },
+    "timeout": { "type": "number" },
+    "port": { "type": "number" },
+    "ingress": {
+      "type": "string",
+      "enum": ["internal", "all", "internal-and-cloud-load-balancing"]
+    },
+    "serviceAccount": { "type": "string" },
+    "envVars": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "secrets": { "type": "array", "items": { "type": "string" } },
+    "allowUnauthenticated": { "type": "boolean" }
+  },
+  "required": ["project", "serviceName"]
+}
