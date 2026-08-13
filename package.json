@@ -1,12 +1,16 @@
 {
-  "name": "@org/source",
+  "name": "@upskills/source",
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {},
   "private": true,
-  "dependencies": {},
   "devDependencies": {
+    "@nx/eslint": "^23.1.1",
     "@nx/js": "23.1.1",
+    "@nx/node": "^23.1.1",
+    "@nx/vite": "^23.1.1",
+    "@nx/vitest": "^23.1.1",
+    "@nx/webpack": "23.1.1",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",
     "@swc/helpers": "0.5.18",
