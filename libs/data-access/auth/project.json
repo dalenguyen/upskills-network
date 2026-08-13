@@ -1,0 +1,19 @@
+{
+  "name": "data-access-auth",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/data-access/auth/src",
+  "projectType": "library",
+  "tags": [
+    "scope:data-access",
+    "type:service"
+  ],
+  "// targets": "to see all targets run: nx show project data-access-auth --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/data-access/auth/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}

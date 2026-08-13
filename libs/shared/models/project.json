@@ -1,0 +1,19 @@
+{
+  "name": "shared-models",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/models/src",
+  "projectType": "library",
+  "tags": [
+    "scope:shared",
+    "type:models"
+  ],
+  "// targets": "to see all targets run: nx show project shared-models --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/shared/models/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}

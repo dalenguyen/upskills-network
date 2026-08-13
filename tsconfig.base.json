@@ -21,7 +21,15 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "paths": {}
+    "paths": {
+      "@upskills/models": ["./libs/shared/models/src/index.ts"],
+      "@upskills/validation": ["./libs/shared/validation/src/index.ts"],
+      "@upskills/firestore": ["./libs/data-access/firestore/src/index.ts"],
+      "@upskills/auth": ["./libs/data-access/auth/src/index.ts"],
+      "@upskills/email": ["./libs/data-access/email/src/index.ts"],
+      "@upskills/stripe": ["./libs/data-access/stripe/src/index.ts"],
+      "@upskills/ui": ["./libs/ui/src/index.ts"]
+    }
   },
   "exclude": ["node_modules", "tmp"]
 }

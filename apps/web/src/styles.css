@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+/* Tailwind v4 auto-detects sources under the app root only; libs/ui lives
+   outside it, so its classes must be registered explicitly. */
+@source '../../../libs/ui/src';
+
 html,
 body {
   display: block;

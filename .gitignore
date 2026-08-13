@@ -49,3 +49,5 @@ Thumbs.db
 .nx/self-healing
 .nx/migrate-runs
 .angular
+
+vitest.config.*.timestamp*

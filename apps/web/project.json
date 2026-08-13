@@ -4,12 +4,17 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/web/src",
-  "tags": ["scope:app", "type:web"],
+  "tags": [
+    "scope:app",
+    "type:web"
+  ],
   "targets": {
     "build": {
       "executor": "@analogjs/platform:vite",
       "defaultConfiguration": "production",
-      "outputs": ["{workspaceRoot}/dist/apps/web"],
+      "outputs": [
+        "{workspaceRoot}/dist/apps/web"
+      ],
       "options": {
         "configFile": "apps/web/vite.config.ts",
         "main": "apps/web/src/main.ts",
@@ -64,6 +69,12 @@
       "executor": "@analogjs/vitest-angular:test",
       "options": {
         "config": "vite.config.ts"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p apps/web/tsconfig.editor.json --noEmit"
       }
     }
   }

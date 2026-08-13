@@ -1,0 +1,19 @@
+{
+  "name": "data-access-email",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/data-access/email/src",
+  "projectType": "library",
+  "tags": [
+    "scope:data-access",
+    "type:service"
+  ],
+  "// targets": "to see all targets run: nx show project data-access-email --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/data-access/email/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}
