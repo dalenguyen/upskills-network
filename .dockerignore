@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+dist
+tmp
+out-tsc
+.git
+.nx
+.angular
+.vscode
+.idea
+*.log

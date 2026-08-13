@@ -3,9 +3,9 @@ import { Component } from '@angular/core';
 import { AnalogWelcomeComponent } from './analog-welcome.component';
 
 @Component({
-  selector: 'web-home',
+  selector: 'app-home',
 
   imports: [AnalogWelcomeComponent],
-  template: ` <web-analog-welcome /> `,
+  template: ` <app-analog-welcome /> `,
 })
 export default class HomeComponent {}

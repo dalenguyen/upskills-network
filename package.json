@@ -2,7 +2,14 @@
   "name": "@upskills/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "start:web": "nx serve web",
+    "build:web": "nx build web",
+    "deploy:web": "nx deploy web",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint"
+  },
   "private": true,
   "devDependencies": {
     "@analogjs/platform": "^2.7.0",

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 
 @Component({
-  selector: 'web-analog-welcome',
+  selector: 'app-analog-welcome',
 
   host: {
     class:
