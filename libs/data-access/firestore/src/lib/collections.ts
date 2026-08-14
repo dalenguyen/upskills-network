@@ -1,4 +1,10 @@
-import type { Guest, Organizer, User, WorkshopEvent } from '@upskills/models';
+import type {
+  Guest,
+  Organizer,
+  Timestamp,
+  User,
+  WorkshopEvent,
+} from '@upskills/models';
 import { normalizeEmail } from '@upskills/validation';
 import type {
   CollectionReference,
@@ -46,6 +52,21 @@ export interface EventSlugReservation {
 }
 
 /**
+ * `stripeEvents/{stripeEventId}` — the webhook idempotency ledger.
+ *
+ * The document id is Stripe's own event id, so "have we handled this delivery?"
+ * is the existence of a key rather than a query. Its body exists only for
+ * humans reading the ledger during an incident.
+ */
+export interface StripeEventRecord {
+  /** Stripe's `evt_…` id — the same value as the document id. */
+  stripeEventId: string;
+  /** Stripe's event type, e.g. `checkout.session.completed`. */
+  type?: string;
+  processedAt: Timestamp;
+}
+
+/**
  * A converter that only carries the type: Firestore data already matches the
  * model shape, so there is nothing to map. Its whole job is to make refs and
  * queries generic in the model type, so `snap.data()` is typed at every call
@@ -69,6 +90,7 @@ const eventConverter = typedConverter<WorkshopEvent>();
 const guestConverter = typedConverter<Guest>();
 const orgSlugConverter = typedConverter<OrgSlugReservation>();
 const eventSlugConverter = typedConverter<EventSlugReservation>();
+const stripeEventConverter = typedConverter<StripeEventRecord>();
 
 export function usersCol(): CollectionReference<User> {
   return getDb().collection(COLLECTIONS.users).withConverter(userConverter);
@@ -136,4 +158,14 @@ export function eventSlugRef(
     .collection(COLLECTIONS.eventSlugs)
     .withConverter(eventSlugConverter)
     .doc(slug);
+}
+
+/** `stripeEvents/{stripeEventId}` — one ledger entry per handled webhook. */
+export function stripeEventRef(
+  stripeEventId: string,
+): DocumentReference<StripeEventRecord> {
+  return getDb()
+    .collection(COLLECTIONS.stripeEvents)
+    .withConverter(stripeEventConverter)
+    .doc(stripeEventId);
 }

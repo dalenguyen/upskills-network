@@ -11,12 +11,14 @@ export {
   orgRef,
   orgSlugRef,
   orgsCol,
+  stripeEventRef,
   userRef,
   usersCol,
 } from './lib/collections';
 export type {
   EventSlugReservation,
   OrgSlugReservation,
+  StripeEventRecord,
 } from './lib/collections';
 
 export { decodeEventCursor, encodeEventCursor } from './lib/cursor';
@@ -48,6 +50,7 @@ export {
   MAX_RESTARTS,
   MAX_TRANSACTION_ATTEMPTS,
   TransactionContendedError,
+  runIdempotentTransaction,
   runTransaction,
 } from './lib/transactions';
 
@@ -58,6 +61,24 @@ export type {
   ReserveOutcome,
   ReserveSpotResult,
 } from './lib/reserve-spot';
+
+export {
+  InvalidSlugError,
+  SlugTakenError,
+  releaseSlug,
+  renameSlug,
+  reserveSlug,
+} from './lib/slugs';
+export type { SlugCollection, SlugRename, SlugReservation } from './lib/slugs';
+
+export {
+  isStripeEventProcessed,
+  withStripeEventGuard,
+} from './lib/stripe-events';
+export type {
+  StripeEventGuardOptions,
+  StripeEventOutcome,
+} from './lib/stripe-events';
 
 export {
   cancelGuest,
