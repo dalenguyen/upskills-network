@@ -54,6 +54,9 @@ export {
   runTransaction,
 } from './lib/transactions';
 
+export { createUserIfAbsent } from './lib/users';
+export type { CreateUserResult } from './lib/users';
+
 export { reserveSpot } from './lib/reserve-spot';
 export type {
   GuestDraft,
