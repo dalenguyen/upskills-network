@@ -356,3 +356,25 @@ export class EventNotFoundError extends Error {
     this.name = 'EventNotFoundError';
   }
 }
+
+/**
+ * Raised when an event exists but is not open for registration — it is still a
+ * draft, or it has been cancelled.
+ *
+ * Checked *inside* the reservation transaction, alongside capacity, rather than
+ * by the caller beforehand. A route that read the event, saw `published`, and
+ * then called `reserveSpot` would leave a window in which the organizer
+ * cancels the event and a registration still lands on it — the same lost-update
+ * shape as counting seats before taking one. The status is a condition on the
+ * event document, so it is tested against the copy read in the transaction.
+ */
+export class EventNotRegisterableError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** The event's status at the moment the transaction read it. */
+    readonly status: string,
+  ) {
+    super(`Event "${eventId}" is not open for registration (${status}).`);
+    this.name = 'EventNotRegisterableError';
+  }
+}

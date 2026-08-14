@@ -48,6 +48,7 @@ export type {
 
 export {
   EventNotFoundError,
+  EventNotRegisterableError,
   MAX_RESTARTS,
   MAX_TRANSACTION_ATTEMPTS,
   TransactionContendedError,

@@ -4,6 +4,7 @@ import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
 import { eventRef, guestRef } from './collections';
 import {
   EventNotFoundError,
+  EventNotRegisterableError,
   applyCounters,
   guestFromSnapshot,
   isActive,
@@ -94,7 +95,11 @@ function outcomeFor(status: GuestStatus): ReserveOutcome {
  * their place was already given back, so the document is rebuilt from scratch
  * and capacity is re-evaluated for them like anyone else.
  *
+ * Only a `published` event accepts registrations, and that is checked here
+ * rather than by the caller — see {@link EventNotRegisterableError}.
+ *
  * @throws EventNotFoundError if `eventId` names no event.
+ * @throws EventNotRegisterableError if the event is a draft or cancelled.
  */
 export async function reserveSpot(
   eventId: string,
@@ -121,6 +126,10 @@ export async function reserveSpot(
     const event = eventSnapshot.data();
     if (!event) {
       throw new EventNotFoundError(eventId);
+    }
+
+    if (event.status !== 'published') {
+      throw new EventNotRegisterableError(eventId, event.status);
     }
 
     const existing = guestFromSnapshot(eventId, guestSnapshot);
