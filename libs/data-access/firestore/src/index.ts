@@ -37,6 +37,7 @@ export {
   listEventGuests,
   listOrgEvents,
   listPublishedEvents,
+  listPublishedOrgEvents,
 } from './lib/reads';
 export type {
   ListEventGuestsOptions,

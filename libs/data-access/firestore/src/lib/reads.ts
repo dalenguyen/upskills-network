@@ -138,23 +138,62 @@ export interface PublishedEventsPage {
 }
 
 /**
- * Public browse: published events, soonest first, one page at a time.
- *
- * Backed by the `events (status ASC, startsAt ASC)` composite index. The
- * explicit `__name__` ordering is the tie-breaker that makes the total order
- * stable — Firestore appends it to that index anyway, so naming it costs
- * nothing and lets the cursor address an exact position.
+ * Public browse: every org's published events, soonest first, one page at a
+ * time. Backed by the `events (status ASC, startsAt ASC)` composite index.
  */
 export async function listPublishedEvents(
   options: ListPublishedEventsOptions = {},
+): Promise<PublishedEventsPage> {
+  return pageOfEvents(
+    eventsCol().where('status', '==', 'published'),
+    options,
+  );
+}
+
+/**
+ * The public organizer page: one org's published events, soonest first.
+ *
+ * Backed by the `events (orgId ASC, status ASC, startsAt ASC)` composite index,
+ * which exists only for this query — the dashboard's
+ * `(orgId ASC, startsAt DESC)` index cannot serve it, because adding the
+ * `status` equality filter changes the required index prefix.
+ *
+ * Deliberately separate from {@link listOrgEvents} rather than a `status`
+ * option on it. The dashboard lists every status newest-first so an organizer
+ * sees what they just edited; the public page lists published events
+ * soonest-first so a visitor sees what they can still attend. Same collection,
+ * two different questions, and folding them together would mean one call site
+ * silently depending on the other's default.
+ */
+export async function listPublishedOrgEvents(
+  orgId: string,
+  options: ListPublishedEventsOptions = {},
+): Promise<PublishedEventsPage> {
+  return pageOfEvents(
+    eventsCol().where('orgId', '==', orgId).where('status', '==', 'published'),
+    options,
+  );
+}
+
+/**
+ * Apply the shared public ordering, cursor, and page size to an already-filtered
+ * event query.
+ *
+ * The explicit `__name__` ordering is the tie-breaker that makes the total order
+ * stable — Firestore appends it to the index anyway, so naming it costs nothing
+ * and lets the cursor address an exact position rather than a `startsAt` that
+ * several events may share.
+ */
+async function pageOfEvents(
+  filtered: Query<WorkshopEvent>,
+  options: ListPublishedEventsOptions,
 ): Promise<PublishedEventsPage> {
   const limit = Math.min(
     Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE),
     MAX_PAGE_SIZE,
   );
 
-  let query = eventsCol()
-    .where('status', '==', 'published')
+  let query = filtered
     .orderBy('startsAt', 'asc')
     .orderBy(FieldPath.documentId(), 'asc');
 
