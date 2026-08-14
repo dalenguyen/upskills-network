@@ -7,6 +7,7 @@ import { reserveSpot } from './reserve-spot';
 import {
   EventNotFoundError,
   EventNotRegisterableError,
+  PaymentRequiredError,
 } from './transactions';
 
 beforeEach(clearFirestore);
@@ -322,6 +323,36 @@ describe('reserveSpot — bad input', () => {
     await expect(
       reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
     ).rejects.toMatchObject({ eventId: 'evt-1', status: 'cancelled' });
+  });
+
+  it('refuses to confirm a free seat on a priced event', async () => {
+    await event({ price: 2500 });
+
+    await expect(
+      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+    ).rejects.toBeInstanceOf(PaymentRequiredError);
+
+    expect(await listEventGuests('evt-1')).toEqual([]);
+    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 0 });
+  });
+
+  it('still allows a hold on a priced event — that is the paid path', async () => {
+    await event({ price: 2500 });
+
+    await expect(
+      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
+    ).resolves.toMatchObject({ outcome: 'held' });
+  });
+
+  it('reports a draft priced event as unpublished, not as payment required', async () => {
+    // Status is checked first on purpose. If price won, a paid draft would be
+    // distinguishable from a free draft, and the difference would confirm that
+    // an unannounced event exists.
+    await event({ status: 'draft', price: 2500 });
+
+    await expect(
+      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+    ).rejects.toBeInstanceOf(EventNotRegisterableError);
   });
 
   it('refuses a held reservation on an unpublished event too', async () => {

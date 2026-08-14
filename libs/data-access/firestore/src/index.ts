@@ -51,6 +51,7 @@ export {
   EventNotRegisterableError,
   MAX_RESTARTS,
   MAX_TRANSACTION_ATTEMPTS,
+  PaymentRequiredError,
   TransactionContendedError,
   runIdempotentTransaction,
   runTransaction,

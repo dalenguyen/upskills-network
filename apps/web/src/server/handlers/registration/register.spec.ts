@@ -297,6 +297,24 @@ describe('POST /api/v1/registration/:eventId/register', () => {
     });
 
     it('refuses a paid event rather than confirming a free seat on it', async () => {
+      await expect(
+        createRegisterHandler(
+          deps({
+            reserveSpot: vi.fn(async () => {
+              throw reserveError('PaymentRequiredError', { price: 2500 });
+            }),
+          }),
+        )(post(VALID)),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        data: { error: 'payment-required' },
+      });
+    });
+
+    it('does not gate on price itself — the transaction decides', async () => {
+      // The route reads the event for the email it will send, not to authorize
+      // the write. Gating here was a check-then-act race: a free event can
+      // acquire a price between this read and the commit.
       const reserveSpot = vi.fn(async () => reserved());
 
       await expect(
@@ -306,11 +324,36 @@ describe('POST /api/v1/registration/:eventId/register', () => {
             reserveSpot,
           }),
         )(post(VALID)),
-      ).rejects.toMatchObject({
-        statusCode: 409,
-        data: { error: 'payment-required' },
+      ).resolves.toMatchObject({ status: 'confirmed' });
+      expect(reserveSpot).toHaveBeenCalledOnce();
+    });
+
+    it('answers 404 for a draft paid event, not 409', async () => {
+      // The status check runs before the price check inside the transaction, so
+      // a paid draft is indistinguishable from a free one. Were it the other way
+      // round, the 409 would confirm an unannounced event exists.
+      const draftPaid = await createRegisterHandler(
+        deps({
+          getEvent: vi.fn(async () => fakeEvent({ price: 2500 })),
+          reserveSpot: vi.fn(async () => {
+            throw reserveError('EventNotRegisterableError', {
+              status: 'draft',
+            });
+          }),
+        }),
+      )(post(VALID)).catch((error: unknown) => error);
+
+      const missing = await createRegisterHandler(
+        deps({ getEvent: vi.fn(async () => null) }),
+      )(post(VALID)).catch((error: unknown) => error);
+
+      expect({
+        statusCode: (draftPaid as { statusCode: number }).statusCode,
+        data: (draftPaid as { data: unknown }).data,
+      }).toEqual({
+        statusCode: (missing as { statusCode: number }).statusCode,
+        data: (missing as { data: unknown }).data,
       });
-      expect(reserveSpot).not.toHaveBeenCalled();
     });
   });
 

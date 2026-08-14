@@ -378,3 +378,26 @@ export class EventNotRegisterableError extends Error {
     this.name = 'EventNotRegisterableError';
   }
 }
+
+/**
+ * Raised when a free seat is claimed outright on an event that costs money.
+ *
+ * Checked inside the reservation transaction against the price read there, so a
+ * caller cannot read the price, see zero, and reserve after the organizer has
+ * put a number on it. A route that gated on its own earlier read would leave
+ * exactly that window, and the seat it let through would be a paid seat given
+ * away for nothing.
+ *
+ * Only `confirm` mode raises this. `hold` is the paid path: it reserves the
+ * seat *pending* payment, which is precisely what a priced event needs.
+ */
+export class PaymentRequiredError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** Price in minor units, as read inside the transaction. */
+    readonly price: number,
+  ) {
+    super(`Event "${eventId}" costs ${price} and cannot be confirmed for free.`);
+    this.name = 'PaymentRequiredError';
+  }
+}

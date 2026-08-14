@@ -17,11 +17,19 @@ import { conflict } from './registration-errors';
  *
  * ## What this route does not decide
  *
- * Capacity and publication status are both decided inside `reserveSpot`'s
- * transaction, not here. This handler reads the event once beforehand, but only
- * for two things that cannot race meaningfully: the price gate below, and the
- * content of the email it sends afterwards. Everything that governs whether a
- * seat is actually taken is re-read under the transaction.
+ * Capacity, publication status, and price are all decided inside
+ * `reserveSpot`'s transaction, not here. This handler reads the event once
+ * beforehand, but only to answer a cheap 404 and to have the content of the
+ * email it sends afterwards; nothing it reads is allowed to gate the write.
+ *
+ * An earlier revision *did* gate on that read — it refused a paid event before
+ * calling `reserveSpot` — and it was wrong twice over. It was a check-then-act
+ * race, because a free event could acquire a price between the read and the
+ * commit. And because the price gate ran before the status check inside the
+ * transaction, a **draft paid** event answered 409 while every other draft
+ * answered 404, which is precisely the distinguishable response the next
+ * section exists to prevent. Both disappear once the decision lives in one
+ * place, against one read, in one order.
  *
  * ## Draft answers 404, cancelled answers 409
  *
@@ -113,6 +121,17 @@ function asRegistrationError(error: unknown): unknown {
       : eventNotFound();
   }
 
+  if (error.name === 'PaymentRequiredError') {
+    // The paid path — hold the seat, then hand back a Stripe Checkout URL — is
+    // issue #47 and is deliberately outside the MVP. Refusing loudly is the
+    // only safe placeholder: falling through would confirm a paid seat for
+    // nothing.
+    return conflict(
+      'payment-required',
+      'This event requires payment, which is not available yet.',
+    );
+  }
+
   return error;
 }
 
@@ -138,17 +157,6 @@ export function createRegisterHandler(deps: RegisterDeps): EventHandler {
 
       if (workshop === null) {
         throw eventNotFound();
-      }
-
-      if (workshop.price > 0) {
-        // The paid path — hold the seat, then hand back a Stripe Checkout URL —
-        // is issue #47 and is deliberately outside the MVP. Refusing loudly is
-        // the only safe placeholder: falling through would confirm a paid seat
-        // for free.
-        throw conflict(
-          'payment-required',
-          'This event requires payment, which is not available yet.',
-        );
       }
 
       const result = await deps
