@@ -51,3 +51,8 @@ Thumbs.db
 .angular
 
 vitest.config.*.timestamp*
+# Firebase emulators
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase

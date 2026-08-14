@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { dataAccessAuth } from '@upskills/auth';
 import { dataAccessEmail } from '@upskills/email';
-import { dataAccessFirestore } from '@upskills/firestore';
+import { getDb } from '@upskills/firestore';
 import type { Guest, WorkshopEvent } from '@upskills/models';
 import { dataAccessStripe } from '@upskills/stripe';
 import { Ui } from '@upskills/ui';
@@ -12,17 +12,17 @@ import { normalizeEmail } from '@upskills/validation';
 // TypeScript compiler and for the Vite/Nx path resolution at runtime.
 describe('workspace aliases', () => {
   it('resolves the data-access lib entry points', () => {
-    expect([
-      dataAccessFirestore(),
-      dataAccessAuth(),
-      dataAccessEmail(),
-      dataAccessStripe(),
-    ]).toEqual([
-      'data-access-firestore',
+    expect([dataAccessAuth(), dataAccessEmail(), dataAccessStripe()]).toEqual([
       'data-access-auth',
       'data-access-email',
       'data-access-stripe',
     ]);
+  });
+
+  // Resolution only — calling getDb() here would initialize the Admin SDK in
+  // the app's jsdom test environment, which has no emulator and no credentials.
+  it('resolves the firestore lib', () => {
+    expect(typeof getDb).toBe('function');
   });
 
   it('resolves the validation lib', () => {
