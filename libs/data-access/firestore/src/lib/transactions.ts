@@ -94,7 +94,38 @@ const RESTART_BACKOFF_MS = 10;
  * jittered backoff spreads the herd out instead of having every loser retry in
  * lockstep.
  */
-export async function runTransaction<T>(
+export function runTransaction<T>(
+  body: (transaction: Transaction) => Promise<T>,
+): Promise<T> {
+  return getDb().runTransaction(body, {
+    maxAttempts: MAX_TRANSACTION_ATTEMPTS,
+  });
+}
+
+/**
+ * Like {@link runTransaction}, but starts a **fresh** transaction if the whole
+ * thing fails on contention.
+ *
+ * ## Only for idempotent bodies — this is not the default for a reason
+ *
+ * When the SDK reports `ABORTED`, the commit may in fact have landed and only
+ * the response been lost. Re-running the body then applies it a second time.
+ * For a body that converges on the same state — `reserveSpot` re-reads the
+ * guest and answers "already registered"; a status transition re-reads and
+ * finds its work done — that is harmless.
+ *
+ * For a body whose whole purpose is to happen **once**, it is a correctness
+ * bug. Using this for `reserveSlug` let two of twenty-five racers both come
+ * away believing they owned the same slug, which is precisely what the
+ * reservation document exists to prevent. Create-once paths must use
+ * {@link runTransaction}, whose only retries are the SDK's own — those re-read
+ * inside one transaction and cannot double-apply.
+ *
+ * What this buys is the stale-handle case: 25 attempts inside a single
+ * transaction can outlive it, surfacing as `INVALID_ARGUMENT: Transaction is
+ * invalid or closed`. A fresh transaction cannot inherit a stale handle.
+ */
+export async function runIdempotentTransaction<T>(
   body: (transaction: Transaction) => Promise<T>,
 ): Promise<T> {
   let lastError: unknown;

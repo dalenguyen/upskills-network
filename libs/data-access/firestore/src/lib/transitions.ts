@@ -6,7 +6,7 @@ import {
   applyCounters,
   clearFields,
   guestFromSnapshot,
-  runTransaction,
+  runIdempotentTransaction,
 } from './transactions';
 
 /**
@@ -174,7 +174,7 @@ export async function promoteNextPending(
     .orderBy('registeredAt', 'asc')
     .limit(1);
 
-  return runTransaction(async (transaction) => {
+  return runIdempotentTransaction(async (transaction) => {
     // Reads first, both of them.
     const eventSnapshot = await transaction.get(documents.event);
     const waitlist = await transaction.get(oldestPending);
@@ -235,7 +235,7 @@ async function transition(
     guest: guestRef(eventId, email),
   };
 
-  return runTransaction(async (transaction) => {
+  return runIdempotentTransaction(async (transaction) => {
     // Reads before writes — Firestore will reject the transaction otherwise.
     const eventSnapshot = await transaction.get(documents.event);
     const guestSnapshot = await transaction.get(documents.guest);

@@ -8,7 +8,7 @@ import {
   guestFromSnapshot,
   isActive,
   newCancelToken,
-  runTransaction,
+  runIdempotentTransaction,
 } from './transactions';
 
 /**
@@ -112,7 +112,7 @@ export async function reserveSpot(
   const registeredAt = FirestoreTimestamp.now();
   const cancelToken = draft.cancelToken ?? newCancelToken();
 
-  return runTransaction(async (transaction) => {
+  return runIdempotentTransaction(async (transaction) => {
     // ── Reads first. Firestore forbids reading after a write, and the whole
     // correctness argument rests on these values being read *inside* here.
     const eventSnapshot = await transaction.get(documents.event);
