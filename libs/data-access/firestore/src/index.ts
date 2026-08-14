@@ -42,3 +42,31 @@ export type {
   ListPublishedEventsOptions,
   PublishedEventsPage,
 } from './lib/reads';
+
+export {
+  EventNotFoundError,
+  MAX_RESTARTS,
+  MAX_TRANSACTION_ATTEMPTS,
+  TransactionContendedError,
+  runTransaction,
+} from './lib/transactions';
+
+export { reserveSpot } from './lib/reserve-spot';
+export type {
+  GuestDraft,
+  ReserveMode,
+  ReserveOutcome,
+  ReserveSpotResult,
+} from './lib/reserve-spot';
+
+export {
+  cancelGuest,
+  confirmHeldGuest,
+  promoteNextPending,
+  releaseHold,
+} from './lib/transitions';
+export type {
+  PaymentInfo,
+  TransitionReason,
+  TransitionResult,
+} from './lib/transitions';

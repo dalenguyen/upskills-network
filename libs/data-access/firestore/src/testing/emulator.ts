@@ -85,14 +85,30 @@ export async function isEmulatorReady(host: string): Promise<boolean> {
  * the emulator's own bulk-delete endpoint — one request, no recursive walk.
  */
 export async function clearFirestore(): Promise<void> {
-  const response = await fetch(
-    `http://${emulatorHost()}/emulator/v1/projects/${EMULATOR_PROJECT_ID}/databases/(default)/documents`,
-    { method: 'DELETE' },
-  );
+  // `firebase-admin` is imported dynamically, at call time, on purpose:
+  // `vitest.config.mts` imports this module while Vite is still bundling the
+  // config, and a static import would drag the Admin SDK into that graph.
+  const { getDb } = await import('../lib/db');
+  const db = getDb();
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to clear the Firestore emulator: ${response.status} ${await response.text()}`,
-    );
-  }
+  // Deliberately NOT the emulator's `DELETE /emulator/v1/.../documents`
+  // endpoint. That answers 200 when the delete is *accepted*, not when it has
+  // finished: on a database with real data the sweep is still running after the
+  // response lands and goes on to delete documents written after it, so the
+  // next test's fixtures are swallowed mid-run and the failure surfaces far
+  // away as "Event ... does not exist".
+  //
+  // `recursiveDelete()` on its own has the same hazard in a subtler form — with
+  // an implicit BulkWriter it can resolve while deletes are still in flight, and
+  // those stragglers delete documents seeded afterwards. Driving one BulkWriter
+  // explicitly and closing it is what makes completion deterministic:
+  // `close()` flushes every queued write and resolves only when they have all
+  // landed, so when this function returns the database is genuinely empty and
+  // nothing is still deleting behind it.
+  const writer = db.bulkWriter();
+  const collections = await db.listCollections();
+  await Promise.all(
+    collections.map((collection) => db.recursiveDelete(collection, writer)),
+  );
+  await writer.close();
 }
