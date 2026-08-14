@@ -45,7 +45,11 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc -p libs/gcloud/tsconfig.lib.json --noEmit"
+        "commands": [
+          "tsc -p libs/gcloud/tsconfig.lib.json --noEmit",
+          "tsc -p libs/gcloud/tsconfig.spec.json --noEmit"
+        ],
+        "parallel": false
       }
     }
   }

@@ -1,36 +1,37 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { dataAccessAuth } from '@upskills/auth';
-import { dataAccessEmail } from '@upskills/email';
-import { getDb } from '@upskills/firestore';
 import type { Guest, WorkshopEvent } from '@upskills/models';
 import { dataAccessStripe } from '@upskills/stripe';
 import { Ui } from '@upskills/ui';
 import { normalizeEmail } from '@upskills/validation';
 
-// Proves every workspace alias resolves from inside the app, both for the
-// TypeScript compiler and for the Vite/Nx path resolution at runtime.
+/**
+ * Alias resolution for the libraries that are safe in a browser, checked in the
+ * app's jsdom environment.
+ *
+ * The server-only libs — auth, email, firestore — are covered by
+ * `src/server/alias-smoke.spec.ts` instead, because they wrap the Firebase
+ * Admin SDK and Resend and are never part of a browser bundle. See that file
+ * for why the split is load-bearing rather than cosmetic.
+ *
+ * Each lib is probed with a real exported *function* wherever it has one. A
+ * bare `const` is weaker evidence than it looks: a bundler may inline the
+ * value, so the assertion can pass against a copy without the module ever being
+ * resolved and executed. Calling a function cannot be satisfied that way.
+ */
 describe('workspace aliases', () => {
-  it('resolves the data-access lib entry points', () => {
-    expect([dataAccessAuth(), dataAccessEmail(), dataAccessStripe()]).toEqual([
-      'data-access-auth',
-      'data-access-email',
-      'data-access-stripe',
-    ]);
-  });
-
-  // Resolution only — calling getDb() here would initialize the Admin SDK in
-  // the app's jsdom test environment, which has no emulator and no credentials.
-  it('resolves the firestore lib', () => {
-    expect(typeof getDb).toBe('function');
-  });
-
   it('resolves the validation lib', () => {
     expect(normalizeEmail(' Foo@Bar.COM ')).toBe('foo@bar.com');
   });
 
   it('resolves the Angular ui lib', () => {
     expect(new Ui()).toBeInstanceOf(Ui);
+  });
+
+  // Still the generator placeholder: @upskills/stripe has no real API yet.
+  // Replace this the moment it does — see the Stripe epic.
+  it('resolves the stripe lib', () => {
+    expect(dataAccessStripe()).toBe('data-access-stripe');
   });
 
   // @upskills/models is types-only by design (no runtime imports), so it is

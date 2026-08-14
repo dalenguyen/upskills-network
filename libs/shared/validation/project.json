@@ -12,7 +12,11 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc -p libs/shared/validation/tsconfig.lib.json --noEmit"
+        "commands": [
+          "tsc -p libs/shared/validation/tsconfig.lib.json --noEmit",
+          "tsc -p libs/shared/validation/tsconfig.spec.json --noEmit"
+        ],
+        "parallel": false
       }
     }
   }
