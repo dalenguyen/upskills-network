@@ -105,6 +105,26 @@ describe('LandingWaitlistFormComponent', () => {
     http.verify();
   });
 
+  // A bare `@else` on the status block also matched 'loading', so the idle
+  // helper text rendered underneath a button already reading "Joining…".
+  it('hides the idle helper text while the request is in flight', async () => {
+    const { fixture, component } = create();
+    const idleText = 'No spam';
+
+    expect(fixture.nativeElement.textContent).toContain(idleText);
+
+    component.form.controls.email.setValue('ada@example.com');
+    const pending = component.submit();
+    fixture.detectChanges();
+
+    expect(component.status()).toBe('loading');
+    expect(fixture.nativeElement.textContent).not.toContain(idleText);
+
+    http.expectOne(WAITLIST_ENDPOINT).flush({ status: 'subscribed' });
+    await pending;
+    http.verify();
+  });
+
   it('shows an inline error when the API rejects the email', async () => {
     const { fixture, component } = create();
     component.form.controls.email.setValue('ada@example.com');

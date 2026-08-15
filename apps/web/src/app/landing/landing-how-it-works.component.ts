@@ -26,39 +26,42 @@ interface Step {
         </h2>
       </div>
 
-      <ol class="relative mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-        <!-- Connector sits behind the step markers, inset so it spans between
-             the first and last icon rather than the full grid width. -->
+      <!-- The connector is a sibling of the list, not a child: <ol> only admits
+           <li> and script-supporting elements, and a stray <div> inside it
+           degrades the list semantics screen readers announce. -->
+      <div class="relative mt-14">
         <div
           aria-hidden="true"
           class="absolute left-[16.667%] right-[16.667%] top-7 hidden border-t border-dashed border-zinc-300 sm:block"
         ></div>
 
-        @for (step of steps; track step.title; let index = $index) {
-          <li
-            class="relative flex flex-col gap-4 sm:items-center sm:text-center"
-          >
-            <div
-              class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm ring-1 ring-zinc-200"
+        <ol class="grid gap-10 sm:grid-cols-3 sm:gap-8">
+          @for (step of steps; track step.title; let index = $index) {
+            <li
+              class="relative flex flex-col gap-4 sm:items-center sm:text-center"
             >
-              <ui-icon [name]="step.icon" size="lg" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <p
-                class="text-xs font-semibold uppercase tracking-widest text-indigo-600"
+              <div
+                class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm ring-1 ring-zinc-200"
               >
-                Step {{ index + 1 }}
-              </p>
-              <h3 class="text-lg font-semibold text-zinc-900">
-                {{ step.title }}
-              </h3>
-              <p class="text-pretty text-sm leading-6 text-zinc-600">
-                {{ step.description }}
-              </p>
-            </div>
-          </li>
-        }
-      </ol>
+                <ui-icon [name]="step.icon" size="lg" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <p
+                  class="text-xs font-semibold uppercase tracking-widest text-indigo-600"
+                >
+                  Step {{ index + 1 }}
+                </p>
+                <h3 class="text-lg font-semibold text-zinc-900">
+                  {{ step.title }}
+                </h3>
+                <p class="text-pretty text-sm leading-6 text-zinc-600">
+                  {{ step.description }}
+                </p>
+              </div>
+            </li>
+          }
+        </ol>
+      </div>
     </ui-section>
   `,
 })

@@ -98,7 +98,10 @@ function emailValidator(control: AbstractControl): ValidationErrors | null {
           <p class="font-medium text-indigo-700" role="status">
             You're already on the list.
           </p>
-        } @else {
+        } @else if (status() === 'idle') {
+          <!-- Explicitly idle, not a bare catch-all: a catch-all also matches
+               the loading state, which showed this helper text underneath a
+               button already reading "Joining…". -->
           <p class="text-zinc-500">
             No spam — just an invite when the first workshop opens.
           </p>
