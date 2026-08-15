@@ -41,10 +41,10 @@ import { Section } from '@upskills/ui';
               Why Upskills
             </a>
             <a
-              href="mailto:hello@upskills.com"
+              href="mailto:hello@upskillsnetwork.com"
               class="font-medium text-indigo-600 transition-colors hover:text-indigo-500"
             >
-              hello@upskills.com
+              hello@upskillsnetwork.com
             </a>
           </nav>
         </div>

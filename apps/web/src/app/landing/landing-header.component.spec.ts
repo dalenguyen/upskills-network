@@ -20,4 +20,26 @@ describe('LandingHeaderComponent', () => {
     const callToAction = root.querySelector('a[href="/#waitlist"]');
     expect(callToAction?.textContent?.trim()).toBe('Join the waitlist');
   });
+
+  it('links to sign-in, the only route into the app for a returning visitor', () => {
+    const fixture = TestBed.createComponent(LandingHeaderComponent);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    const signIn = root.querySelector('a[href="/auth/login"]');
+    expect(signIn?.textContent?.trim()).toBe('Sign in');
+  });
+
+  // The section links collapse below `md`, and sign-in must not go with them:
+  // no other page links to it, so a hidden link is an unreachable app.
+  it('keeps sign-in outside the nav that hides on small screens', () => {
+    const fixture = TestBed.createComponent(LandingHeaderComponent);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    const signIn = root.querySelector('a[href="/auth/login"]');
+    expect(signIn?.closest('nav')).toBeNull();
+  });
 });
