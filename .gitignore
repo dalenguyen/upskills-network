@@ -51,6 +51,14 @@ Thumbs.db
 .angular
 
 vitest.config.*.timestamp*
+# Local environment files. `apps/web/.env.example` is the checked-in template;
+# a real `.env` stays out of the repo even though the Firebase web values in it
+# are public, because the same file is where a local Stripe or Resend key ends
+# up next.
+.env
+.env.*
+!.env.example
+
 # Firebase emulators
 firebase-debug.log
 firestore-debug.log
