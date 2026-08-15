@@ -7,7 +7,11 @@ import {
   fakeTimestamp,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeEvent, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_START,
+  fakeEvent,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import {
   createDashboardEventsCancelHandler,
   EMAIL_BATCH_SIZE,
