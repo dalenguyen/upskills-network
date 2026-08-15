@@ -1,4 +1,4 @@
-import { requireOrgRole } from '@upskills/auth';
+import { requireAuth, requireOrgRole } from '@upskills/auth';
 import { getEvent } from '@upskills/firestore';
 import { createDashboardEventsDetailHandler } from '../../../../../../handlers/dashboard/events-detail';
 
@@ -9,6 +9,7 @@ import { createDashboardEventsDetailHandler } from '../../../../../../handlers/d
  * why the real `@upskills/auth` import stays in this file.
  */
 export default createDashboardEventsDetailHandler({
+  requireAuth,
   requireOrgRole,
   getEvent,
 });

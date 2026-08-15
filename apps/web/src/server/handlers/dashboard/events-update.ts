@@ -1,4 +1,4 @@
-import type { OrgContext } from '@upskills/auth';
+import type { AuthContext, OrgContext } from '@upskills/auth';
 import type { UpdateEventPatch } from '@upskills/firestore';
 import type { OrgRole, WorkshopEvent } from '@upskills/models';
 import { UpdateEventSchema } from '@upskills/validation';
@@ -17,7 +17,10 @@ import { eventForbidden } from './dashboard-access';
  *
  * Like the detail route, the org is read off the event document before the
  * guard can run; a missing event is therefore the same 403 as an unauthorized
- * one. Authorization runs before body validation so a caller without access
+ * one. `requireAuth` runs *before* that read for the reason spelled out in
+ * `events-detail.ts`: without it, an unauthenticated caller gets 403 for a
+ * missing event and 401 for one that exists, which is the very existence
+ * oracle the shared 403 exists to close. Authorization runs before body validation so a caller without access
  * cannot use a malformed body as a cheaper answer than 401.
  *
  * `status: 'cancelled'` is refused here on purpose. `UpdateEventSchema` accepts
@@ -32,6 +35,8 @@ export interface DashboardEventsUpdateResponse {
 }
 
 export interface DashboardEventsUpdateDeps {
+  /** `requireAuth` from `@upskills/auth`. Runs before the event is read. */
+  requireAuth(event: H3Event): Promise<AuthContext>;
   /** `requireOrgRole` from `@upskills/auth`. */
   requireOrgRole(
     event: H3Event,
@@ -49,6 +54,10 @@ export function createDashboardEventsUpdateHandler(
 ): EventHandler {
   return defineEventHandler(async (event) => {
     try {
+      // Before the read, so an unauthenticated caller cannot tell a missing
+      // event from one that exists. See `events-detail.ts`.
+      await deps.requireAuth(event);
+
       const eventId = getRouterParam(event, 'eventId');
 
       if (eventId === undefined || eventId === '') {

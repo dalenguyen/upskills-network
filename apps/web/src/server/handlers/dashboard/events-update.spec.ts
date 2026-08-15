@@ -1,4 +1,4 @@
-import type { OrgContext } from '@upskills/auth';
+import type { AuthContext, OrgContext } from '@upskills/auth';
 import { describe, expect, it, vi } from 'vitest';
 import {
   fakeForbiddenError,
@@ -24,10 +24,17 @@ const ORG: OrgContext = {
   org: fakeOrg(),
 };
 
+const AUTH: AuthContext = {
+  uid: 'uid-manager',
+  role: 'user',
+  session: {} as AuthContext['session'],
+};
+
 function deps(
   overrides: Partial<DashboardEventsUpdateDeps> = {},
 ): DashboardEventsUpdateDeps {
   return {
+    requireAuth: vi.fn(async () => AUTH),
     requireOrgRole: vi.fn(async () => ORG),
     getEvent: vi.fn(async () => fakeEvent({ status: 'draft' })),
     updateEvent: vi.fn(async () =>

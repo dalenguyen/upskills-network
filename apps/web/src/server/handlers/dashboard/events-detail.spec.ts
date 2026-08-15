@@ -1,4 +1,4 @@
-import type { OrgContext } from '@upskills/auth';
+import type { AuthContext, OrgContext } from '@upskills/auth';
 import { describe, expect, it, vi } from 'vitest';
 import {
   fakeForbiddenError,
@@ -23,10 +23,17 @@ const ORG: OrgContext = {
   org: fakeOrg(),
 };
 
+const AUTH: AuthContext = {
+  uid: 'uid-manager',
+  role: 'user',
+  session: {} as AuthContext['session'],
+};
+
 function deps(
   overrides: Partial<DashboardEventsDetailDeps> = {},
 ): DashboardEventsDetailDeps {
   return {
+    requireAuth: vi.fn(async () => AUTH),
     requireOrgRole: vi.fn(async () => ORG),
     getEvent: vi.fn(async () => fakeEvent({ status: 'draft' })),
     ...overrides,
@@ -129,6 +136,35 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
       statusCode: 401,
       data: { error: 'invalid-session', reason: 'expired' },
     });
+  });
+
+  it('answers 401 identically whether or not the event exists', async () => {
+    // The whole point of the shared 403 is that event ids cannot be probed.
+    // If the session were only checked by requireOrgRole -- which runs after
+    // the read -- an unauthenticated caller would get 403 for a missing event
+    // and 401 for a real one, and the pair of statuses would rebuild the
+    // oracle. Both must be 401, and getEvent must never run.
+    const unauthenticated = () =>
+      deps({
+        requireAuth: vi.fn(async () => {
+          throw fakeInvalidSessionError('expired');
+        }),
+      });
+
+    const missing = unauthenticated();
+    missing.getEvent = vi.fn(async () => null);
+    const existing = unauthenticated();
+    existing.getEvent = vi.fn(async () => fakeEvent({ status: 'draft' }));
+
+    for (const d of [missing, existing]) {
+      await expect(
+        createDashboardEventsDetailHandler(d)(request()),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        data: { error: 'invalid-session', reason: 'expired' },
+      });
+      expect(d.getEvent).not.toHaveBeenCalled();
+    }
   });
 
   it('lets an unexpected read failure surface as a 500', async () => {
