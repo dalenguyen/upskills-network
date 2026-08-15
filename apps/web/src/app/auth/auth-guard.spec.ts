@@ -1,7 +1,10 @@
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, UrlTree } from '@angular/router';
-import type { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import type {
+  ActivatedRouteSnapshot,
+  RouterStateSnapshot,
+} from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { authGuard } from './auth-guard';
@@ -57,9 +60,7 @@ describe('authGuard', () => {
     const result = await run();
 
     expect(result).toBeInstanceOf(UrlTree);
-    expect(String(result)).toBe(
-      '/auth/login?redirectTo=%2Fdashboard%2Fevents',
-    );
+    expect(String(result)).toBe('/auth/login?redirectTo=%2Fdashboard%2Fevents');
   });
 
   /**

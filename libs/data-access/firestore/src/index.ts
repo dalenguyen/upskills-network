@@ -38,6 +38,7 @@ export {
   getUser,
   listEventGuests,
   listOrgEvents,
+  listOrgs,
   listPublishedEvents,
   listPublishedOrgEvents,
 } from './lib/reads';

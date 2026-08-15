@@ -54,6 +54,10 @@ const firestore = vi.hoisted(() => ({
   })),
   getUser: vi.fn(async () => null),
   getOrg: vi.fn(async () => null),
+  listOrgs: vi.fn(async () => []),
+  createOrg: vi.fn(async () => ({})),
+  setOrgMember: vi.fn(async () => ({})),
+  removeOrgMember: vi.fn(async () => ({})),
 }));
 
 const email = vi.hoisted(() => ({
@@ -80,6 +84,7 @@ const auth = vi.hoisted(() => ({
   revokeSessions: vi.fn(async () => undefined),
   clearedSessionCookie: vi.fn(() => '__session=; Max-Age=0'),
   requireAuth: vi.fn(async () => ({ uid: 'uid-1', role: 'user' })),
+  requireAdmin: vi.fn(async () => ({ uid: 'uid-1', role: 'admin' })),
 }));
 
 vi.mock('@upskills/firestore', () => firestore);
@@ -97,6 +102,13 @@ import eventsListRoute from './routes/api/v1/events/index.get';
 import orgDetailRoute from './routes/api/v1/orgs/[orgSlug].get';
 import registerRoute from './routes/api/v1/registration/[eventId]/register.post';
 import waitlistPostRoute from './routes/api/v1/waitlist.post';
+
+import adminOrgsListRoute from './routes/api/v1/admin/orgs/index.get';
+import adminOrgsCreateRoute from './routes/api/v1/admin/orgs/index.post';
+import adminOrgDetailRoute from './routes/api/v1/admin/orgs/[orgId]/index.get';
+import adminOrgMembersPostRoute from './routes/api/v1/admin/orgs/[orgId]/members.post';
+import adminOrgMembersPutRoute from './routes/api/v1/admin/orgs/[orgId]/members.put';
+import adminOrgMembersDeleteRoute from './routes/api/v1/admin/orgs/[orgId]/members.delete';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -243,5 +255,89 @@ describe('auth route wiring', () => {
     expect(auth.requireAuth).toHaveBeenCalled();
     expect(auth.revokeSessions).toHaveBeenCalledWith('uid-1');
     expect(auth.revokeSessions).not.toHaveBeenCalledWith('uid-victim');
+  });
+});
+
+describe('admin org route wiring', () => {
+  it('GET /admin/orgs requires an admin and lists orgs', async () => {
+    await run(adminOrgsListRoute, {
+      method: 'GET',
+      url: '/api/v1/admin/orgs',
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.listOrgs).toHaveBeenCalled();
+  });
+
+  it('POST /admin/orgs creates the org with the authenticated admin as creator', async () => {
+    await run(adminOrgsCreateRoute, {
+      method: 'POST',
+      url: '/api/v1/admin/orgs',
+      body: { name: 'Upskills Ottawa', slug: 'upskills-ottawa' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.createOrg).toHaveBeenCalledWith({
+      name: 'Upskills Ottawa',
+      slug: 'upskills-ottawa',
+      createdBy: 'uid-1',
+    });
+  });
+
+  it('GET /admin/orgs/:orgId requires an admin and reads by org id', async () => {
+    firestore.getOrg.mockResolvedValueOnce({ orgId: 'org-1' } as never);
+
+    await run(adminOrgDetailRoute, {
+      method: 'GET',
+      url: '/api/v1/admin/orgs/org-1',
+      params: { orgId: 'org-1' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.getOrg).toHaveBeenCalledWith('org-1');
+  });
+
+  it('POST /admin/orgs/:orgId/members sets the role from the body', async () => {
+    await run(adminOrgMembersPostRoute, {
+      method: 'POST',
+      url: '/api/v1/admin/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2', role: 'manager' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.setOrgMember).toHaveBeenCalledWith(
+      'org-1',
+      'uid-2',
+      'manager',
+    );
+  });
+
+  it('PUT /admin/orgs/:orgId/members changes the role from the body', async () => {
+    await run(adminOrgMembersPutRoute, {
+      method: 'PUT',
+      url: '/api/v1/admin/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2', role: 'check_in' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.setOrgMember).toHaveBeenCalledWith(
+      'org-1',
+      'uid-2',
+      'check_in',
+    );
+  });
+
+  it('DELETE /admin/orgs/:orgId/members removes the uid from the body', async () => {
+    await run(adminOrgMembersDeleteRoute, {
+      method: 'DELETE',
+      url: '/api/v1/admin/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.removeOrgMember).toHaveBeenCalledWith('org-1', 'uid-2');
   });
 });

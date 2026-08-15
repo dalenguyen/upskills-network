@@ -68,7 +68,10 @@ export interface AuthClient {
  * real implementation is installed by `provideFirebaseAuth()` from
  * `firebase-auth-client.ts`, which applies both of those guards itself.
  */
-export const AUTH_CLIENT = new InjectionToken<AuthClient | null>('AUTH_CLIENT', {
-  providedIn: 'root',
-  factory: () => null,
-});
+export const AUTH_CLIENT = new InjectionToken<AuthClient | null>(
+  'AUTH_CLIENT',
+  {
+    providedIn: 'root',
+    factory: () => null,
+  },
+);

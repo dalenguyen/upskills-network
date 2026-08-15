@@ -1,6 +1,13 @@
 import { createError, isError } from 'h3';
 import { describe, expect, it } from 'vitest';
-import { fakeForbiddenError, fakeInvalidSessionError } from '../testing/fakes';
+import {
+  fakeForbiddenError,
+  fakeInvalidSessionError,
+  fakeInvalidSlugError,
+  fakeLastOrgAdminError,
+  fakeOrgNotFoundError,
+  fakeSlugTakenError,
+} from '../testing/fakes';
 import { toHttpError } from './http-error';
 
 /**
@@ -28,6 +35,42 @@ describe('toHttpError', () => {
       data: { error: 'forbidden' },
     });
     expect((mapped as Error).message).not.toContain('org-1');
+  });
+
+  it('maps SlugTakenError to 409 without echoing the holder', () => {
+    const mapped = toHttpError(fakeSlugTakenError('upskills-toronto'));
+
+    expect(mapped).toMatchObject({
+      statusCode: 409,
+      data: { error: 'slug-taken' },
+    });
+  });
+
+  it('maps InvalidSlugError to 400', () => {
+    const mapped = toHttpError(fakeInvalidSlugError('Not A Slug'));
+
+    expect(mapped).toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-slug' },
+    });
+  });
+
+  it('maps LastOrgAdminError to 409', () => {
+    const mapped = toHttpError(fakeLastOrgAdminError('org-1', 'uid-1'));
+
+    expect(mapped).toMatchObject({
+      statusCode: 409,
+      data: { error: 'last-org-admin' },
+    });
+  });
+
+  it('maps OrgNotFoundError to 404', () => {
+    const mapped = toHttpError(fakeOrgNotFoundError('org-missing'));
+
+    expect(mapped).toMatchObject({
+      statusCode: 404,
+      data: { error: 'org-not-found' },
+    });
   });
 
   it('passes an error a handler raised itself through unchanged', () => {

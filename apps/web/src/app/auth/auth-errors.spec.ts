@@ -58,10 +58,16 @@ describe('sessionRejectionReasonFrom', () => {
     ['a network ProgressEvent', new ProgressEvent('error')],
     // 5xx is deliberately opaque server-side: no `data` at all. A bug on the
     // server must not read to this client as "bad credential, sign in again".
-    ['an opaque 5xx', { error: true, statusCode: 500, message: 'Server Error' }],
+    [
+      'an opaque 5xx',
+      { error: true, statusCode: 500, message: 'Server Error' },
+    ],
     // 400s name a code but never a `reason` — they are client bugs, not
     // verdicts on a credential.
-    ['a 400 invalid-body', { statusCode: 400, data: { error: 'invalid-body' } }],
+    [
+      'a 400 invalid-body',
+      { statusCode: 400, data: { error: 'invalid-body' } },
+    ],
   ];
 
   for (const [name, body] of unrecognised) {
