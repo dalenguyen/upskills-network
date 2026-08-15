@@ -10,6 +10,7 @@ import {
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
 import { readOrgId } from './dashboard-access';
+import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
  * `POST /api/v1/dashboard/events?orgId=` — create an event for one org.
@@ -21,7 +22,7 @@ import { readOrgId } from './dashboard-access';
  */
 
 export interface DashboardEventsCreateResponse {
-  event: WorkshopEvent;
+  event: DashboardEvent;
 }
 
 export interface DashboardEventsCreateDeps {
@@ -59,7 +60,9 @@ export function createDashboardEventsCreateHandler(
       // the temporal dead zone.
       const created = await deps.createEvent(orgId, parsed.data);
 
-      return { event: created } satisfies DashboardEventsCreateResponse;
+      return {
+        event: toDashboardEvent(created),
+      } satisfies DashboardEventsCreateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

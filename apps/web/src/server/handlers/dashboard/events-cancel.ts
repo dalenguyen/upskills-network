@@ -14,6 +14,7 @@ import {
 } from 'h3';
 import { toHttpError } from '../http-error';
 import { eventForbidden } from './dashboard-access';
+import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
  * `DELETE /api/v1/dashboard/events/:eventId` — cancel an event and tell
@@ -61,7 +62,7 @@ export interface DashboardEventsCancelNotification {
 
 export interface DashboardEventsCancelResponse {
   /** The event as persisted by `cancelEvent`, with `status: 'cancelled'`. */
-  event: WorkshopEvent;
+  event: DashboardEvent;
   notification: DashboardEventsCancelNotification;
 }
 
@@ -118,7 +119,7 @@ export function createDashboardEventsCancelHandler(
       // and the honest answer is the one that does none of it.
       if (found.status === 'cancelled') {
         return {
-          event: found,
+          event: toDashboardEvent(found),
           notification: { attempted: 0, sent: 0, failed: 0, failures: [] },
         } satisfies DashboardEventsCancelResponse;
       }
@@ -126,7 +127,7 @@ export function createDashboardEventsCancelHandler(
       const cancelled = await deps.cancelEvent(eventId);
 
       return {
-        event: cancelled.event,
+        event: toDashboardEvent(cancelled.event),
         notification: await notifyConfirmedGuests(
           cancelled.confirmedGuests,
           cancelled.event,
