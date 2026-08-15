@@ -4,17 +4,12 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/web/src",
-  "tags": [
-    "scope:app",
-    "type:web"
-  ],
+  "tags": ["scope:app", "type:web"],
   "targets": {
     "build": {
       "executor": "@analogjs/platform:vite",
       "defaultConfiguration": "production",
-      "outputs": [
-        "{workspaceRoot}/dist/apps/web"
-      ],
+      "outputs": ["{workspaceRoot}/dist/apps/web"],
       "options": {
         "configFile": "apps/web/vite.config.ts",
         "main": "apps/web/src/main.ts",
@@ -79,9 +74,7 @@
     },
     "deploy-docker": {
       "executor": "nx:run-commands",
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "options": {
         "commands": [
           "docker build --platform linux/amd64 -f apps/web/Dockerfile -t us-central1-docker.pkg.dev/upskills-network/upskills/web:${BUILD_NUMBER:-latest} .",
@@ -104,14 +97,14 @@
           "concurrency": 80,
           "minInstances": 0,
           "secrets": [
-            "RESEND_API_KEY=RESEND_API_KEY:latest",
             "STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest",
             "STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
             "LOOKUP_TOKEN_SECRET=LOOKUP_TOKEN_SECRET:latest"
           ],
           "envVars": {
             "NODE_ENV": "production",
-            "GCP_PROJECT_ID": "upskills-network"
+            "GCP_PROJECT_ID": "upskills-network",
+            "SITE_URL": "https://upskills-web-694973978627.us-central1.run.app"
           }
         }
       }
