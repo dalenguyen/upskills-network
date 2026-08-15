@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -6,6 +6,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { PublicEvent } from '../../events/event-api';
@@ -131,6 +132,53 @@ describe('EventPageComponent', () => {
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('Something went wrong');
     expect(text).not.toContain("couldn't find that workshop");
+  });
+
+  it('recognises a 404 that arrives as an ofetch FetchError, not an HttpErrorResponse', async () => {
+    // What production SSR actually throws: Analog routes the request through
+    // Nitro's in-process $fetch, and ofetch rejects with its own error class.
+    // Classifying this as a server failure showed "Something went wrong" on
+    // every unknown slug in production while every local run looked correct.
+    const fetchError = Object.assign(
+      new Error('[GET] "/api/v1/events/x": 404'),
+      {
+        statusCode: 404,
+        status: 404,
+        data: {
+          error: true,
+          statusCode: 404,
+          data: { error: 'event-not-found' },
+        },
+      },
+    );
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [EventPageComponent],
+      providers: [
+        {
+          provide: HttpClient,
+          useValue: { get: () => throwError(() => fetchError) },
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ slug: 'no-such-workshop' }),
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(EventPageComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain("couldn't find that workshop");
+    expect(text).not.toContain('Something went wrong');
   });
 
   it('does not call the API when the route carries no slug', async () => {

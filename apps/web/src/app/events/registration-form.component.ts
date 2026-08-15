@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import {
   FormControl,
@@ -13,6 +13,7 @@ import { EmailSchema, RegisterGuestSchema } from '@upskills/validation';
 
 import {
   apiErrorCode,
+  apiErrorStatus,
   registerEndpoint,
   type PublicEvent,
   type RegisterResponse,
@@ -334,18 +335,19 @@ function messageFor(state: RegistrationState): string {
   }
 }
 
+/**
+ * Read structurally rather than by class: the same failure arrives as an
+ * `HttpErrorResponse` in the browser and as an ofetch `FetchError` under
+ * production SSR. See `event-api.ts`.
+ */
 function errorMessage(error: unknown): string {
-  if (!(error instanceof HttpErrorResponse)) {
-    return GENERIC_ERROR_MESSAGE;
-  }
-
   const code = apiErrorCode(error);
 
   if (code !== null && code in ERROR_MESSAGES) {
     return ERROR_MESSAGES[code];
   }
 
-  return error.status === 404
+  return apiErrorStatus(error) === 404
     ? ERROR_MESSAGES['event-not-found']
     : GENERIC_ERROR_MESSAGE;
 }
