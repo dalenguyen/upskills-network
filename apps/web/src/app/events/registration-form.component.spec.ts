@@ -1,9 +1,10 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { PublicEvent } from './event-api';
@@ -196,6 +197,40 @@ describe('RegistrationFormComponent', () => {
       );
 
     await pending;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('cancelled');
+  });
+
+  it('explains a cancelled event when the failure arrives as an ofetch FetchError', async () => {
+    // The production SSR shape — see event-api.ts. The browser normally posts
+    // this form, but the classification must not depend on the error class.
+    const fetchError = Object.assign(new Error('[POST] ".../register": 409'), {
+      statusCode: 409,
+      data: {
+        error: true,
+        statusCode: 409,
+        data: { error: 'event-cancelled' },
+      },
+    });
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [RegistrationFormComponent],
+      providers: [
+        {
+          provide: HttpClient,
+          useValue: { post: () => throwError(() => fetchError) },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(RegistrationFormComponent);
+    fixture.componentRef.setInput('event', freeEvent);
+    fixture.detectChanges();
+
+    fill(fixture.componentInstance);
+    await fixture.componentInstance.submit();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('cancelled');

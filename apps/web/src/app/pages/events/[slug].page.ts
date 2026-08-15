@@ -1,10 +1,11 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  apiErrorStatus,
   eventDetailEndpoint,
   type EventDetailResponse,
   type PublicEvent,
@@ -137,10 +138,7 @@ export default class EventPageComponent implements OnInit {
       this.title.setTitle(`${response.event.title} · Upskills`);
     } catch (error) {
       this.state.set({
-        status:
-          error instanceof HttpErrorResponse && error.status === 404
-            ? 'not-found'
-            : 'error',
+        status: apiErrorStatus(error) === 404 ? 'not-found' : 'error',
       });
     }
   }
