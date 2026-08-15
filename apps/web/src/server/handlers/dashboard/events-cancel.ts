@@ -108,6 +108,21 @@ export function createDashboardEventsCancelHandler(
 
       await deps.requireOrgRole(event, found.orgId, 'admin', 'manager');
 
+      // Already cancelled: answer with the event and notify nobody.
+      //
+      // `cancelEvent` is idempotent on the document, but the emails are not.
+      // Guest documents keep their `confirmed` status when an event is
+      // cancelled, so a second call — a retry, a double-click, or a second
+      // organizer — would hand back the same guest list and mail every one of
+      // them a duplicate cancellation. There is no useful work left to do here,
+      // and the honest answer is the one that does none of it.
+      if (found.status === 'cancelled') {
+        return {
+          event: found,
+          notification: { attempted: 0, sent: 0, failed: 0, failures: [] },
+        } satisfies DashboardEventsCancelResponse;
+      }
+
       const cancelled = await deps.cancelEvent(eventId);
 
       return {

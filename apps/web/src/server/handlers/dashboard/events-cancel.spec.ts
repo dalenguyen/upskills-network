@@ -237,6 +237,23 @@ describe('DELETE /api/v1/dashboard/events/:eventId', () => {
     });
   });
 
+  it('re-cancelling an already-cancelled event emails nobody', async () => {
+    // Guest documents keep `confirmed` when an event is cancelled, so a retry
+    // or a second organizer would otherwise get the same list back from
+    // cancelEvent and mail all of them a duplicate cancellation.
+    const d = deps({
+      getEvent: vi.fn(async () => fakeEvent({ status: 'cancelled' })),
+    });
+
+    const response = (await createDashboardEventsCancelHandler(d)(
+      request(),
+    )) as { notification: { attempted: number; sent: number } };
+
+    expect(response.notification).toMatchObject({ attempted: 0, sent: 0 });
+    expect(d.sendCancellationEmail).not.toHaveBeenCalled();
+    expect(d.cancelEvent).not.toHaveBeenCalled();
+  });
+
   it('answers 403, not 404, for a missing event', async () => {
     const d = deps({ getEvent: vi.fn(async () => null) });
 
