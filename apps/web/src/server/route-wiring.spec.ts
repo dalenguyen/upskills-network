@@ -47,6 +47,7 @@ const firestore = vi.hoisted(() => ({
   })),
   cancelGuest: vi.fn(async () => ({ changed: false, guest: null })),
   promoteNextPending: vi.fn(async () => null),
+  addWaitlistSubscriber: vi.fn(async () => 'subscribed'),
   createUserIfAbsent: vi.fn(async () => ({
     user: { uid: 'uid-1', role: 'user' },
     created: false,
@@ -60,6 +61,7 @@ const email = vi.hoisted(() => ({
   sendWaitlistEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
   sendCancellationEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
   sendSpotOpenedEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
+  sendWaitlistConfirmationEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
 }));
 
 const auth = vi.hoisted(() => ({
@@ -94,6 +96,7 @@ import eventDetailRoute from './routes/api/v1/events/[slug].get';
 import eventsListRoute from './routes/api/v1/events/index.get';
 import orgDetailRoute from './routes/api/v1/orgs/[orgSlug].get';
 import registerRoute from './routes/api/v1/registration/[eventId]/register.post';
+import waitlistPostRoute from './routes/api/v1/waitlist.post';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -179,6 +182,23 @@ describe('registration route wiring', () => {
       'ada@example.com',
     );
     expect(firestore.promoteNextPending).toHaveBeenCalledWith('evt-1');
+  });
+});
+
+describe('waitlist route wiring', () => {
+  it('POST /waitlist forwards the normalized email and sends the confirmation', async () => {
+    await run(waitlistPostRoute, {
+      method: 'POST',
+      url: '/api/v1/waitlist',
+      body: { email: 'Ada@Example.com' },
+    });
+
+    expect(firestore.addWaitlistSubscriber).toHaveBeenCalledWith(
+      'ada@example.com',
+    );
+    expect(email.sendWaitlistConfirmationEmail).toHaveBeenCalledWith(
+      'ada@example.com',
+    );
   });
 });
 

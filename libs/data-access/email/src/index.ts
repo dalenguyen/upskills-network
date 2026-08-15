@@ -29,7 +29,12 @@ export {
   guestListUrl,
 } from './lib/format';
 
-export { composeMessage, escapeHtml, renderHtml, renderText } from './lib/layout';
+export {
+  composeMessage,
+  escapeHtml,
+  renderHtml,
+  renderText,
+} from './lib/layout';
 export type { EmailFact, EmailLayout, EmailNote } from './lib/layout';
 
 export {
@@ -46,6 +51,11 @@ export {
   sendWaitlistEmail,
   sendWelcomeEmail,
 } from './lib/templates/guest';
+
+export {
+  renderWaitlistConfirmationEmail,
+  sendWaitlistConfirmationEmail,
+} from './lib/templates/waitlist';
 
 export {
   renderEventReminder,
