@@ -1,7 +1,8 @@
-import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+const workspaceRoot = resolve(__dirname, '../../..');
 import {
   EMULATOR_HOST_ENV,
   EMULATOR_PROJECT_ID,
@@ -28,7 +29,9 @@ Object.assign(process.env, emulatorEnv);
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../../node_modules/.vite/libs/data-access/firestore',
-  plugins: [nxViteTsPaths(), nxCopyAssetsPlugin(['*.md'])],
+  plugins: [
+    tsconfigPaths({ root: workspaceRoot, projects: ['tsconfig.base.json'] }),
+  ],
   test: {
     name: 'data-access-firestore',
     watch: false,

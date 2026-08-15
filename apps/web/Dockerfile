@@ -28,6 +28,9 @@ ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
     VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID \
     VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 
+# Increase memory limit for Node.js during build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 RUN pnpm nx build web --configuration=production
 
 # Production stage
