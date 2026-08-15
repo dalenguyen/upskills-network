@@ -18,6 +18,7 @@ export class Button {
   @Input() variant: ButtonVariant = 'primary';
   @Input() type: 'button' | 'submit' | 'reset' = 'button';
   @Input() disabled = false;
+  @Input() href?: string;
 
   get classes(): string {
     return [

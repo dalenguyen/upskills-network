@@ -1,3 +1,9 @@
-<button [attr.type]="type" [disabled]="disabled" [class]="classes">
-  <ng-content></ng-content>
-</button>
+@if (href) {
+  <a [attr.href]="href" [class]="classes">
+    <ng-content></ng-content>
+  </a>
+} @else {
+  <button [attr.type]="type" [disabled]="disabled" [class]="classes">
+    <ng-content></ng-content>
+  </button>
+}
