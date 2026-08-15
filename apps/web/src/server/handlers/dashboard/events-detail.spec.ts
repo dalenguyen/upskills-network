@@ -139,8 +139,8 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
       }),
     });
 
-    await expect(
-      createDashboardEventsDetailHandler(d)(request()),
-    ).rejects.toBe(bug);
+    await expect(createDashboardEventsDetailHandler(d)(request())).rejects.toBe(
+      bug,
+    );
   });
 });
