@@ -54,9 +54,12 @@ export function createDashboardEventsCreateHandler(
         );
       }
 
-      const event = await deps.createEvent(orgId, parsed.data);
+      // Not `event` — that name is the H3Event this handler was called with,
+      // and shadowing it here puts every earlier use of it in this block into
+      // the temporal dead zone.
+      const created = await deps.createEvent(orgId, parsed.data);
 
-      return { event } satisfies DashboardEventsCreateResponse;
+      return { event: created } satisfies DashboardEventsCreateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

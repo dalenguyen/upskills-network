@@ -57,8 +57,8 @@ function request(body: unknown) {
 
 describe('POST /api/v1/dashboard/events', () => {
   it('creates the event for the query org with the schema-normalized body', async () => {
-    const createEvent = vi.fn(
-      async (): Promise<WorkshopEvent> => fakeEvent({ status: 'draft' }),
+    const createEvent = vi.fn(async (): Promise<WorkshopEvent> =>
+      fakeEvent({ status: 'draft' }),
     );
     const d = deps({ createEvent });
     const event = request(CREATE_BODY);
