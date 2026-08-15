@@ -45,13 +45,18 @@ function emailValidator(control: AbstractControl): ValidationErrors | null {
   template: `
     <form
       id="waitlist"
-      class="mx-auto flex w-full max-w-md flex-col gap-3"
+      class="mx-auto w-full max-w-lg scroll-mt-24"
       [formGroup]="form"
       (ngSubmit)="submit()"
       novalidate
     >
       <label class="sr-only" for="waitlist-email">Email address</label>
-      <div class="flex flex-col gap-2 sm:flex-row">
+
+      <!-- Stacked on mobile; from sm up the input and button share one elevated
+           pill, which owns the focus ring on behalf of the borderless input. -->
+      <div
+        class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white sm:p-2 sm:shadow-xl sm:shadow-indigo-950/5 sm:transition sm:focus-within:border-indigo-300 sm:focus-within:ring-4 sm:focus-within:ring-indigo-500/10"
+      >
         <input
           id="waitlist-email"
           type="email"
@@ -63,9 +68,13 @@ function emailValidator(control: AbstractControl): ValidationErrors | null {
               ? 'true'
               : null
           "
-          class="h-11 w-full rounded-md border border-zinc-300 bg-white px-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+          class="h-11 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 sm:flex-1 sm:border-transparent sm:pr-2 sm:focus:border-transparent sm:focus:ring-0"
         />
-        <ui-button type="submit" [disabled]="status() === 'loading'">
+        <ui-button
+          class="shrink-0"
+          type="submit"
+          [disabled]="status() === 'loading'"
+        >
           @if (status() === 'loading') {
             Joining…
           } @else {
@@ -74,21 +83,27 @@ function emailValidator(control: AbstractControl): ValidationErrors | null {
         </ui-button>
       </div>
 
-      @if (status() === 'inline-error') {
-        <p class="text-sm text-red-600" role="alert">{{ errorMessage() }}</p>
-      } @else if (status() === 'success') {
-        <p
-          class="flex items-center justify-center gap-2 text-sm font-medium text-emerald-700"
-          role="status"
-        >
-          <ui-icon name="check" />
-          You're on the list. We'll be in touch.
-        </p>
-      } @else if (status() === 'already-subscribed') {
-        <p class="text-sm font-medium text-indigo-700" role="status">
-          You're already on the list.
-        </p>
-      }
+      <div class="mt-3 min-h-5 text-sm">
+        @if (status() === 'inline-error') {
+          <p class="text-red-600" role="alert">{{ errorMessage() }}</p>
+        } @else if (status() === 'success') {
+          <p
+            class="flex items-center justify-center gap-2 font-medium text-emerald-700"
+            role="status"
+          >
+            <ui-icon name="check" size="sm" />
+            You're on the list. We'll be in touch.
+          </p>
+        } @else if (status() === 'already-subscribed') {
+          <p class="font-medium text-indigo-700" role="status">
+            You're already on the list.
+          </p>
+        } @else {
+          <p class="text-zinc-500">
+            No spam — just an invite when the first workshop opens.
+          </p>
+        }
+      </div>
     </form>
   `,
 })
