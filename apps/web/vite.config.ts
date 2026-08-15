@@ -60,6 +60,23 @@ export default defineConfig(() => {
         nitro: {
           alias: workspaceAliases,
           externals: { inline: [/^@upskills\//] },
+          /**
+           * Colocated specs are source files, not routes.
+           *
+           * Nitro's scanner treats every file under `src/server/routes/` as a
+           * handler, so `hello.spec.ts` was registered as `/api/v1/hello.spec`
+           * and its top-level `describe()` ran at import time. In `nx serve`,
+           * where the whole server is one bundle, that threw during module
+           * evaluation and left every route declared after it uninitialised —
+           * registration, cancellation, and the waitlist all answered 500 with
+           * "Cannot access 'register_post$1' before initialization". The
+           * production build chunks per route, so there it only shipped one
+           * bogus endpoint that 500s on request.
+           *
+           * Ignoring the pattern fixes both, and keeps specs beside the code
+           * they test.
+           */
+          ignore: ['**/*.spec.ts'],
         },
       }),
       nxViteTsPaths(),
