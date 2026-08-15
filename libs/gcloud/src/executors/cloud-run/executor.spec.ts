@@ -38,6 +38,22 @@ describe('runExecutor', () => {
     expect(result.success).toBe(true);
   });
 
+  it('tags the image with BUILD_NUMBER when it is set', async () => {
+    process.env['BUILD_NUMBER'] = 'v1.2.3';
+    await runExecutor(baseOptions);
+    expect(lastCommand()).toContain('/upskills-web:v1.2.3');
+  });
+
+  // `deploy-docker` pushes `${BUILD_NUMBER:-latest}`, so the executor has to
+  // fall back to the same `latest` or it asks Cloud Run for a tag that was
+  // never pushed. Deploys only ever run locally, where BUILD_NUMBER is unset,
+  // so this is the path that actually matters.
+  it('falls back to the latest tag when BUILD_NUMBER is unset', async () => {
+    delete process.env['BUILD_NUMBER'];
+    await runExecutor(baseOptions);
+    expect(lastCommand()).toContain('/upskills-web:latest');
+  });
+
   it('calls execCommand once per region', async () => {
     await runExecutor(baseOptions);
     expect(utils.execCommand).toHaveBeenCalledTimes(1);

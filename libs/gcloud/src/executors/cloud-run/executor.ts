@@ -55,8 +55,7 @@ export function generateDeployCommand(
       `--min-instances=${options.minInstances}`,
     options.maxInstances !== undefined &&
       `--max-instances=${options.maxInstances}`,
-    options.concurrency !== undefined &&
-      `--concurrency=${options.concurrency}`,
+    options.concurrency !== undefined && `--concurrency=${options.concurrency}`,
     options.timeout !== undefined && `--timeout=${options.timeout}`,
 
     envVarArray.length > 0 && `--set-env-vars=${setEnvVars}`,
@@ -68,16 +67,17 @@ export function generateDeployCommand(
   ]);
 }
 
+/**
+ * Must stay in lockstep with the tag `deploy-docker` builds and pushes, which
+ * is `${BUILD_NUMBER:-latest}` (see each app's project.json). If the two
+ * fall back differently, the image that gets pushed and the image Cloud Run is
+ * asked to run are different tags, and the deploy dies with "Image ... not
+ * found" after the build and push have already succeeded.
+ *
+ * This previously fell back to `<date>.local-<git user>`, which no build step
+ * ever produced — so every deploy without BUILD_NUMBER set failed. There is no
+ * deploy step in CI, so that was every deploy.
+ */
 function getImageTag(): string {
-  const buildNumber = process.env['BUILD_NUMBER'];
-  if (buildNumber) return buildNumber;
-
-  const gitResult = execCommand('git config --global user.name', {
-    silent: true,
-  });
-  const name = gitResult.success
-    ? gitResult.output.replace(/[\s\n]/g, '').toLowerCase()
-    : 'local';
-  const date = new Date().toISOString().substring(0, 10).replace(/-/g, '');
-  return `${date}.local-${name}`;
+  return process.env['BUILD_NUMBER'] || 'latest';
 }
