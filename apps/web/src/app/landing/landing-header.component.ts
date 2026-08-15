@@ -112,9 +112,19 @@ export class LandingHeaderComponent {
     this.signingOut.set(true);
     try {
       await this.auth.logout();
-    } catch {
-      // `logout()` has already signed the browser out before it can reject;
-      // losing the server-session teardown is worth reporting, but not here.
+    } catch (error) {
+      // `logout()` signs the browser out before it can reject, so the visitor
+      // is locally signed out either way and the navigation below still
+      // happens. What failed is the server-side teardown: the `__session`
+      // cookie and the refresh tokens outlive this tab until they expire,
+      // which is a real difference on a shared machine. The header is the
+      // wrong surface for an error state — it is one line in a sticky bar on
+      // every page — but this must not vanish silently, so it goes to the
+      // console until there is somewhere better to put it.
+      console.error(
+        'Signed out locally, but the server session could not be torn down.',
+        error,
+      );
     } finally {
       this.signingOut.set(false);
     }
