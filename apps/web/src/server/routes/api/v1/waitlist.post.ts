@@ -10,5 +10,6 @@ import { createWaitlistPostHandler } from '../../../handlers/waitlist/waitlist-p
  */
 export default createWaitlistPostHandler({
   addWaitlistSubscriber: (email) => addWaitlistSubscriber(email),
-  sendWaitlistConfirmationEmail: (email) => sendWaitlistConfirmationEmail(email),
+  sendWaitlistConfirmationEmail: (email) =>
+    sendWaitlistConfirmationEmail(email),
 });

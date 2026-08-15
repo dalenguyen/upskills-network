@@ -16,7 +16,7 @@ import {
 
 function deps(overrides: Partial<WaitlistPostDeps> = {}): WaitlistPostDeps {
   return {
-    addWaitlistSubscriber: vi.fn(async () => 'subscribed'),
+    addWaitlistSubscriber: vi.fn(async () => 'subscribed' as const),
     sendWaitlistConfirmationEmail: vi.fn(async () => ({
       sent: true as const,
       id: 'em_waitlist',
@@ -54,7 +54,7 @@ describe('POST /api/v1/waitlist', () => {
 
   it('answers 200 already_subscribed for a duplicate and sends nothing', async () => {
     const d = deps({
-      addWaitlistSubscriber: vi.fn(async () => 'already_subscribed'),
+      addWaitlistSubscriber: vi.fn(async () => 'already_subscribed' as const),
     });
     const { event } = post({ email: 'ada@example.com' });
 
