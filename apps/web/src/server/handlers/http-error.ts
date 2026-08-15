@@ -5,17 +5,18 @@ import { createError, isError } from 'h3';
  *
  * ## Why the error classes are matched by name and not with `instanceof`
  *
- * `InvalidSessionError` and `ForbiddenError` live in `@upskills/auth`, and that
- * package cannot be imported at runtime under Vitest — `firebase-admin/auth`
- * reaches `jwks-rsa`, which `require()`s `jose`, which ships ESM from a package
- * marked CommonJS (see `src/server/alias-smoke.spec.ts`). An `instanceof` check
- * needs the class as a *value*, so importing it here would make every handler
- * spec unloadable.
+ * `InvalidSessionError`, `ForbiddenError`, `SlugTakenError` and
+ * `InvalidSlugError` live in packages that cannot be imported at runtime under
+ * Vitest — `@upskills/auth` reaches `jwks-rsa`, which `require()`s `jose`, and
+ * `@upskills/firestore` reaches `firebase-admin/firestore` (see
+ * `src/server/alias-smoke.spec.ts`). An `instanceof` check needs the class as a
+ * *value*, so importing any of them here would make every handler spec
+ * unloadable.
  *
- * Matching on `name` plus the numeric `status` the class carries is narrow
- * enough to be honest: both fields are part of those types' documented surface,
- * and nothing else in this app throws an `Error` named `InvalidSessionError`
- * with `status === 401`.
+ * Matching on `name` — plus the numeric `status` the auth classes carry — is
+ * narrow enough to be honest: those fields are part of those types' documented
+ * surface, and nothing else in this app throws an `Error` with one of these
+ * names.
  *
  * ## Everything unrecognized stays a 500
  *
@@ -60,6 +61,11 @@ function asAuthError(error: unknown): ThrownAuthError | null {
     : null;
 }
 
+/** The `name` of an `Error`, or `null` for a non-`Error` throw. */
+function errorName(error: unknown): string | null {
+  return error instanceof Error ? error.name : null;
+}
+
 /**
  * The error a route should throw, given the error it caught.
  *
@@ -68,6 +74,8 @@ function asAuthError(error: unknown): ThrownAuthError | null {
  * - `ForbiddenError` → 403 with **no** detail: its message names roles and org
  *   ids for an operator's log, and echoing it would tell a caller about
  *   memberships they cannot see.
+ * - `SlugTakenError` → 409; the slug is already held by somebody else.
+ * - `InvalidSlugError` → 400; the slug could never be a legal reservation id.
  * - Anything else is returned as-is, so it surfaces as a 500.
  */
 export function toHttpError(error: unknown): unknown {
@@ -84,12 +92,17 @@ export function toHttpError(error: unknown): unknown {
   }
 
   if (authError?.name === 'ForbiddenError' && authError.status === 403) {
-    return createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'You do not have access to this resource.',
-      data: { error: 'forbidden' } satisfies ApiErrorData,
-    });
+    return forbidden('forbidden', 'You do not have access to this resource.');
+  }
+
+  const name = errorName(error);
+
+  if (name === 'SlugTakenError') {
+    return conflict('slug-taken', 'That URL slug is already in use.');
+  }
+
+  if (name === 'InvalidSlugError') {
+    return badRequest('invalid-slug', 'That URL slug is not valid.');
   }
 
   return error;
@@ -120,6 +133,36 @@ export function notFound(error: string, message: string) {
   return createError({
     statusCode: 404,
     statusMessage: 'Not Found',
+    message,
+    data: { error } satisfies ApiErrorData,
+  });
+}
+
+/**
+ * A 409 for a request that is well-formed and authorized but cannot be
+ * satisfied in the resource's current state — a slug somebody else holds, or
+ * an event that has already been cancelled.
+ */
+export function conflict(error: string, message: string) {
+  return createError({
+    statusCode: 409,
+    statusMessage: 'Conflict',
+    message,
+    data: { error } satisfies ApiErrorData,
+  });
+}
+
+/**
+ * A 403 that says nothing beyond "no".
+ *
+ * The message and code are fixed, and identical whether the org does not exist,
+ * the caller is not a member, or the caller is a member without the required
+ * role — see `libs/data-access/auth/src/lib/guards.ts`.
+ */
+export function forbidden(error: string, message: string) {
+  return createError({
+    statusCode: 403,
+    statusMessage: 'Forbidden',
     message,
     data: { error } satisfies ApiErrorData,
   });

@@ -30,6 +30,34 @@ describe('toHttpError', () => {
     expect((mapped as Error).message).not.toContain('org-1');
   });
 
+  it('maps SlugTakenError to 409 by name', () => {
+    const mapped = toHttpError(
+      Object.assign(new Error('Slug "intro" is already taken.'), {
+        name: 'SlugTakenError',
+      }),
+    );
+
+    expect(mapped).toMatchObject({
+      statusCode: 409,
+      statusMessage: 'Conflict',
+      data: { error: 'slug-taken' },
+    });
+  });
+
+  it('maps InvalidSlugError to 400 by name', () => {
+    const mapped = toHttpError(
+      Object.assign(new Error('Slug "Not A Slug" is not usable.'), {
+        name: 'InvalidSlugError',
+      }),
+    );
+
+    expect(mapped).toMatchObject({
+      statusCode: 400,
+      statusMessage: 'Bad Request',
+      data: { error: 'invalid-slug' },
+    });
+  });
+
   it('passes an error a handler raised itself through unchanged', () => {
     const raised = createError({ statusCode: 400, data: { error: 'x' } });
 
