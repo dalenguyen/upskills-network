@@ -108,9 +108,7 @@ describe('updateEvent', () => {
       maxGuests: 5,
       slug: 'intro-to-networking',
     });
-    expect(updated.updatedAt.toMillis()).not.toBe(
-      before?.updatedAt.toMillis(),
-    );
+    expect(updated.updatedAt.toMillis()).not.toBe(before?.updatedAt.toMillis());
 
     const stored = await getEvent('evt-1');
     expect(stored).toMatchObject({
@@ -207,9 +205,9 @@ describe('cancelEvent', () => {
       title: 'Intro to Networking',
       status: 'cancelled',
     });
-    expect(await listEventGuests('evt-1', { status: 'confirmed' })).toHaveLength(
-      2,
-    );
+    expect(
+      await listEventGuests('evt-1', { status: 'confirmed' }),
+    ).toHaveLength(2);
   });
 
   it('throws EventNotFoundError for a missing event', async () => {

@@ -162,12 +162,10 @@ export async function updateEvent(
 
     let slug = existing.slug;
     if (patch.slug !== undefined) {
-      slug = await renameSlugInTransaction(
-        transaction,
-        'eventSlugs',
-        eventId,
-        { from: existing.slug, to: patch.slug },
-      );
+      slug = await renameSlugInTransaction(transaction, 'eventSlugs', eventId, {
+        from: existing.slug,
+        to: patch.slug,
+      });
       reservedSlug = slug;
     }
 
@@ -229,9 +227,7 @@ export async function updateEvent(
  * @returns the cancelled event and the guests who need to be told.
  * @throws EventNotFoundError when `eventId` names no event.
  */
-export async function cancelEvent(
-  eventId: string,
-): Promise<CancelEventResult> {
+export async function cancelEvent(eventId: string): Promise<CancelEventResult> {
   const updatedAt = Timestamp.now();
 
   const event = await runTransaction(async (transaction) => {
