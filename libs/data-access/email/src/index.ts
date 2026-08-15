@@ -48,6 +48,11 @@ export {
 } from './lib/templates/guest';
 
 export {
+  renderWaitlistConfirmationEmail,
+  sendWaitlistConfirmationEmail,
+} from './lib/templates/waitlist';
+
+export {
   renderEventReminder,
   sendEventReminder,
 } from './lib/templates/reminder';
