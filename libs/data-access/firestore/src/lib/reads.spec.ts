@@ -13,6 +13,7 @@ import {
   getUser,
   listEventGuests,
   listOrgEvents,
+  listOrgs,
   listPublishedEvents,
   listPublishedOrgEvents,
 } from './reads';
@@ -66,6 +67,32 @@ describe('getOrg / getOrgBySlug', () => {
     await orgSlugRef('dangling').set({ orgId: 'org-gone' });
 
     await expect(getOrgBySlug('dangling')).resolves.toBeNull();
+  });
+});
+
+describe('listOrgs', () => {
+  it('lists every organizer in creation order', async () => {
+    await seedOrg({
+      orgId: 'org-old',
+      name: 'Upskills Toronto',
+      slug: 'upskills-toronto',
+      createdAt: at(0),
+    });
+    await seedOrg({
+      orgId: 'org-new',
+      name: 'Upskills Ottawa',
+      slug: 'upskills-ottawa',
+      createdAt: at(60),
+    });
+
+    const orgs = await listOrgs();
+
+    expect(orgs.map((org) => org.orgId)).toEqual(['org-old', 'org-new']);
+    expect(orgs[0]).toMatchObject({ name: 'Upskills Toronto' });
+  });
+
+  it('returns an empty array when there are no organizers', async () => {
+    await expect(listOrgs()).resolves.toEqual([]);
   });
 });
 

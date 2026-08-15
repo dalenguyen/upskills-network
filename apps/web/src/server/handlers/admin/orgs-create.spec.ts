@@ -1,0 +1,150 @@
+import type { AuthContext } from '@upskills/auth';
+import type { Organizer } from '@upskills/models';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  fakeForbiddenError,
+  fakeInvalidSessionError,
+  fakeInvalidSlugError,
+  fakeSlugTakenError,
+} from '../../testing/fakes';
+import { createTestEvent } from '../../testing/h3-event';
+import { fakeOrg } from '../../testing/public-fixtures';
+import { createOrgsCreateHandler, type OrgsCreateDeps } from './orgs-create';
+
+/** `POST /api/v1/admin/orgs` — create an organizer as its first admin. */
+
+const ADMIN: AuthContext = {
+  uid: 'uid-admin',
+  role: 'admin',
+  session: {} as AuthContext['session'],
+};
+
+function deps(overrides: Partial<OrgsCreateDeps> = {}): OrgsCreateDeps {
+  return {
+    requireAdmin: vi.fn(async () => ADMIN),
+    createOrg: vi.fn(async () => fakeOrg()),
+    ...overrides,
+  };
+}
+
+function post(body: unknown) {
+  return createTestEvent({
+    method: 'POST',
+    url: '/api/v1/admin/orgs',
+    body,
+  }).event;
+}
+
+describe('POST /api/v1/admin/orgs', () => {
+  it('creates the org with the authenticated admin as creator', async () => {
+    const createOrg = vi.fn(async (): Promise<Organizer> => fakeOrg());
+
+    const result = await createOrgsCreateHandler(deps({ createOrg }))(
+      post({ name: '  Upskills Ottawa  ', slug: '  upskills-ottawa  ' }),
+    );
+
+    expect(createOrg).toHaveBeenCalledWith({
+      name: 'Upskills Ottawa',
+      slug: 'upskills-ottawa',
+      createdBy: 'uid-admin',
+    });
+    expect(result).toEqual({
+      org: expect.objectContaining({ orgId: 'org-1' }),
+    });
+  });
+
+  it('answers 400 for a body that is not { name, slug }', async () => {
+    const d = deps();
+
+    await expect(
+      createOrgsCreateHandler(d)(post({ name: 'Missing slug' })),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-org' },
+    });
+    expect(d.createOrg).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 when the slug is already taken', async () => {
+    const d = deps({
+      createOrg: vi.fn(async () => {
+        throw fakeSlugTakenError('upskills-ottawa');
+      }),
+    });
+
+    await expect(
+      createOrgsCreateHandler(d)(
+        post({ name: 'Upskills Ottawa', slug: 'upskills-ottawa' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      data: { error: 'slug-taken' },
+    });
+  });
+
+  it('answers 400 when the slug is not usable', async () => {
+    const d = deps({
+      createOrg: vi.fn(async () => {
+        throw fakeInvalidSlugError('Not A Slug');
+      }),
+    });
+
+    await expect(
+      createOrgsCreateHandler(d)(
+        post({ name: 'Upskills Ottawa', slug: 'not-a-slug' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-slug' },
+    });
+  });
+
+  it('answers 403 for a signed-in caller who is not an admin', async () => {
+    const d = deps({
+      requireAdmin: vi.fn(async () => {
+        throw fakeForbiddenError('Platform role "admin" is required.');
+      }),
+    });
+
+    await expect(
+      createOrgsCreateHandler(d)(
+        post({ name: 'Upskills Ottawa', slug: 'upskills-ottawa' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      data: { error: 'forbidden' },
+    });
+    expect(d.createOrg).not.toHaveBeenCalled();
+  });
+
+  it('answers 401 for a caller with no session', async () => {
+    const d = deps({
+      requireAdmin: vi.fn(async () => {
+        throw fakeInvalidSessionError('expired');
+      }),
+    });
+
+    await expect(
+      createOrgsCreateHandler(d)(
+        post({ name: 'Upskills Ottawa', slug: 'upskills-ottawa' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      data: { error: 'invalid-session', reason: 'expired' },
+    });
+  });
+
+  it('lets an unexpected write failure surface as a 500', async () => {
+    const bug = new TypeError('firestore exploded');
+
+    await expect(
+      createOrgsCreateHandler(
+        deps({
+          createOrg: vi.fn(async () => {
+            throw bug;
+          }),
+        }),
+      )(post({ name: 'Upskills Ottawa', slug: 'upskills-ottawa' })),
+    ).rejects.toBe(bug);
+  });
+});

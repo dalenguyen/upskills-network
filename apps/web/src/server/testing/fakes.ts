@@ -35,3 +35,40 @@ export function fakeForbiddenError(message: string): Error {
     status: 403 as const,
   });
 }
+
+/**
+ * The org write errors from `@upskills/firestore`, imitated the same way as
+ * the auth errors above. Handler specs inject these rather than importing the
+ * real classes, so the specs stay loadable without the Firestore SDK.
+ */
+
+/** An error indistinguishable from `SlugTakenError` to a route. */
+export function fakeSlugTakenError(slug: string): Error {
+  return Object.assign(new Error(`Slug "${slug}" is already taken.`), {
+    name: 'SlugTakenError',
+  });
+}
+
+/** An error indistinguishable from `InvalidSlugError` to a route. */
+export function fakeInvalidSlugError(slug: string): Error {
+  return Object.assign(new Error(`Slug "${slug}" is not usable.`), {
+    name: 'InvalidSlugError',
+  });
+}
+
+/** An error indistinguishable from `LastOrgAdminError` to a route. */
+export function fakeLastOrgAdminError(orgId: string, uid: string): Error {
+  return Object.assign(
+    new Error(
+      `Removing or demoting "${uid}" would leave org "${orgId}" with no admin.`,
+    ),
+    { name: 'LastOrgAdminError' },
+  );
+}
+
+/** An error indistinguishable from `OrgNotFoundError` to a route. */
+export function fakeOrgNotFoundError(orgId: string): Error {
+  return Object.assign(new Error(`Organizer "${orgId}" does not exist.`), {
+    name: 'OrgNotFoundError',
+  });
+}

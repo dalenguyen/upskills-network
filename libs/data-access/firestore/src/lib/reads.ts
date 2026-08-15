@@ -22,6 +22,7 @@ import {
   guestsGroup,
   orgRef,
   orgSlugRef,
+  orgsCol,
   userRef,
 } from './collections';
 import { decodeEventCursor, encodeEventCursor } from './cursor';
@@ -50,6 +51,12 @@ function userFrom(snapshot: DocumentSnapshot<User>): User | null {
 function orgFrom(snapshot: DocumentSnapshot<Organizer>): Organizer | null {
   const data = snapshot.data();
   return data ? { ...data, orgId: snapshot.id } : null;
+}
+
+function orgFromQueryDoc(
+  snapshot: QueryDocumentSnapshot<Organizer>,
+): Organizer {
+  return { ...snapshot.data(), orgId: snapshot.id };
 }
 
 function eventFrom(
@@ -91,6 +98,18 @@ export async function getUser(uid: string): Promise<User | null> {
 /** `organizers/{orgId}` */
 export async function getOrg(orgId: string): Promise<Organizer | null> {
   return orgFrom(await orgRef(orgId).get());
+}
+
+/**
+ * Every organizer, oldest first.
+ *
+ * Backed by the automatic single-field `createdAt` index; no composite index is
+ * required because there is no equality filter before the ordering.
+ */
+export async function listOrgs(): Promise<Organizer[]> {
+  return (await orgsCol().orderBy('createdAt', 'asc').get()).docs.map(
+    orgFromQueryDoc,
+  );
 }
 
 /**

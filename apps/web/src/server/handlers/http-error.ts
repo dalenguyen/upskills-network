@@ -12,10 +12,10 @@ import { createError, isError } from 'h3';
  * needs the class as a *value*, so importing it here would make every handler
  * spec unloadable.
  *
- * Matching on `name` plus the numeric `status` the class carries is narrow
- * enough to be honest: both fields are part of those types' documented surface,
- * and nothing else in this app throws an `Error` named `InvalidSessionError`
- * with `status === 401`.
+ * The org write errors from `@upskills/firestore` get the same treatment for
+ * the same reason: matching on `name` keeps this module free of a runtime
+ * import, so the handler specs can load it while injecting fakes. The names
+ * below are part of those types' documented surface.
  *
  * ## Everything unrecognized stays a 500
  *
@@ -60,6 +60,10 @@ function asAuthError(error: unknown): ThrownAuthError | null {
     : null;
 }
 
+function errorName(error: unknown): string | null {
+  return error instanceof Error ? error.name : null;
+}
+
 /**
  * The error a route should throw, given the error it caught.
  *
@@ -68,6 +72,9 @@ function asAuthError(error: unknown): ThrownAuthError | null {
  * - `ForbiddenError` → 403 with **no** detail: its message names roles and org
  *   ids for an operator's log, and echoing it would tell a caller about
  *   memberships they cannot see.
+ * - `InvalidSlugError` → 400.
+ * - `SlugTakenError` and `LastOrgAdminError` → 409.
+ * - `OrgNotFoundError` → 404.
  * - Anything else is returned as-is, so it surfaces as a 500.
  */
 export function toHttpError(error: unknown): unknown {
@@ -92,7 +99,25 @@ export function toHttpError(error: unknown): unknown {
     });
   }
 
-  return error;
+  switch (errorName(error)) {
+    case 'InvalidSlugError':
+      return badRequest('invalid-slug', 'That slug is not usable.');
+
+    case 'SlugTakenError':
+      return conflict('slug-taken', 'That slug is already in use.');
+
+    case 'LastOrgAdminError':
+      return conflict(
+        'last-org-admin',
+        'An organizer must keep at least one admin.',
+      );
+
+    case 'OrgNotFoundError':
+      return notFound('org-not-found', 'No such organizer.');
+
+    default:
+      return error;
+  }
 }
 
 /** A 401 naming why the credential was refused. */
@@ -120,6 +145,16 @@ export function notFound(error: string, message: string) {
   return createError({
     statusCode: 404,
     statusMessage: 'Not Found',
+    message,
+    data: { error } satisfies ApiErrorData,
+  });
+}
+
+/** A 409 for a write that conflicts with the current state of the world. */
+export function conflict(error: string, message: string) {
+  return createError({
+    statusCode: 409,
+    statusMessage: 'Conflict',
     message,
     data: { error } satisfies ApiErrorData,
   });
