@@ -1,0 +1,132 @@
+import { AuthUnavailableError, SessionExchangeError } from './auth-errors';
+
+/**
+ * Human-readable sign-in failures, chosen so no message confirms or denies
+ * that a particular email address has an account.
+ *
+ * Firebase Auth reports several credential failures with distinct codes
+ * (`auth/user-not-found`, `auth/wrong-password`, …). If a login page rendered
+ * those separately it would hand an attacker an account-existence oracle. They
+ * are therefore collapsed into one sentence. The same rule applies in reverse
+ * on the register page: an `auth/email-already-in-use` refusal is phrased as
+ * "we couldn't create that account", never "that address is already taken".
+ */
+
+const GENERIC_CREDENTIAL_MESSAGE =
+  "That email and password don't match an account.";
+const EMAIL_ALREADY_IN_USE_MESSAGE =
+  "We couldn't create that account. Try signing in instead.";
+const WEAK_PASSWORD_MESSAGE =
+  'That password is too weak. Use at least 6 characters.';
+const UNAVAILABLE_MESSAGE = 'Sign-in is unavailable right now.';
+const RETRY_MESSAGE = 'Something went wrong. Try again.';
+const TOO_MANY_ATTEMPTS_MESSAGE =
+  'Too many attempts. Wait a moment and try again.';
+const SIGN_IN_AGAIN_MESSAGE = 'Please sign in again.';
+
+/** Codes that must all read as the same account-neutral credential failure. */
+const CREDENTIAL_FAILURE_CODES = new Set([
+  'auth/user-not-found',
+  'auth/wrong-password',
+  'auth/invalid-credential',
+  'auth/invalid-email',
+  'auth/user-disabled',
+]);
+
+/**
+ * Codes that say nothing about the credential.
+ *
+ * These must not fall through to {@link GENERIC_CREDENTIAL_MESSAGE}. A dropped
+ * connection or a rate limit reported as "that email and password don't match"
+ * sends someone to reset a password that was correct all along — the failure is
+ * transient and the honest advice is to try again. Rate limiting is called out
+ * separately because "try again" immediately is precisely the wrong move there.
+ */
+const TRANSIENT_FAILURE_CODES = new Set([
+  'auth/network-request-failed',
+  'auth/internal-error',
+  'auth/timeout',
+]);
+
+/** Codes that mean the user closed the popup on purpose, not a failure. */
+const NO_MESSAGE_CODES = new Set([
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+]);
+
+/**
+ * The message to show for a failed sign-in attempt, or `null` when no message
+ * should be shown at all (the user closed the Google popup).
+ *
+ * Reads Firebase's `code` off `unknown` rather than accepting a
+ * `FirebaseError` here: pages should not need to import the Firebase type just
+ * to report a failure, and an `instanceof` check against a third-party class
+ * silently misses lookalike errors (and is exactly the trap the app's API
+ * error readers already avoid).
+ */
+export function signInErrorMessage(error: unknown): string | null {
+  if (error instanceof AuthUnavailableError) {
+    return UNAVAILABLE_MESSAGE;
+  }
+
+  if (error instanceof SessionExchangeError) {
+    return error.retryable ? RETRY_MESSAGE : SIGN_IN_AGAIN_MESSAGE;
+  }
+
+  const code = signInErrorCode(error);
+
+  if (code !== null && NO_MESSAGE_CODES.has(code)) {
+    return null;
+  }
+
+  if (code !== null && CREDENTIAL_FAILURE_CODES.has(code)) {
+    return GENERIC_CREDENTIAL_MESSAGE;
+  }
+
+  if (code !== null && TRANSIENT_FAILURE_CODES.has(code)) {
+    return RETRY_MESSAGE;
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return TOO_MANY_ATTEMPTS_MESSAGE;
+  }
+
+  if (code === 'auth/email-already-in-use') {
+    return EMAIL_ALREADY_IN_USE_MESSAGE;
+  }
+
+  if (code === 'auth/weak-password') {
+    return WEAK_PASSWORD_MESSAGE;
+  }
+
+  return GENERIC_CREDENTIAL_MESSAGE;
+}
+
+/**
+ * The post-auth redirect target, read from the login/register query param.
+ *
+ * Only a same-origin relative path is accepted: exactly one leading `/`, and
+ * not `//` or `/\`, which are protocol-relative and therefore can leave the
+ * origin. Absolute URLs and `javascript:` fall through to `/`.
+ */
+export function safeRedirectTarget(redirectTo: string | null): string {
+  if (
+    typeof redirectTo === 'string' &&
+    redirectTo.startsWith('/') &&
+    !redirectTo.startsWith('//') &&
+    !redirectTo.startsWith('/\\')
+  ) {
+    return redirectTo;
+  }
+
+  return '/';
+}
+
+function signInErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const code = (error as Record<string, unknown>)['code'];
+  return typeof code === 'string' ? code : null;
+}
