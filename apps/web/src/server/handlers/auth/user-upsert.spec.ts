@@ -46,6 +46,24 @@ describe('upsertUserOnSignIn', () => {
     expect(result.created).toBe(true);
   });
 
+  it('normalizes a mixed-case email before asking for the document', async () => {
+    const d = deps();
+
+    await upsertUserOnSignIn(
+      { uid: UID, email: 'Ada@Example.com', name: 'Ada' },
+      d,
+    );
+
+    expect(d.createUserIfAbsent).toHaveBeenCalledWith({
+      uid: UID,
+      email: 'ada@example.com',
+      name: 'Ada',
+      role: 'user',
+      orgIds: [],
+      createdAt: CREATED_AT,
+    });
+  });
+
   it('omits the name rather than storing undefined when the token has none', async () => {
     const d = deps();
 
