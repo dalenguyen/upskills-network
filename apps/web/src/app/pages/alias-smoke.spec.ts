@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type { Guest, WorkshopEvent } from '@upskills/models';
 import { dataAccessStripe } from '@upskills/stripe';
-import { Ui } from '@upskills/ui';
+import { Button } from '@upskills/ui';
 import { normalizeEmail } from '@upskills/validation';
 
 /**
@@ -25,7 +25,7 @@ describe('workspace aliases', () => {
   });
 
   it('resolves the Angular ui lib', () => {
-    expect(new Ui()).toBeInstanceOf(Ui);
+    expect(new Button()).toBeInstanceOf(Button);
   });
 
   // Still the generator placeholder: @upskills/stripe has no real API yet.

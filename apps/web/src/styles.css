@@ -4,6 +4,10 @@
    outside it, so its classes must be registered explicitly. */
 @source '../../../libs/ui/src';
 
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
 html,
 body {
   display: block;
