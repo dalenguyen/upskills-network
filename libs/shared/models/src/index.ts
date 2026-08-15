@@ -7,3 +7,4 @@ export type {
   WorkshopEvent,
 } from './lib/workshop-event';
 export type { Guest, GuestStatus } from './lib/guest';
+export type { WaitlistSubscriber } from './lib/waitlist-subscriber';

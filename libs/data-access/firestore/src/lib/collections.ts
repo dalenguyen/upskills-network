@@ -3,6 +3,7 @@ import type {
   Organizer,
   Timestamp,
   User,
+  WaitlistSubscriber,
   WorkshopEvent,
 } from '@upskills/models';
 import { normalizeEmail } from '@upskills/validation';
@@ -28,6 +29,7 @@ import { getDb } from './db';
  * orgSlugs/{slug}      → { orgId }
  * eventSlugs/{slug}    → { eventId }
  * stripeEvents/{stripeEventId}   # webhook idempotency ledger
+ * waitlist/{normalizedEmail}     # landing-page waitlist signups
  * ```
  */
 export const COLLECTIONS = {
@@ -39,6 +41,7 @@ export const COLLECTIONS = {
   orgSlugs: 'orgSlugs',
   eventSlugs: 'eventSlugs',
   stripeEvents: 'stripeEvents',
+  waitlist: 'waitlist',
 } as const;
 
 /** `orgSlugs/{slug}` — the uniqueness reservation for an organizer slug. */
@@ -91,6 +94,7 @@ const guestConverter = typedConverter<Guest>();
 const orgSlugConverter = typedConverter<OrgSlugReservation>();
 const eventSlugConverter = typedConverter<EventSlugReservation>();
 const stripeEventConverter = typedConverter<StripeEventRecord>();
+const waitlistSubscriberConverter = typedConverter<WaitlistSubscriber>();
 
 export function usersCol(): CollectionReference<User> {
   return getDb().collection(COLLECTIONS.users).withConverter(userConverter);
@@ -168,4 +172,23 @@ export function stripeEventRef(
     .collection(COLLECTIONS.stripeEvents)
     .withConverter(stripeEventConverter)
     .doc(stripeEventId);
+}
+
+export function waitlistSubscribersCol(): CollectionReference<WaitlistSubscriber> {
+  return getDb()
+    .collection(COLLECTIONS.waitlist)
+    .withConverter(waitlistSubscriberConverter);
+}
+
+/**
+ * The waitlist doc for one email.
+ *
+ * The doc id **is** `normalizeEmail(email)` — the same convention as
+ * {@link guestRef}, which is what makes a duplicate signup impossible without a
+ * query. Never build this path by hand.
+ */
+export function waitlistSubscriberRef(
+  email: string,
+): DocumentReference<WaitlistSubscriber> {
+  return waitlistSubscribersCol().doc(normalizeEmail(email));
 }
