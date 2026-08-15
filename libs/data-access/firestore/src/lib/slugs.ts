@@ -157,6 +157,59 @@ export async function reserveSlugInTransaction(
 }
 
 /**
+ * Move an owner from one slug to another on a transaction the caller owns.
+ *
+ * This is the composable half of {@link renameSlug}: it performs the rename on
+ * the transaction it is given, so a caller that is also updating the renamed
+ * document can commit both the reservation change and the document change
+ * together. The caller still owns the transaction's catch for the raw
+ * `ALREADY_EXISTS` backstop; map it through {@link asSlugTaken}.
+ *
+ * As everywhere else, both reads happen before either write.
+ *
+ * @returns the normalized new slug.
+ * @throws InvalidSlugError when either slug is not a legal slug.
+ * @throws SlugTakenError when another owner holds `to`.
+ */
+export async function renameSlugInTransaction(
+  transaction: Transaction,
+  collection: SlugCollection,
+  ownerId: string,
+  rename: SlugRename,
+): Promise<string> {
+  const from = normalizeSlug(rename.from);
+  const to = normalizeSlug(rename.to);
+
+  if (from === to) {
+    return reserveSlugInTransaction(transaction, collection, to, ownerId);
+  }
+
+  const refs = {
+    from: reservationRef(collection, from),
+    to: reservationRef(collection, to),
+  };
+
+  // Both reads before either write, per the house pattern — and both keys
+  // join the read set, so a racer touching either one aborts this attempt.
+  const currentHolder = await readOwner(transaction, refs.from);
+  const targetHolder = await readOwner(transaction, refs.to);
+
+  if (targetHolder !== null && targetHolder !== ownerId) {
+    throw new SlugTakenError(collection, to, targetHolder);
+  }
+
+  if (targetHolder === null) {
+    createReservation(transaction, collection, to, ownerId);
+  }
+
+  if (currentHolder === ownerId) {
+    transaction.delete(refs.from);
+  }
+
+  return to;
+}
+
+/**
  * Move an owner from one slug to another **in one commit**.
  *
  * Both halves land together or neither does. Releasing the old slug in one
@@ -178,38 +231,11 @@ export async function renameSlug(
   ownerId: string,
   rename: SlugRename,
 ): Promise<string> {
-  const from = normalizeSlug(rename.from);
   const to = normalizeSlug(rename.to);
 
-  if (from === to) {
-    return reserveSlug(collection, to, ownerId);
-  }
-
-  return runTransaction(async (transaction) => {
-    const refs = {
-      from: reservationRef(collection, from),
-      to: reservationRef(collection, to),
-    };
-
-    // Both reads before either write, per the house pattern — and both keys
-    // join the read set, so a racer touching either one aborts this attempt.
-    const currentHolder = await readOwner(transaction, refs.from);
-    const targetHolder = await readOwner(transaction, refs.to);
-
-    if (targetHolder !== null && targetHolder !== ownerId) {
-      throw new SlugTakenError(collection, to, targetHolder);
-    }
-
-    if (targetHolder === null) {
-      createReservation(transaction, collection, to, ownerId);
-    }
-
-    if (currentHolder === ownerId) {
-      transaction.delete(refs.from);
-    }
-
-    return to;
-  }).catch(asSlugTaken(collection, to));
+  return runTransaction((transaction) =>
+    renameSlugInTransaction(transaction, collection, ownerId, rename),
+  ).catch(asSlugTaken(collection, to));
 }
 
 /**

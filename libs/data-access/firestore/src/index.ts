@@ -85,6 +85,7 @@ export {
   asSlugTaken,
   releaseSlug,
   renameSlug,
+  renameSlugInTransaction,
   reserveSlug,
   reserveSlugInTransaction,
 } from './lib/slugs';
@@ -113,3 +114,10 @@ export type {
   TransitionReason,
   TransitionResult,
 } from './lib/transitions';
+
+export { cancelEvent, createEvent, updateEvent } from './lib/events-write';
+export type {
+  CancelEventResult,
+  CreateEventDraft,
+  UpdateEventPatch,
+} from './lib/events-write';
