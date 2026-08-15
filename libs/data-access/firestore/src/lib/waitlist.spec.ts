@@ -1,10 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import {
-  waitlistSubscriberRef,
-  waitlistSubscribersCol,
-} from './collections';
+import { waitlistSubscriberRef, waitlistSubscribersCol } from './collections';
 import { addWaitlistSubscriber } from './waitlist';
 
 /**

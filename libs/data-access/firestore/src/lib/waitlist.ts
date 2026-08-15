@@ -29,9 +29,7 @@ export type WaitlistOutcome = 'subscribed' | 'already_subscribed';
  * retry rather than an overwrite, and the retry re-reads and finds their
  * document.
  */
-export function addWaitlistSubscriber(
-  email: string,
-): Promise<WaitlistOutcome> {
+export function addWaitlistSubscriber(email: string): Promise<WaitlistOutcome> {
   const normalizedEmail = normalizeEmail(email);
   const ref = waitlistSubscriberRef(normalizedEmail);
 

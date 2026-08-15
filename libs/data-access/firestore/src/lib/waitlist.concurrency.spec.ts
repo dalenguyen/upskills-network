@@ -27,9 +27,9 @@ describe('addWaitlistSubscriber under concurrency', () => {
       Array.from({ length: RACERS }, () => addWaitlistSubscriber(EMAIL)),
     );
 
-    expect(
-      results.filter((outcome) => outcome === 'subscribed'),
-    ).toHaveLength(1);
+    expect(results.filter((outcome) => outcome === 'subscribed')).toHaveLength(
+      1,
+    );
     expect(
       results.filter((outcome) => outcome === 'already_subscribed'),
     ).toHaveLength(RACERS - 1);
