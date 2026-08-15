@@ -1,6 +1,12 @@
-import type { MeGetResponse, MeOrg, MeUser } from '../../server/handlers/auth/me-get';
-import type { DashboardEventsListResponse } from '../../server/handlers/dashboard/events-list';
-import type { WorkshopEvent } from '@upskills/models';
+import type {
+  MeGetResponse,
+  MeOrg,
+  MeUser,
+} from '../../server/handlers/auth/me-get';
+import type {
+  DashboardEvent,
+  DashboardEventsListResponse,
+} from '../../server/handlers/dashboard/events-list';
 
 /**
  * The organizer dashboard API, as the browser sees it.
@@ -17,7 +23,7 @@ import type { WorkshopEvent } from '@upskills/models';
 
 export type { MeGetResponse, MeOrg, MeUser };
 export type { DashboardEventsListResponse };
-export type { WorkshopEvent };
+export type { DashboardEvent };
 
 /** `GET` — the signed-in user and the organizers they belong to. */
 export function meEndpoint(): string {

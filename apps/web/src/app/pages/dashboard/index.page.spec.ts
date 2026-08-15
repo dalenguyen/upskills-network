@@ -10,7 +10,7 @@ import {
   dashboardEventsEndpoint,
   meEndpoint,
   type MeGetResponse,
-  type WorkshopEvent,
+  type DashboardEvent,
 } from '../../dashboard/dashboard-api';
 import DashboardOverviewPageComponent from './index.page';
 
@@ -32,19 +32,14 @@ const meResponse: MeGetResponse = {
   ],
 };
 
-function timestamp(iso: string) {
-  const date = new Date(iso);
-  return { toDate: () => date, toMillis: () => date.getTime() };
-}
-
-function workshop(overrides: Partial<WorkshopEvent> = {}): WorkshopEvent {
+function workshop(overrides: Partial<DashboardEvent> = {}): DashboardEvent {
   return {
     eventId: 'evt_1',
     orgId: 'org_1',
     title: 'Intro to Kubernetes',
     slug: 'intro-to-kubernetes',
     description: 'A hands-on afternoon.',
-    startsAt: timestamp('2026-09-10T13:30:00.000Z'),
+    startsAt: '2026-09-10T13:30:00.000Z',
     timezone: 'America/Toronto',
     price: 0,
     currency: 'cad',
@@ -53,8 +48,8 @@ function workshop(overrides: Partial<WorkshopEvent> = {}): WorkshopEvent {
     heldCount: 0,
     pendingCount: 0,
     status: 'draft',
-    createdAt: timestamp('2026-01-01T00:00:00.000Z'),
-    updatedAt: timestamp('2026-01-01T00:00:00.000Z'),
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -100,9 +95,7 @@ describe('DashboardOverviewPageComponent', () => {
     http.expectOne(meEndpoint()).flush(meResponse);
     await Promise.resolve();
 
-    const eventsRequest = http.expectOne(
-      dashboardEventsEndpoint('org_1'),
-    );
+    const eventsRequest = http.expectOne(dashboardEventsEndpoint('org_1'));
     expect(eventsRequest.request.withCredentials).toBe(true);
     eventsRequest.flush({
       events: [

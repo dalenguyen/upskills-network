@@ -11,7 +11,7 @@ import {
   type MeGetResponse,
   type MeOrg,
   type MeUser,
-  type WorkshopEvent,
+  type DashboardEvent,
 } from '../../../dashboard/dashboard-api';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
@@ -32,7 +32,7 @@ type PageState =
   | { status: 'loading' }
   | { status: 'no-orgs' }
   | { status: 'error' }
-  | { status: 'ready'; user: MeUser; org: MeOrg; events: WorkshopEvent[] };
+  | { status: 'ready'; user: MeUser; org: MeOrg; events: DashboardEvent[] };
 
 export const routeMeta: RouteMeta = {
   canActivate: [authGuard],
@@ -48,9 +48,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">
-              Loading events…
-            </p>
+            <p class="text-sm text-zinc-500" role="status">Loading events…</p>
           }
 
           @case ('no-orgs') {
@@ -221,13 +219,15 @@ export default class DashboardEventsPageComponent implements OnInit {
     return state.status === 'ready' ? state.org : null;
   }
 
-  events(): WorkshopEvent[] {
+  events(): DashboardEvent[] {
     const state = this.state();
     return state.status === 'ready' ? state.events : [];
   }
 
-  startDate(workshop: WorkshopEvent): string {
-    const date = workshop.startsAt.toDate();
+  startDate(workshop: DashboardEvent): string {
+    // `startsAt` is an ISO-8601 string, not a `Timestamp`: the route serializes
+    // it because a Firestore `Timestamp` does not survive JSON.
+    const date = new Date(workshop.startsAt);
 
     try {
       return new Intl.DateTimeFormat('en-CA', {
@@ -243,7 +243,7 @@ export default class DashboardEventsPageComponent implements OnInit {
     }
   }
 
-  capacity(workshop: WorkshopEvent): string {
+  capacity(workshop: DashboardEvent): string {
     return workshop.maxGuests === 0
       ? 'Unlimited'
       : `${workshop.maxGuests} guests`;

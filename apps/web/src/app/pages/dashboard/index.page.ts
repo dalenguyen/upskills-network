@@ -11,7 +11,7 @@ import {
   type MeGetResponse,
   type MeOrg,
   type MeUser,
-  type WorkshopEvent,
+  type DashboardEvent,
 } from '../../dashboard/dashboard-api';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
@@ -29,7 +29,7 @@ type PageState =
   | { status: 'loading' }
   | { status: 'no-orgs' }
   | { status: 'error' }
-  | { status: 'ready'; user: MeUser; org: MeOrg; events: WorkshopEvent[] };
+  | { status: 'ready'; user: MeUser; org: MeOrg; events: DashboardEvent[] };
 
 export const routeMeta: RouteMeta = {
   canActivate: [authGuard],
@@ -130,9 +130,7 @@ export const routeMeta: RouteMeta = {
                   </div>
 
                   <div class="rounded-xl border border-zinc-200 p-4">
-                    <dt class="text-sm font-medium text-zinc-500">
-                      Published
-                    </dt>
+                    <dt class="text-sm font-medium text-zinc-500">Published</dt>
                     <dd
                       id="dashboard-published-count"
                       class="mt-1 text-3xl font-bold tracking-tight text-zinc-900"
@@ -142,9 +140,7 @@ export const routeMeta: RouteMeta = {
                   </div>
 
                   <div class="rounded-xl border border-zinc-200 p-4">
-                    <dt class="text-sm font-medium text-zinc-500">
-                      Cancelled
-                    </dt>
+                    <dt class="text-sm font-medium text-zinc-500">Cancelled</dt>
                     <dd
                       id="dashboard-cancelled-count"
                       class="mt-1 text-3xl font-bold tracking-tight text-zinc-900"
@@ -213,7 +209,7 @@ export default class DashboardOverviewPageComponent implements OnInit {
     return state.status === 'ready' ? state.org : null;
   }
 
-  events(): WorkshopEvent[] {
+  events(): DashboardEvent[] {
     const state = this.state();
     return state.status === 'ready' ? state.events : [];
   }
@@ -228,7 +224,8 @@ export default class DashboardOverviewPageComponent implements OnInit {
     return user.name === undefined || user.name === '' ? user.email : user.name;
   }
 
-  count(status: WorkshopEvent['status']): number {
-    return this.events().filter((workshop) => workshop.status === status).length;
+  count(status: DashboardEvent['status']): number {
+    return this.events().filter((workshop) => workshop.status === status)
+      .length;
   }
 }
