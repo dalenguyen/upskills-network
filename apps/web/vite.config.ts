@@ -2,7 +2,7 @@
 
 import analog from '@analogjs/platform';
 import tailwindcss from '@tailwindcss/vite';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
@@ -10,7 +10,7 @@ import { defineConfig } from 'vite';
 const workspaceRoot = resolve(__dirname, '../..');
 
 /**
- * `nxViteTsPaths` teaches Vite about the `@upskills/*` aliases, but Nitro runs
+ * `tsconfigPaths()` teaches Vite about the `@upskills/*` aliases, but Nitro runs
  * its own Rollup pass that never sees Vite's plugins. Left alone it treats each
  * alias as a bare package specifier and externalises it, so the server chunks
  * ship `import ... from '@upskills/auth'` — which then dies with
@@ -79,7 +79,7 @@ export default defineConfig(() => {
           ignore: ['**/*.spec.ts'],
         },
       }),
-      nxViteTsPaths(),
+      tsconfigPaths({ root: workspaceRoot, projects: ['tsconfig.base.json'] }),
     ],
     test: {
       globals: true,
