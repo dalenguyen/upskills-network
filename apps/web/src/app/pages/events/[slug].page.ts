@@ -1,7 +1,8 @@
+import { DOCUMENT } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { Title } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 
 import {
@@ -112,6 +113,8 @@ export default class EventPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly title = inject(Title);
+  private readonly meta = inject(Meta);
+  private readonly document = inject(DOCUMENT);
 
   readonly state = signal<PageState>({ status: 'loading' });
 
@@ -135,11 +138,59 @@ export default class EventPageComponent implements OnInit {
       );
 
       this.state.set({ status: 'ready', event: response.event });
-      this.title.setTitle(`${response.event.title} · Upskills`);
+      this.applyEventMeta(response.event);
     } catch (error) {
       this.state.set({
         status: apiErrorStatus(error) === 404 ? 'not-found' : 'error',
       });
     }
+  }
+
+  /**
+   * Publish the loaded event to crawlers and social scrapers.
+   *
+   * The `<title>`/description tags in `index.html` describe the whole site, not
+   * a single workshop. This overrides them for the page that actually converts,
+   * so a search result and an unfurled link both name the event rather than the
+   * brand. `updateTag` (not `addTag`) matters: `index.html` already ships an
+   * `og:title`, `og:description`, and `og:url`, and a second copy would leave
+   * scrapers guessing which one to honour.
+   */
+  private applyEventMeta(event: PublicEvent): void {
+    const title = `${event.title} · Upskills`;
+    const url = `https://upskillsnetwork.com/events/${event.slug}`;
+
+    this.title.setTitle(title);
+    this.meta.updateTag({ name: 'description', content: event.description });
+    this.meta.updateTag({ property: 'og:title', content: title });
+    this.meta.updateTag({
+      property: 'og:description',
+      content: event.description,
+    });
+    this.meta.updateTag({ property: 'og:url', content: url });
+    this.meta.updateTag({ name: 'twitter:title', content: title });
+    this.meta.updateTag({
+      name: 'twitter:description',
+      content: event.description,
+    });
+    this.setCanonicalUrl(url);
+  }
+
+  /**
+   * Point the canonical link at this event rather than the homepage it inherits
+   * from `index.html`, so the event page is indexed as its own URL.
+   */
+  private setCanonicalUrl(url: string): void {
+    let link = this.document.head.querySelector<HTMLLinkElement>(
+      'link[rel="canonical"]',
+    );
+
+    if (link === null) {
+      link = this.document.createElement('link');
+      link.setAttribute('rel', 'canonical');
+      this.document.head.appendChild(link);
+    }
+
+    link.setAttribute('href', url);
   }
 }

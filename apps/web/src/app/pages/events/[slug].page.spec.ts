@@ -1,10 +1,11 @@
+import { DOCUMENT } from '@angular/common';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Title } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -87,6 +88,24 @@ describe('EventPageComponent', () => {
 
     expect(TestBed.inject(Title).getTitle()).toBe(
       'Intro to Kubernetes · Upskills',
+    );
+  });
+
+  it('publishes the event description and canonical URL for SEO', async () => {
+    const fixture = await setup('intro-to-kubernetes');
+    http.expectOne(eventDetailEndpoint('intro-to-kubernetes')).flush({ event });
+
+    await fixture.whenStable();
+
+    expect(TestBed.inject(Meta).getTag('name="description"')?.content).toBe(
+      'A hands-on afternoon.',
+    );
+
+    const canonical = TestBed.inject(DOCUMENT).head.querySelector(
+      'link[rel="canonical"]',
+    );
+    expect(canonical?.getAttribute('href')).toBe(
+      'https://upskillsnetwork.com/events/intro-to-kubernetes',
     );
   });
 
