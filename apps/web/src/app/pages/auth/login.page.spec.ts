@@ -58,10 +58,12 @@ describe('LoginPageComponent', () => {
     fixture: ComponentFixture<LoginPageComponent>,
   ): HTMLButtonElement | null {
     return Array.from(
-      fixture.nativeElement.querySelectorAll('button'),
-    ).find((button) => button.getAttribute('type') === 'submit') as
-      | HTMLButtonElement
-      | null;
+      (
+        fixture.nativeElement as HTMLElement
+      ).querySelectorAll<HTMLButtonElement>('button'),
+    ).find(
+      (button) => button.getAttribute('type') === 'submit',
+    ) as HTMLButtonElement | null;
   }
 
   beforeEach(() => {
@@ -123,10 +125,11 @@ describe('LoginPageComponent', () => {
     });
 
     const googleButton = Array.from(
-      fixture.nativeElement.querySelectorAll('button'),
-    ).find((button) =>
-      button.textContent?.includes('Continue with Google'),
-    ) as HTMLButtonElement | undefined;
+      (
+        fixture.nativeElement as HTMLElement
+      ).querySelectorAll<HTMLButtonElement>('button'),
+    ).find((button) => button.textContent?.includes('Continue with Google')) as
+      HTMLButtonElement | undefined;
 
     expect(googleButton).toBeTruthy();
     googleButton!.click();

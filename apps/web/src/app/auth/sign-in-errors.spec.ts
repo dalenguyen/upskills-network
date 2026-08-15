@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AuthUnavailableError,
-  SessionExchangeError,
-} from './auth-errors';
+import { AuthUnavailableError, SessionExchangeError } from './auth-errors';
 import { safeRedirectTarget, signInErrorMessage } from './sign-in-errors';
 
 const GENERIC_CREDENTIAL_MESSAGE =

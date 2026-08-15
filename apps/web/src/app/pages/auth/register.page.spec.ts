@@ -58,10 +58,12 @@ describe('RegisterPageComponent', () => {
     fixture: ComponentFixture<RegisterPageComponent>,
   ): HTMLButtonElement | null {
     return Array.from(
-      fixture.nativeElement.querySelectorAll('button'),
-    ).find((button) => button.getAttribute('type') === 'submit') as
-      | HTMLButtonElement
-      | null;
+      (
+        fixture.nativeElement as HTMLElement
+      ).querySelectorAll<HTMLButtonElement>('button'),
+    ).find(
+      (button) => button.getAttribute('type') === 'submit',
+    ) as HTMLButtonElement | null;
   }
 
   beforeEach(() => {
@@ -107,10 +109,11 @@ describe('RegisterPageComponent', () => {
     });
 
     const googleButton = Array.from(
-      fixture.nativeElement.querySelectorAll('button'),
-    ).find((button) =>
-      button.textContent?.includes('Continue with Google'),
-    ) as HTMLButtonElement | undefined;
+      (
+        fixture.nativeElement as HTMLElement
+      ).querySelectorAll<HTMLButtonElement>('button'),
+    ).find((button) => button.textContent?.includes('Continue with Google')) as
+      HTMLButtonElement | undefined;
 
     expect(googleButton).toBeTruthy();
     googleButton!.click();
@@ -197,6 +200,8 @@ describe('RegisterPageComponent', () => {
   it('sets the page title', async () => {
     await setup();
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Create your account · Upskills');
+    expect(TestBed.inject(Title).getTitle()).toBe(
+      'Create your account · Upskills',
+    );
   });
 });
