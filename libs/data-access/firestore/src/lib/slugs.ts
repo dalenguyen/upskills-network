@@ -107,25 +107,53 @@ export async function reserveSlug(
 ): Promise<string> {
   const normalized = normalizeSlug(slug);
 
-  return runTransaction(async (transaction) => {
-    const ref = reservationRef(collection, normalized);
-    // Read first — and reading a *missing* document is the whole mechanism:
-    // it puts the empty key in the transaction's read set, so a racer that
-    // creates it before we commit forces this transaction to be retried rather
-    // than silently overwriting them.
-    const holder = await readOwner(transaction, ref);
+  return runTransaction((transaction) =>
+    reserveSlugInTransaction(transaction, collection, normalized, ownerId),
+  ).catch(asSlugTaken(collection, normalized));
+}
 
-    if (holder !== null) {
-      if (holder === ownerId) {
-        return normalized;
-      }
+/**
+ * Reserve a slug on a transaction the caller already owns.
+ *
+ * This is the composable half of {@link reserveSlug}: it performs the
+ * reservation read and write on the transaction it is given, so a caller that
+ * is already writing another document — an organizer being created, say — can
+ * commit the slug reservation and that document together. The caller still owns
+ * the transaction's catch for the raw `ALREADY_EXISTS` backstop; map it through
+ * {@link asSlugTaken}.
+ *
+ * As everywhere else, the read happens before the write — Firestore rejects a
+ * transaction that does otherwise.
+ *
+ * @returns the normalized slug.
+ * @throws InvalidSlugError when `slug` is not a legal slug.
+ * @throws SlugTakenError when another owner holds it.
+ */
+export async function reserveSlugInTransaction(
+  transaction: Transaction,
+  collection: SlugCollection,
+  slug: string,
+  ownerId: string,
+): Promise<string> {
+  const normalized = normalizeSlug(slug);
+  const ref = reservationRef(collection, normalized);
 
-      throw new SlugTakenError(collection, normalized, holder);
+  // Read first — and reading a *missing* document is the whole mechanism:
+  // it puts the empty key in the transaction's read set, so a racer that
+  // creates it before we commit forces this transaction to be retried rather
+  // than silently overwriting them.
+  const holder = await readOwner(transaction, ref);
+
+  if (holder !== null) {
+    if (holder === ownerId) {
+      return normalized;
     }
 
-    createReservation(transaction, collection, normalized, ownerId);
-    return normalized;
-  }).catch(asSlugTaken(collection, normalized));
+    throw new SlugTakenError(collection, normalized, holder);
+  }
+
+  createReservation(transaction, collection, normalized, ownerId);
+  return normalized;
 }
 
 /**
@@ -272,8 +300,12 @@ const ALREADY_EXISTS = 6;
 /**
  * Turn the backstop's raw gRPC failure into the same typed error as the normal
  * path, so a route has exactly one thing to map to 409.
+ *
+ * Exported for create-once callers that compose {@link reserveSlugInTransaction}
+ * with another write: their transaction can hit the same `ALREADY_EXISTS`
+ * backstop, and they need the same translation applied to their promise.
  */
-function asSlugTaken(
+export function asSlugTaken(
   collection: SlugCollection,
   slug: string,
 ): (error: unknown) => never {

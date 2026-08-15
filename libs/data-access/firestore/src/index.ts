@@ -62,6 +62,15 @@ export {
 export { createUserIfAbsent } from './lib/users';
 export type { CreateUserResult } from './lib/users';
 
+export {
+  LastOrgAdminError,
+  OrgNotFoundError,
+  createOrg,
+  removeOrgMember,
+  setOrgMember,
+} from './lib/orgs';
+export type { CreateOrgDraft } from './lib/orgs';
+
 export { reserveSpot } from './lib/reserve-spot';
 export type {
   GuestDraft,
@@ -73,9 +82,11 @@ export type {
 export {
   InvalidSlugError,
   SlugTakenError,
+  asSlugTaken,
   releaseSlug,
   renameSlug,
   reserveSlug,
+  reserveSlugInTransaction,
 } from './lib/slugs';
 export type { SlugCollection, SlugRename, SlugReservation } from './lib/slugs';
 

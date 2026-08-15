@@ -3,10 +3,7 @@
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/data-access/firestore/src",
   "projectType": "library",
-  "tags": [
-    "scope:data-access",
-    "type:service"
-  ],
+  "tags": ["scope:data-access", "type:service"],
   "// targets": "to see all targets run: nx show project data-access-firestore --web",
   "targets": {
     "typecheck": {
