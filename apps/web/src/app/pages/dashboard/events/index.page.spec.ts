@@ -12,47 +12,11 @@ import {
   type MeGetResponse,
   type DashboardEvent,
 } from '../../../dashboard/dashboard-api';
+import {
+  meResponse,
+  workshop,
+} from '../../../dashboard/testing/dashboard-fixtures';
 import DashboardEventsPageComponent from './index.page';
-
-const meResponse: MeGetResponse = {
-  user: {
-    uid: 'user_1',
-    email: 'ada@example.com',
-    name: 'Ada Lovelace',
-    role: 'user',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  orgs: [
-    {
-      orgId: 'org_1',
-      name: 'Upskills Toronto',
-      slug: 'upskills-toronto',
-      role: 'manager',
-    },
-  ],
-};
-
-function workshop(overrides: Partial<DashboardEvent> = {}): DashboardEvent {
-  return {
-    eventId: 'evt_1',
-    orgId: 'org_1',
-    title: 'Intro to Kubernetes',
-    slug: 'intro-to-kubernetes',
-    description: 'A hands-on afternoon.',
-    startsAt: '2026-09-10T13:30:00.000Z',
-    timezone: 'America/Toronto',
-    price: 0,
-    currency: 'cad',
-    maxGuests: 20,
-    confirmedCount: 5,
-    heldCount: 0,
-    pendingCount: 0,
-    status: 'draft',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
 
 describe('DashboardEventsPageComponent', () => {
   beforeEach(() => {
