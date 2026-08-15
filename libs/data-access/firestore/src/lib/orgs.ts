@@ -1,8 +1,5 @@
 import type { OrgRole, Organizer } from '@upskills/models';
-import {
-  Timestamp,
-  type DocumentSnapshot,
-} from 'firebase-admin/firestore';
+import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { orgRef, orgsCol } from './collections';
 import { asSlugTaken, reserveSlugInTransaction } from './slugs';
 import { runTransaction } from './transactions';
