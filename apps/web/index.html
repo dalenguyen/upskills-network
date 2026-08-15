@@ -10,14 +10,95 @@
     />
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Crawlers -->
+    <link rel="canonical" href="https://upskillsnetwork.com/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Upskills" />
+    <meta
+      property="og:title"
+      content="Upskills — in-person workshops for professionals"
+    />
+    <meta
+      property="og:description"
+      content="Grow your skills. Expand your network. In-person workshops where professionals learn from practitioners and meet peers."
+    />
+    <meta property="og:url" content="https://upskillsnetwork.com/" />
+    <meta
+      property="og:image"
+      content="https://upskillsnetwork.com/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Upskills — Grow your skills. Expand your network."
+    />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Upskills — in-person workshops for professionals"
+    />
+    <meta
+      name="twitter:description"
+      content="Grow your skills. Expand your network. In-person workshops where professionals learn from practitioners and meet peers."
+    />
+    <meta
+      name="twitter:image"
+      content="https://upskillsnetwork.com/og-image.png"
+    />
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
     <link rel="stylesheet" href="/src/styles.css" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://upskillsnetwork.com/#organization",
+            "name": "Upskills",
+            "url": "https://upskillsnetwork.com/",
+            "email": "hello@upskillsnetwork.com",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://upskillsnetwork.com/android-chrome-512x512.png",
+              "width": 512,
+              "height": 512
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://upskillsnetwork.com/#website",
+            "url": "https://upskillsnetwork.com/",
+            "name": "Upskills",
+            "publisher": { "@id": "https://upskillsnetwork.com/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="bg-white text-zinc-900">
     <app-root></app-root>
