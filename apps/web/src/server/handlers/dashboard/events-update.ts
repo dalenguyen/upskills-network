@@ -11,6 +11,7 @@ import {
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
 import { eventForbidden } from './dashboard-access';
+import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
  * `PUT /api/v1/dashboard/events/:eventId` — update one event owned by one org.
@@ -31,7 +32,7 @@ import { eventForbidden } from './dashboard-access';
  */
 
 export interface DashboardEventsUpdateResponse {
-  event: WorkshopEvent;
+  event: DashboardEvent;
 }
 
 export interface DashboardEventsUpdateDeps {
@@ -97,7 +98,9 @@ export function createDashboardEventsUpdateHandler(
         ...(status === undefined ? {} : { status }),
       });
 
-      return { event: updated } satisfies DashboardEventsUpdateResponse;
+      return {
+        event: toDashboardEvent(updated),
+      } satisfies DashboardEventsUpdateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

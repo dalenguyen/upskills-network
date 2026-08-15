@@ -68,6 +68,29 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
     });
   });
 
+  // A Firestore `Timestamp` serializes to `{_seconds,_nanoseconds}` — an object
+  // with no `toDate()`. Returning the raw document would type-check against
+  // `WorkshopEvent` and then throw `startsAt.toDate is not a function` in the
+  // browser, so the conversion is the contract, not an implementation detail.
+  it('serializes every timestamp as an ISO-8601 string', async () => {
+    const d = deps();
+
+    const result = (await createDashboardEventsDetailHandler(d)(
+      request(),
+    )) as Awaited<
+      ReturnType<ReturnType<typeof createDashboardEventsDetailHandler>>
+    >;
+
+    const workshop = (result as { event: Record<string, unknown> }).event;
+
+    for (const field of ['startsAt', 'createdAt', 'updatedAt'] as const) {
+      expect(typeof workshop[field]).toBe('string');
+      expect(new Date(workshop[field] as string).toISOString()).toBe(
+        workshop[field],
+      );
+    }
+  });
+
   it('answers 403, not 404, for a missing event', async () => {
     const d = deps({ getEvent: vi.fn(async () => null) });
 
