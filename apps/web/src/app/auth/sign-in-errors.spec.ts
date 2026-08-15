@@ -23,6 +23,28 @@ describe('signInErrorMessage', () => {
     });
   }
 
+  const transientFailures = [
+    'auth/network-request-failed',
+    'auth/internal-error',
+    'auth/timeout',
+  ];
+
+  for (const code of transientFailures) {
+    it(`does not blame the credential for ${code}`, () => {
+      // The credential was never judged, so saying it did not match would send
+      // someone to reset a password that was correct all along.
+      expect(signInErrorMessage({ code })).toBe(
+        'Something went wrong. Try again.',
+      );
+    });
+  }
+
+  it('tells a rate-limited user to wait rather than to retry immediately', () => {
+    expect(signInErrorMessage({ code: 'auth/too-many-requests' })).toBe(
+      'Too many attempts. Wait a moment and try again.',
+    );
+  });
+
   it('never reveals that an email is already registered', () => {
     const message = signInErrorMessage({
       code: 'auth/email-already-in-use',

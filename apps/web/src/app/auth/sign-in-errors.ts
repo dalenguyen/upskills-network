@@ -20,6 +20,8 @@ const WEAK_PASSWORD_MESSAGE =
   'That password is too weak. Use at least 6 characters.';
 const UNAVAILABLE_MESSAGE = 'Sign-in is unavailable right now.';
 const RETRY_MESSAGE = 'Something went wrong. Try again.';
+const TOO_MANY_ATTEMPTS_MESSAGE =
+  'Too many attempts. Wait a moment and try again.';
 const SIGN_IN_AGAIN_MESSAGE = 'Please sign in again.';
 
 /** Codes that must all read as the same account-neutral credential failure. */
@@ -29,6 +31,21 @@ const CREDENTIAL_FAILURE_CODES = new Set([
   'auth/invalid-credential',
   'auth/invalid-email',
   'auth/user-disabled',
+]);
+
+/**
+ * Codes that say nothing about the credential.
+ *
+ * These must not fall through to {@link GENERIC_CREDENTIAL_MESSAGE}. A dropped
+ * connection or a rate limit reported as "that email and password don't match"
+ * sends someone to reset a password that was correct all along — the failure is
+ * transient and the honest advice is to try again. Rate limiting is called out
+ * separately because "try again" immediately is precisely the wrong move there.
+ */
+const TRANSIENT_FAILURE_CODES = new Set([
+  'auth/network-request-failed',
+  'auth/internal-error',
+  'auth/timeout',
 ]);
 
 /** Codes that mean the user closed the popup on purpose, not a failure. */
@@ -64,6 +81,14 @@ export function signInErrorMessage(error: unknown): string | null {
 
   if (code !== null && CREDENTIAL_FAILURE_CODES.has(code)) {
     return GENERIC_CREDENTIAL_MESSAGE;
+  }
+
+  if (code !== null && TRANSIENT_FAILURE_CODES.has(code)) {
+    return RETRY_MESSAGE;
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return TOO_MANY_ATTEMPTS_MESSAGE;
   }
 
   if (code === 'auth/email-already-in-use') {
