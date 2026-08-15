@@ -45,8 +45,7 @@ export class LandingFeaturesComponent {
     {
       icon: 'users',
       title: 'Grow your network',
-      description:
-        'Meet professionals across industries who show up to learn.',
+      description: 'Meet professionals across industries who show up to learn.',
     },
     {
       icon: 'sparkles',
@@ -56,7 +55,8 @@ export class LandingFeaturesComponent {
     {
       icon: 'check',
       title: 'Effortless signup',
-      description: 'Simple registration, transparent waitlist, easy cancellation.',
+      description:
+        'Simple registration, transparent waitlist, easy cancellation.',
     },
   ];
 }

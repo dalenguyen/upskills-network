@@ -110,17 +110,15 @@ describe('LandingWaitlistFormComponent', () => {
     component.form.controls.email.setValue('ada@example.com');
 
     const pending = component.submit();
-    http
-      .expectOne(WAITLIST_ENDPOINT)
-      .flush(
-        {
-          error: true,
-          statusCode: 400,
-          message: 'Bad Request',
-          data: { error: 'invalid-email' },
-        },
-        { status: 400, statusText: 'Bad Request' },
-      );
+    http.expectOne(WAITLIST_ENDPOINT).flush(
+      {
+        error: true,
+        statusCode: 400,
+        message: 'Bad Request',
+        data: { error: 'invalid-email' },
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
 
     await pending;
     fixture.detectChanges();

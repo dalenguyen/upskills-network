@@ -17,7 +17,9 @@ describe('LandingHeroComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('Grow your skills. Expand your network.');
+    expect(root.textContent).toContain(
+      'Grow your skills. Expand your network.',
+    );
     expect(root.textContent).toContain(
       'Upskills hosts in-person workshops where professionals learn from practitioners and meet peers — no lectures, no passive webinars.',
     );

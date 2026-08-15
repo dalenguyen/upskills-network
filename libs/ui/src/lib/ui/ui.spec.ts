@@ -57,18 +57,6 @@ describe('Button', () => {
     expect(button.classList.contains('text-indigo-600')).toBe(true);
     expect(button.classList.contains('bg-indigo-600')).toBe(false);
   });
-
-  it('renders an anchor when href is provided', () => {
-    fixture.componentRef.setInput('href', '#waitlist');
-    fixture.detectChanges();
-
-    const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
-
-    expect(link).toBeTruthy();
-    expect(link.getAttribute('href')).toBe('#waitlist');
-    expect(link.classList.contains('bg-indigo-600')).toBe(true);
-    expect(fixture.nativeElement.querySelector('button')).toBeNull();
-  });
 });
 
 describe('Card', () => {

@@ -14,11 +14,7 @@ import { EmailSchema } from '@upskills/validation';
 export const WAITLIST_ENDPOINT = '/api/v1/waitlist';
 
 type WaitlistStatus =
-  | 'idle'
-  | 'loading'
-  | 'success'
-  | 'already-subscribed'
-  | 'inline-error';
+  'idle' | 'loading' | 'success' | 'already-subscribed' | 'inline-error';
 
 type WaitlistFormState =
   | { status: 'idle' }
@@ -108,9 +104,10 @@ export class LandingWaitlistFormComponent {
   });
 
   readonly status = computed<WaitlistStatus>(() => this.state().status);
-  readonly errorMessage = computed(() =>
-    this.state().status === 'inline-error' ? this.state().message : '',
-  );
+  readonly errorMessage = computed(() => {
+    const state = this.state();
+    return state.status === 'inline-error' ? state.message : '';
+  });
 
   async submit(): Promise<void> {
     const rawEmail = this.form.controls.email.value;
@@ -118,7 +115,10 @@ export class LandingWaitlistFormComponent {
 
     if (!parsedEmail.success) {
       this.form.controls.email.markAsTouched();
-      this.state.set({ status: 'inline-error', message: INVALID_EMAIL_MESSAGE });
+      this.state.set({
+        status: 'inline-error',
+        message: INVALID_EMAIL_MESSAGE,
+      });
       return;
     }
 
