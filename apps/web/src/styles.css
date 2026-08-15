@@ -4,6 +4,10 @@
    outside it, so its classes must be registered explicitly. */
 @source '../../../libs/ui/src';
 
+/* index.html sits above this file's directory, so register it too — the
+   document-level utilities (antialiasing, smooth scrolling) live on <html>. */
+@source '../index.html';
+
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }

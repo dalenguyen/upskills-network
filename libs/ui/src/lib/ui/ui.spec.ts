@@ -75,7 +75,7 @@ describe('Card', () => {
     const card = fixture.nativeElement.querySelector('div') as HTMLDivElement;
 
     expect(card).toBeTruthy();
-    expect(card.classList.contains('rounded-xl')).toBe(true);
+    expect(card.classList.contains('rounded-2xl')).toBe(true);
     expect(card.classList.contains('bg-white')).toBe(true);
     expect(card.classList.contains('shadow-sm')).toBe(true);
   });
