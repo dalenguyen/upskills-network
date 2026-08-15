@@ -7,7 +7,11 @@ import {
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Meta, Title } from '@angular/platform-browser';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
 import { throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +38,7 @@ const event: PublicEvent = {
 function authServiceStub() {
   return {
     user: signal<AuthUser | null>(null),
-    logout: vi.fn(async () => {}),
+    logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   };
 }
 

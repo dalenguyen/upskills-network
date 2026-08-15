@@ -21,7 +21,7 @@ describe('PageNotFoundComponent', () => {
           provide: AuthService,
           useValue: {
             user: signal<AuthUser | null>(null),
-            logout: vi.fn(async () => {}),
+            logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
           },
         },
       ],

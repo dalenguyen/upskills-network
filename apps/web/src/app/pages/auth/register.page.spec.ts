@@ -25,7 +25,7 @@ describe('RegisterPageComponent', () => {
 
     const auth = {
       user: signal<AuthUser | null>(null),
-      logout: vi.fn(async () => {}),
+      logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       registerWithEmail: vi.fn(async () => signedInUser),
       loginWithGoogle: vi.fn(async () => signedInUser),
     };

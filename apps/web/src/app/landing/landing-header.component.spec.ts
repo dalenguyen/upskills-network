@@ -23,15 +23,12 @@ describe('LandingHeaderComponent', () => {
 
     const auth = {
       user: signal<AuthUser | null>(user),
-      logout: vi.fn(async () => {}),
+      logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
       imports: [LandingHeaderComponent],
-      providers: [
-        provideRouter([]),
-        { provide: AuthService, useValue: auth },
-      ],
+      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
     }).compileComponents();
 
     const router = TestBed.inject(Router);
@@ -47,9 +44,9 @@ describe('LandingHeaderComponent', () => {
 
   function signOutButton(root: HTMLElement): HTMLButtonElement | null {
     return (
-      Array.from(
-        root.querySelectorAll<HTMLButtonElement>('button'),
-      ).find((button) => button.textContent?.trim() === 'Sign out') ?? null
+      Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
+        (button) => button.textContent?.trim() === 'Sign out',
+      ) ?? null
     );
   }
 
@@ -168,7 +165,10 @@ describe('LandingHeaderComponent', () => {
     expect(button.disabled).toBe(false);
 
     button.click();
-    fixture.detectChanges();
+    // Note this assertion cannot tell a signal from a plain field: TestBed runs
+    // change detection on `whenStable()` either way. It pins the behaviour, not
+    // the mechanism — the mechanism is checked by serving the app.
+    await fixture.whenStable();
     expect(button.disabled).toBe(true);
     expect(navigateByUrl).not.toHaveBeenCalled();
 

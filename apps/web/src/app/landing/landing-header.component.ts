@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth-service';
@@ -57,14 +57,12 @@ import { AuthService } from '../auth/auth-service';
 
         <div class="flex items-center gap-4 sm:gap-5">
           @if (auth.user(); as user) {
-            <span
-              class="whitespace-nowrap text-sm font-medium text-zinc-600"
-            >
+            <span class="whitespace-nowrap text-sm font-medium text-zinc-600">
               {{ user.displayName ?? user.email ?? 'Account' }}
             </span>
             <button
               type="button"
-              [disabled]="signingOut"
+              [disabled]="signingOut()"
               (click)="signOut()"
               class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -92,23 +90,33 @@ import { AuthService } from '../auth/auth-service';
 })
 export class LandingHeaderComponent {
   readonly auth = inject(AuthService);
-  signingOut = false;
+
+  /**
+   * A signal rather than a plain field. This app is zoneless — `zone.js` is not
+   * a dependency and nothing provides `NgZone` — so the only reason a mutated
+   * field would repaint here is that Angular runs change detection after a
+   * template listener returns, which happens to cover the synchronous write
+   * below. A signal does not lean on that: it schedules the repaint itself,
+   * from anywhere. This also matches `login.page.ts`, which tracks its own
+   * in-flight state as a signal.
+   */
+  readonly signingOut = signal(false);
 
   private readonly router = inject(Router);
 
   async signOut(): Promise<void> {
-    if (this.signingOut) {
+    if (this.signingOut()) {
       return;
     }
 
-    this.signingOut = true;
+    this.signingOut.set(true);
     try {
       await this.auth.logout();
     } catch {
       // `logout()` has already signed the browser out before it can reject;
       // losing the server-session teardown is worth reporting, but not here.
     } finally {
-      this.signingOut = false;
+      this.signingOut.set(false);
     }
 
     await this.router.navigateByUrl('/');
