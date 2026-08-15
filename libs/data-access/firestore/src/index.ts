@@ -62,6 +62,14 @@ export {
 export { createUserIfAbsent } from './lib/users';
 export type { CreateUserResult } from './lib/users';
 
+export {
+  LastOrgAdminError,
+  createOrg,
+  removeOrgMember,
+  setOrgMember,
+} from './lib/orgs';
+export type { CreateOrgDraft } from './lib/orgs';
+
 export { reserveSpot } from './lib/reserve-spot';
 export type {
   GuestDraft,
