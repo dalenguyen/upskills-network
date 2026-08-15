@@ -1,5 +1,6 @@
 import type { CreateUserResult } from '@upskills/firestore';
 import type { PlatformRole, Timestamp, User } from '@upskills/models';
+import { normalizeEmail } from '@upskills/validation';
 
 /**
  * What a first sign-in writes to `users/{uid}`.
@@ -24,6 +25,15 @@ import type { PlatformRole, Timestamp, User } from '@upskills/models';
  * promoted admin who signs in on a second device stays an admin, because the
  * candidate that says `role: 'user'` is never written over an existing
  * document — see `createUserIfAbsent` for how that holds under a race.
+ *
+ * ## Why the email is normalized here
+ *
+ * `email` is the one candidate field whose value is raw provider input. Every
+ * other email write path normalizes at the boundary (`waitlist`, guest
+ * registrations, guest doc ids), and reads such as
+ * `findRegistrationsByEmail` depend on that. Normalizing here keeps
+ * `users/{uid}.email` on the same rule without moving field semantics into
+ * `createUserIfAbsent`, whose job is the transaction, not the document shape.
  */
 
 /**
@@ -58,7 +68,7 @@ export function upsertUserOnSignIn(
 ): Promise<CreateUserResult> {
   const candidate: User = {
     uid: identity.uid,
-    email: identity.email,
+    email: normalizeEmail(identity.email),
     ...(identity.name === undefined ? {} : { name: identity.name }),
     role: DEFAULT_PLATFORM_ROLE,
     orgIds: [],
