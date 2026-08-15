@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import {
@@ -23,6 +24,8 @@ describe('RegisterPageComponent', () => {
     TestBed.resetTestingModule();
 
     const auth = {
+      user: signal<AuthUser | null>(null),
+      logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       registerWithEmail: vi.fn(async () => signedInUser),
       loginWithGoogle: vi.fn(async () => signedInUser),
     };

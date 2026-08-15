@@ -4,12 +4,18 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Meta, Title } from '@angular/platform-browser';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
 import { throwError } from 'rxjs';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService, type AuthUser } from '../../auth/auth-service';
 import type { PublicEvent } from '../../events/event-api';
 import { eventDetailEndpoint } from '../../events/event-api';
 import EventPageComponent from './[slug].page';
@@ -29,6 +35,13 @@ const event: PublicEvent = {
   soldOut: false,
 };
 
+function authServiceStub() {
+  return {
+    user: signal<AuthUser | null>(null),
+    logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  };
+}
+
 describe('EventPageComponent', () => {
   let http: HttpTestingController;
 
@@ -39,6 +52,7 @@ describe('EventPageComponent', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
         {
           provide: ActivatedRoute,
           useValue: {
@@ -47,6 +61,7 @@ describe('EventPageComponent', () => {
             },
           },
         },
+        { provide: AuthService, useValue: authServiceStub() },
       ],
     }).compileComponents();
 
@@ -175,6 +190,7 @@ describe('EventPageComponent', () => {
     await TestBed.configureTestingModule({
       imports: [EventPageComponent],
       providers: [
+        provideRouter([]),
         {
           provide: HttpClient,
           useValue: { get: () => throwError(() => fetchError) },
@@ -187,6 +203,7 @@ describe('EventPageComponent', () => {
             },
           },
         },
+        { provide: AuthService, useValue: authServiceStub() },
       ],
     }).compileComponents();
 

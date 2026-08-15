@@ -1,7 +1,10 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { provideRouter } from '@angular/router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService, type AuthUser } from '../auth/auth-service';
 import PageNotFoundComponent from './[...page-not-found].page';
 
 describe('PageNotFoundComponent', () => {
@@ -12,6 +15,16 @@ describe('PageNotFoundComponent', () => {
   async function setup() {
     await TestBed.configureTestingModule({
       imports: [PageNotFoundComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: AuthService,
+          useValue: {
+            user: signal<AuthUser | null>(null),
+            logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+          },
+        },
+      ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(PageNotFoundComponent);
