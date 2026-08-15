@@ -59,6 +59,7 @@ const firestore = vi.hoisted(() => ({
   createOrg: vi.fn(async () => ({})),
   createEvent: vi.fn(async () => ({})),
   updateEvent: vi.fn(async () => ({})),
+  cancelEvent: vi.fn(async () => ({ event: {}, confirmedGuests: [] })),
   setOrgMember: vi.fn(async () => ({})),
   removeOrgMember: vi.fn(async () => ({})),
 }));
@@ -126,6 +127,7 @@ import dashboardEventsListRoute from './routes/api/v1/dashboard/events/index.get
 import dashboardEventsCreateRoute from './routes/api/v1/dashboard/events/index.post';
 import dashboardEventDetailRoute from './routes/api/v1/dashboard/events/[eventId]/index.get';
 import dashboardEventUpdateRoute from './routes/api/v1/dashboard/events/[eventId]/index.put';
+import dashboardEventCancelRoute from './routes/api/v1/dashboard/events/[eventId]/index.delete';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -451,5 +453,31 @@ describe('dashboard event route wiring', () => {
     expect(firestore.updateEvent).toHaveBeenCalledWith('evt-1', {
       title: 'New title',
     });
+  });
+
+  it('DELETE /dashboard/events/:eventId cancels after reading the event', async () => {
+    firestore.getEvent.mockResolvedValueOnce({
+      eventId: 'evt-1',
+      orgId: 'org-1',
+    } as never);
+    firestore.cancelEvent.mockResolvedValueOnce({
+      event: { eventId: 'evt-1', status: 'cancelled' },
+      confirmedGuests: [],
+    } as never);
+
+    await run(dashboardEventCancelRoute, {
+      method: 'DELETE',
+      url: '/api/v1/dashboard/events/evt-1',
+      params: { eventId: 'evt-1' },
+    });
+
+    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+    expect(firestore.cancelEvent).toHaveBeenCalledWith('evt-1');
   });
 });
