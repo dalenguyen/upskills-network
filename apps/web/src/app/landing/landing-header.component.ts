@@ -1,4 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
+
+import { AuthService } from '../auth/auth-service';
 
 /**
  * The site header, shared by the landing page, the auth pages, and event pages.
@@ -7,7 +10,8 @@ import { Component } from '@angular/core';
  * landing-page convenience and collapse on small screens, but reaching sign-in
  * is the one thing a returning visitor cannot do any other way — the header is
  * the only place in the app that links to it, so it has to survive the mobile
- * breakpoint.
+ * breakpoint. The signed-in controls live in the same spot, so signing out
+ * never collapses behind the small-screen nav either.
  *
  * Every link here is a plain `href` rather than a `routerLink`, matching the
  * rest of the header. The section links are same-page fragments that must work
@@ -52,12 +56,28 @@ import { Component } from '@angular/core';
         </nav>
 
         <div class="flex items-center gap-4 sm:gap-5">
-          <a
-            href="/auth/login"
-            class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
-          >
-            Sign in
-          </a>
+          @if (auth.user(); as user) {
+            <span
+              class="whitespace-nowrap text-sm font-medium text-zinc-600"
+            >
+              {{ user.displayName ?? user.email ?? 'Account' }}
+            </span>
+            <button
+              type="button"
+              [disabled]="signingOut"
+              (click)="signOut()"
+              class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Sign out
+            </button>
+          } @else {
+            <a
+              href="/auth/login"
+              class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
+            >
+              Sign in
+            </a>
+          }
 
           <a
             href="/#waitlist"
@@ -70,4 +90,27 @@ import { Component } from '@angular/core';
     </header>
   `,
 })
-export class LandingHeaderComponent {}
+export class LandingHeaderComponent {
+  readonly auth = inject(AuthService);
+  signingOut = false;
+
+  private readonly router = inject(Router);
+
+  async signOut(): Promise<void> {
+    if (this.signingOut) {
+      return;
+    }
+
+    this.signingOut = true;
+    try {
+      await this.auth.logout();
+    } catch {
+      // `logout()` has already signed the browser out before it can reject;
+      // losing the server-session teardown is worth reporting, but not here.
+    } finally {
+      this.signingOut = false;
+    }
+
+    await this.router.navigateByUrl('/');
+  }
+}
