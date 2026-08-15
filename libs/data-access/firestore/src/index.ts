@@ -14,6 +14,8 @@ export {
   stripeEventRef,
   userRef,
   usersCol,
+  waitlistSubscriberRef,
+  waitlistSubscribersCol,
 } from './lib/collections';
 export type {
   EventSlugReservation,
@@ -85,6 +87,9 @@ export type {
   StripeEventGuardOptions,
   StripeEventOutcome,
 } from './lib/stripe-events';
+
+export { addWaitlistSubscriber } from './lib/waitlist';
+export type { WaitlistOutcome } from './lib/waitlist';
 
 export {
   cancelGuest,

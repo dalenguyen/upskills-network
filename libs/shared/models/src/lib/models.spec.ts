@@ -4,6 +4,7 @@ import type {
   Organizer,
   Timestamp,
   User,
+  WaitlistSubscriber,
   WorkshopEvent,
 } from '../index';
 
@@ -231,5 +232,17 @@ describe('Guest', () => {
     };
 
     expect(checkedIn.checkedInBy).toBe('uid-2');
+  });
+});
+
+describe('WaitlistSubscriber', () => {
+  it('is an email plus the moment it signed up', () => {
+    const subscriber: WaitlistSubscriber = {
+      email: 'interested@example.com',
+      createdAt: NOW,
+    };
+
+    expect(subscriber.email).toBe('interested@example.com');
+    expect(subscriber.createdAt.toMillis()).toBe(NOW.toMillis());
   });
 });
