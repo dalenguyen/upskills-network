@@ -58,6 +58,7 @@ const firestore = vi.hoisted(() => ({
   listOrgs: vi.fn(async () => []),
   createOrg: vi.fn(async () => ({})),
   createEvent: vi.fn(async () => ({})),
+  updateEvent: vi.fn(async () => ({})),
   setOrgMember: vi.fn(async () => ({})),
   removeOrgMember: vi.fn(async () => ({})),
 }));
@@ -123,6 +124,8 @@ import adminOrgMembersDeleteRoute from './routes/api/v1/admin/orgs/[orgId]/membe
 
 import dashboardEventsListRoute from './routes/api/v1/dashboard/events/index.get';
 import dashboardEventsCreateRoute from './routes/api/v1/dashboard/events/index.post';
+import dashboardEventDetailRoute from './routes/api/v1/dashboard/events/[eventId]/index.get';
+import dashboardEventUpdateRoute from './routes/api/v1/dashboard/events/[eventId]/index.put';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -402,5 +405,51 @@ describe('dashboard event route wiring', () => {
         status: 'draft',
       }),
     );
+  });
+
+  it('GET /dashboard/events/:eventId reads the event then authorizes its org', async () => {
+    firestore.getEvent.mockResolvedValueOnce({
+      eventId: 'evt-1',
+      orgId: 'org-1',
+    } as never);
+
+    await run(dashboardEventDetailRoute, {
+      method: 'GET',
+      url: '/api/v1/dashboard/events/evt-1',
+      params: { eventId: 'evt-1' },
+    });
+
+    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+  });
+
+  it('PUT /dashboard/events/:eventId updates after reading the event', async () => {
+    firestore.getEvent.mockResolvedValueOnce({
+      eventId: 'evt-1',
+      orgId: 'org-1',
+    } as never);
+
+    await run(dashboardEventUpdateRoute, {
+      method: 'PUT',
+      url: '/api/v1/dashboard/events/evt-1',
+      params: { eventId: 'evt-1' },
+      body: { title: 'New title' },
+    });
+
+    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+    expect(firestore.updateEvent).toHaveBeenCalledWith('evt-1', {
+      title: 'New title',
+    });
   });
 });
