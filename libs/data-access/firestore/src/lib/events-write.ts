@@ -59,7 +59,15 @@ export interface UpdateEventPatch {
   price?: number;
   currency?: WorkshopEvent['currency'];
   maxGuests?: number;
-  status?: EventStatus;
+  /**
+   * Draft/publish transitions only — **not** `'cancelled'`.
+   *
+   * Cancelling has to go through {@link cancelEvent}, which is the only path
+   * that returns the confirmed guests. Allowing `'cancelled'` here would let a
+   * route soft-delete an event and silently skip notifying everyone who had a
+   * seat, with nothing in the type system objecting.
+   */
+  status?: Exclude<EventStatus, 'cancelled'>;
 }
 
 /** The soft-deleted event plus the guests the caller should notify. */
