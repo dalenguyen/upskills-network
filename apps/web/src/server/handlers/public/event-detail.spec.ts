@@ -84,8 +84,10 @@ describe('GET /api/v1/events/:slug', () => {
 
   it('answers 404 when the router matched no slug at all', async () => {
     const getEventBySlug = vi.fn(async () => fakeEvent());
-    const event = createTestEvent({ method: 'GET', url: '/api/v1/events/' })
-      .event;
+    const event = createTestEvent({
+      method: 'GET',
+      url: '/api/v1/events/',
+    }).event;
 
     await expect(
       createEventDetailHandler(deps({ getEventBySlug }))(event),

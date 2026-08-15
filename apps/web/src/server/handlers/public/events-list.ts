@@ -59,7 +59,8 @@ export function createEventsListHandler(deps: EventsListDeps): EventHandler {
   return defineEventHandler(async (event) => {
     try {
       const query = getQuery(event);
-      const cursor = typeof query['cursor'] === 'string' ? query['cursor'] : null;
+      const cursor =
+        typeof query['cursor'] === 'string' ? query['cursor'] : null;
       const limit = parseLimit(query['limit']);
 
       const page = await deps

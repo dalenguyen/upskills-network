@@ -55,9 +55,9 @@ describe('GET /api/v1/events', () => {
       nextCursor: 'cursor-2',
     }));
 
-    const result = await createEventsListHandler(
-      deps({ listPublishedEvents }),
-    )(request('?cursor=cursor-1'));
+    const result = await createEventsListHandler(deps({ listPublishedEvents }))(
+      request('?cursor=cursor-1'),
+    );
 
     expect(listPublishedEvents).toHaveBeenCalledWith({ cursor: 'cursor-1' });
     expect(result).toMatchObject({ nextCursor: 'cursor-2' });

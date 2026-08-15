@@ -144,10 +144,7 @@ export interface PublishedEventsPage {
 export async function listPublishedEvents(
   options: ListPublishedEventsOptions = {},
 ): Promise<PublishedEventsPage> {
-  return pageOfEvents(
-    eventsCol().where('status', '==', 'published'),
-    options,
-  );
+  return pageOfEvents(eventsCol().where('status', '==', 'published'), options);
 }
 
 /**

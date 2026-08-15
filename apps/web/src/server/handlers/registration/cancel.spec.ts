@@ -31,7 +31,9 @@ function guest(overrides: Partial<Guest> = {}): Guest {
   };
 }
 
-function cancelled(overrides: Partial<TransitionResult> = {}): TransitionResult {
+function cancelled(
+  overrides: Partial<TransitionResult> = {},
+): TransitionResult {
   return {
     changed: true,
     guest: guest({ status: 'cancelled' }),
@@ -49,7 +51,10 @@ function deps(overrides: Partial<CancelDeps> = {}): CancelDeps {
       sent: true as const,
       id: 'em_1',
     })),
-    sendSpotOpenedEmail: vi.fn(async () => ({ sent: true as const, id: 'em_2' })),
+    sendSpotOpenedEmail: vi.fn(async () => ({
+      sent: true as const,
+      id: 'em_2',
+    })),
     ...overrides,
   };
 }
@@ -73,9 +78,9 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
         id: 'em_1',
       }));
 
-      const result = await createCancelHandler(
-        deps({ sendCancellationEmail }),
-      )(post(VALID));
+      const result = await createCancelHandler(deps({ sendCancellationEmail }))(
+        post(VALID),
+      );
 
       expect(result).toEqual({
         cancelled: true,
@@ -145,7 +150,10 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
   });
 
   describe('cancelling twice', () => {
-    const already = cancelled({ changed: false, guest: guest({ status: 'cancelled' }) });
+    const already = cancelled({
+      changed: false,
+      guest: guest({ status: 'cancelled' }),
+    });
 
     it('is a no-op that still answers 2xx', async () => {
       const result = await createCancelHandler(
@@ -165,7 +173,10 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
       }));
 
       await createCancelHandler(
-        deps({ cancelGuest: vi.fn(async () => already), sendCancellationEmail }),
+        deps({
+          cancelGuest: vi.fn(async () => already),
+          sendCancellationEmail,
+        }),
       )(post(VALID));
 
       expect(sendCancellationEmail).not.toHaveBeenCalled();
@@ -186,16 +197,19 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
 
   describe('refusing', () => {
     /** Every refusal must be indistinguishable from every other refusal. */
-    async function refusal(overrides: Partial<CancelDeps>, body: unknown = VALID) {
+    async function refusal(
+      overrides: Partial<CancelDeps>,
+      body: unknown = VALID,
+    ) {
       return createCancelHandler(deps(overrides))(post(body)).catch(
         (error: unknown) => error as Record<string, unknown>,
       );
     }
 
     it('answers 403 for a wrong token', async () => {
-      const error = await refusal(
-        { getGuest: vi.fn(async () => guest({ cancelToken: 'tok_other' })) },
-      );
+      const error = await refusal({
+        getGuest: vi.fn(async () => guest({ cancelToken: 'tok_other' })),
+      });
 
       expect(error).toMatchObject({
         statusCode: 403,
@@ -232,19 +246,25 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
     });
 
     it('refuses a token that is a prefix of the real one', async () => {
-      const error = await refusal({}, {
-        email: 'ada@example.com',
-        cancelToken: TOKEN.slice(0, 10),
-      });
+      const error = await refusal(
+        {},
+        {
+          email: 'ada@example.com',
+          cancelToken: TOKEN.slice(0, 10),
+        },
+      );
 
       expect(error).toMatchObject({ statusCode: 403 });
     });
 
     it('refuses a token that only differs in case', async () => {
-      const error = await refusal({}, {
-        email: 'ada@example.com',
-        cancelToken: TOKEN.toUpperCase(),
-      });
+      const error = await refusal(
+        {},
+        {
+          email: 'ada@example.com',
+          cancelToken: TOKEN.toUpperCase(),
+        },
+      );
 
       expect(error).toMatchObject({ statusCode: 403 });
     });

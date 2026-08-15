@@ -397,7 +397,9 @@ export class PaymentRequiredError extends Error {
     /** Price in minor units, as read inside the transaction. */
     readonly price: number,
   ) {
-    super(`Event "${eventId}" costs ${price} and cannot be confirmed for free.`);
+    super(
+      `Event "${eventId}" costs ${price} and cannot be confirmed for free.`,
+    );
     this.name = 'PaymentRequiredError';
   }
 }

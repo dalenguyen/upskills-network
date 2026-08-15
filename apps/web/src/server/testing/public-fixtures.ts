@@ -46,7 +46,9 @@ export function fakeOrg(overrides: Partial<Organizer> = {}): Organizer {
     name: 'Upskills Toronto',
     slug: 'upskills-toronto',
     createdBy: 'uid-1',
-    members: { 'uid-1': { role: 'admin', addedAt: fakeTimestamp(FIXTURE_START) } },
+    members: {
+      'uid-1': { role: 'admin', addedAt: fakeTimestamp(FIXTURE_START) },
+    },
     memberUids: ['uid-1'],
     createdAt: fakeTimestamp(FIXTURE_START),
     ...overrides,

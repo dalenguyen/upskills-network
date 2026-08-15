@@ -160,7 +160,10 @@ export function createRegisterHandler(deps: RegisterDeps): EventHandler {
       }
 
       const result = await deps
-        .reserveSpot(eventId, { email: parsed.data.email, name: parsed.data.name })
+        .reserveSpot(eventId, {
+          email: parsed.data.email,
+          name: parsed.data.name,
+        })
         .catch((error: unknown) => {
           throw asRegistrationError(error);
         });

@@ -40,7 +40,10 @@ function reserved(
 }
 
 /** An error shaped exactly as the firestore lib's, which is matched by name. */
-function reserveError(name: string, extra: Record<string, unknown> = {}): Error {
+function reserveError(
+  name: string,
+  extra: Record<string, unknown> = {},
+): Error {
   return Object.assign(new Error(`${name} raised`), { name, ...extra });
 }
 
@@ -160,9 +163,7 @@ describe('POST /api/v1/registration/:eventId/register', () => {
     it('answers 200 with the standing registration', async () => {
       const result = await createRegisterHandler(
         deps({
-          reserveSpot: vi.fn(async () =>
-            reserved({ alreadyRegistered: true }),
-          ),
+          reserveSpot: vi.fn(async () => reserved({ alreadyRegistered: true })),
         }),
       )(post(VALID));
 
@@ -180,9 +181,7 @@ describe('POST /api/v1/registration/:eventId/register', () => {
 
       await createRegisterHandler(
         deps({
-          reserveSpot: vi.fn(async () =>
-            reserved({ alreadyRegistered: true }),
-          ),
+          reserveSpot: vi.fn(async () => reserved({ alreadyRegistered: true })),
           sendWelcomeEmail,
         }),
       )(post(VALID));
@@ -193,9 +192,7 @@ describe('POST /api/v1/registration/:eventId/register', () => {
     it('still reports emailSent, because the original mail is in their inbox', async () => {
       const result = await createRegisterHandler(
         deps({
-          reserveSpot: vi.fn(async () =>
-            reserved({ alreadyRegistered: true }),
-          ),
+          reserveSpot: vi.fn(async () => reserved({ alreadyRegistered: true })),
         }),
       )(post(VALID));
 
@@ -389,9 +386,9 @@ describe('POST /api/v1/registration/:eventId/register', () => {
         body: VALID,
       }).event;
 
-      await expect(
-        createRegisterHandler(deps())(event),
-      ).rejects.toMatchObject({ statusCode: 404 });
+      await expect(createRegisterHandler(deps())(event)).rejects.toMatchObject({
+        statusCode: 404,
+      });
     });
   });
 
