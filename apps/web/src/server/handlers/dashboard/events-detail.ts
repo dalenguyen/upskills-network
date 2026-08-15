@@ -8,6 +8,7 @@ import {
 } from 'h3';
 import { toHttpError } from '../http-error';
 import { eventForbidden } from './dashboard-access';
+import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
  * `GET /api/v1/dashboard/events/:eventId` — one event owned by one org.
@@ -30,7 +31,7 @@ import { eventForbidden } from './dashboard-access';
  */
 
 export interface DashboardEventsDetailResponse {
-  event: WorkshopEvent;
+  event: DashboardEvent;
 }
 
 export interface DashboardEventsDetailDeps {
@@ -69,7 +70,9 @@ export function createDashboardEventsDetailHandler(
 
       await deps.requireOrgRole(event, found.orgId, 'admin', 'manager');
 
-      return { event: found } satisfies DashboardEventsDetailResponse;
+      return {
+        event: toDashboardEvent(found),
+      } satisfies DashboardEventsDetailResponse;
     } catch (error) {
       throw toHttpError(error);
     }
