@@ -104,7 +104,7 @@
           "envVars": {
             "NODE_ENV": "production",
             "GCP_PROJECT_ID": "upskills-network",
-            "SITE_URL": "https://upskills-web-694973978627.us-central1.run.app"
+            "SITE_URL": "https://upskillsnetwork.com"
           }
         }
       }
