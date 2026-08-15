@@ -356,3 +356,50 @@ export class EventNotFoundError extends Error {
     this.name = 'EventNotFoundError';
   }
 }
+
+/**
+ * Raised when an event exists but is not open for registration — it is still a
+ * draft, or it has been cancelled.
+ *
+ * Checked *inside* the reservation transaction, alongside capacity, rather than
+ * by the caller beforehand. A route that read the event, saw `published`, and
+ * then called `reserveSpot` would leave a window in which the organizer
+ * cancels the event and a registration still lands on it — the same lost-update
+ * shape as counting seats before taking one. The status is a condition on the
+ * event document, so it is tested against the copy read in the transaction.
+ */
+export class EventNotRegisterableError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** The event's status at the moment the transaction read it. */
+    readonly status: string,
+  ) {
+    super(`Event "${eventId}" is not open for registration (${status}).`);
+    this.name = 'EventNotRegisterableError';
+  }
+}
+
+/**
+ * Raised when a free seat is claimed outright on an event that costs money.
+ *
+ * Checked inside the reservation transaction against the price read there, so a
+ * caller cannot read the price, see zero, and reserve after the organizer has
+ * put a number on it. A route that gated on its own earlier read would leave
+ * exactly that window, and the seat it let through would be a paid seat given
+ * away for nothing.
+ *
+ * Only `confirm` mode raises this. `hold` is the paid path: it reserves the
+ * seat *pending* payment, which is precisely what a priced event needs.
+ */
+export class PaymentRequiredError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** Price in minor units, as read inside the transaction. */
+    readonly price: number,
+  ) {
+    super(
+      `Event "${eventId}" costs ${price} and cannot be confirmed for free.`,
+    );
+    this.name = 'PaymentRequiredError';
+  }
+}

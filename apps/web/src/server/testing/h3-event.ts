@@ -18,6 +18,12 @@ export interface TestEventInit {
   /** Sent as a `Cookie:` header, so `getCookie` reads them for real. */
   cookies?: Record<string, string>;
   headers?: Record<string, string>;
+  /**
+   * Route params, as the file-based router would have matched them — the `slug`
+   * in `events/[slug].get.ts`. Written to `event.context.params`, which is
+   * where `getRouterParam` reads from, so the handler uses the real helper.
+   */
+  params?: Record<string, string>;
 }
 
 export interface TestEvent {
@@ -54,6 +60,10 @@ export function createTestEvent(init: TestEventInit = {}): TestEvent {
   };
 
   const event = createEvent(req as never, res as never);
+
+  if (init.params !== undefined) {
+    event.context.params = init.params;
+  }
 
   return {
     event,

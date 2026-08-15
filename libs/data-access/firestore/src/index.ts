@@ -37,6 +37,7 @@ export {
   listEventGuests,
   listOrgEvents,
   listPublishedEvents,
+  listPublishedOrgEvents,
 } from './lib/reads';
 export type {
   ListEventGuestsOptions,
@@ -47,8 +48,10 @@ export type {
 
 export {
   EventNotFoundError,
+  EventNotRegisterableError,
   MAX_RESTARTS,
   MAX_TRANSACTION_ATTEMPTS,
+  PaymentRequiredError,
   TransactionContendedError,
   runIdempotentTransaction,
   runTransaction,

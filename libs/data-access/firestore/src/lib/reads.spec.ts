@@ -14,6 +14,7 @@ import {
   listEventGuests,
   listOrgEvents,
   listPublishedEvents,
+  listPublishedOrgEvents,
 } from './reads';
 
 beforeEach(clearFirestore);
@@ -190,6 +191,84 @@ describe('listPublishedEvents', () => {
     await expect(listPublishedEvents({ cursor: 'garbage' })).rejects.toThrow(
       'Invalid cursor',
     );
+  });
+});
+
+describe('listPublishedOrgEvents', () => {
+  /**
+   * One org with a published past/future pair plus a draft, and a second org
+   * whose published event must never leak into the first org's page.
+   */
+  async function seedOrgPageFixtures(): Promise<void> {
+    await seedEvent({ eventId: 'evt-1', slug: 'one', startsAt: at(0) });
+    await seedEvent({ eventId: 'evt-2', slug: 'two', startsAt: at(60) });
+    await seedEvent({
+      eventId: 'evt-draft',
+      slug: 'draft',
+      startsAt: at(30),
+      status: 'draft',
+    });
+    await seedEvent({
+      eventId: 'evt-cancelled',
+      slug: 'cancelled',
+      startsAt: at(45),
+      status: 'cancelled',
+    });
+    await seedEvent({ eventId: 'evt-other', slug: 'other', orgId: 'org-2' });
+  }
+
+  it("returns only that org's published events, soonest first", async () => {
+    await seedOrgPageFixtures();
+
+    const page = await listPublishedOrgEvents('org-1');
+
+    expect(page.events.map((event) => event.eventId)).toEqual([
+      'evt-1',
+      'evt-2',
+    ]);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('orders soonest-first, the opposite of the dashboard listing', async () => {
+    await seedOrgPageFixtures();
+
+    const [publicFirst] = (await listPublishedOrgEvents('org-1')).events;
+    const [dashboardFirst] = await listOrgEvents('org-1');
+
+    // The two reads answer different questions off the same collection; this
+    // is the assertion that keeps them from being merged back together.
+    expect(publicFirst.eventId).toBe('evt-1');
+    expect(dashboardFirst.eventId).toBe('evt-2');
+  });
+
+  it('advances through the org page with the cursor, without repeats', async () => {
+    await seedOrgPageFixtures();
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+
+    do {
+      const page = await listPublishedOrgEvents('org-1', { cursor, limit: 1 });
+      seen.push(...page.events.map((event) => event.eventId));
+      cursor = page.nextCursor;
+      pages++;
+      expect(pages).toBeLessThan(10); // guard against a cursor that never moves
+    } while (cursor);
+
+    expect(seen).toEqual(['evt-1', 'evt-2']);
+    // Two full pages of 1, then an empty third that ends it — every page being
+    // full means the cursor cannot tell "done" from "more" until it overruns.
+    expect(pages).toBe(3);
+  });
+
+  it('returns an empty page for an org with nothing published', async () => {
+    await seedEvent({ eventId: 'evt-draft', slug: 'draft', status: 'draft' });
+
+    expect(await listPublishedOrgEvents('org-1')).toEqual({
+      events: [],
+      nextCursor: null,
+    });
   });
 });
 

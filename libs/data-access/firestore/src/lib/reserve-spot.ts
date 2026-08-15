@@ -4,6 +4,8 @@ import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
 import { eventRef, guestRef } from './collections';
 import {
   EventNotFoundError,
+  EventNotRegisterableError,
+  PaymentRequiredError,
   applyCounters,
   guestFromSnapshot,
   isActive,
@@ -94,7 +96,14 @@ function outcomeFor(status: GuestStatus): ReserveOutcome {
  * their place was already given back, so the document is rebuilt from scratch
  * and capacity is re-evaluated for them like anyone else.
  *
+ * Only a `published` event accepts registrations, and in `confirm` mode only a
+ * free one. Both are checked here rather than by the caller, against the event
+ * read inside the transaction — see {@link EventNotRegisterableError} and
+ * {@link PaymentRequiredError}.
+ *
  * @throws EventNotFoundError if `eventId` names no event.
+ * @throws EventNotRegisterableError if the event is a draft or cancelled.
+ * @throws PaymentRequiredError in `confirm` mode if the event has a price.
  */
 export async function reserveSpot(
   eventId: string,
@@ -121,6 +130,18 @@ export async function reserveSpot(
     const event = eventSnapshot.data();
     if (!event) {
       throw new EventNotFoundError(eventId);
+    }
+
+    // Status before price, and both before anything else is decided. An
+    // unpublished event must answer the same way whatever it costs — otherwise
+    // a paid draft is distinguishable from a free one, and the fact that an
+    // unannounced event exists leaks through the difference.
+    if (event.status !== 'published') {
+      throw new EventNotRegisterableError(eventId, event.status);
+    }
+
+    if (mode === 'confirm' && event.price > 0) {
+      throw new PaymentRequiredError(eventId, event.price);
     }
 
     const existing = guestFromSnapshot(eventId, guestSnapshot);
