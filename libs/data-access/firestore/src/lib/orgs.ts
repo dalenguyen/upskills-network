@@ -44,8 +44,14 @@ export class LastOrgAdminError extends Error {
   }
 }
 
-/** Raised when a membership write names an organizer that does not exist. */
-class OrgNotFoundError extends Error {
+/**
+ * Raised when a membership write names an organizer that does not exist.
+ *
+ * Exported because it is a normal typed outcome, not an internal detail: the
+ * admin routes need to tell it apart from a genuine failure to answer anything
+ * other than a 500.
+ */
+export class OrgNotFoundError extends Error {
   constructor(readonly orgId: string) {
     super(`Organizer "${orgId}" does not exist.`);
     this.name = 'OrgNotFoundError';
@@ -216,7 +222,7 @@ function orgFromSnapshot(
 }
 
 /**
- * `true` only when `uid` can stop being an admin without stranding the org.
+ * Throws unless `uid` can stop being an admin without stranding the org.
  *
  * Removing or demoting an admin is allowed exactly when some *other* member is
  * already an admin. The check runs against the document read inside the

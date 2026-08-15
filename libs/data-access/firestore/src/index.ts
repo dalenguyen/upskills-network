@@ -64,6 +64,7 @@ export type { CreateUserResult } from './lib/users';
 
 export {
   LastOrgAdminError,
+  OrgNotFoundError,
   createOrg,
   removeOrgMember,
   setOrgMember,
@@ -81,9 +82,11 @@ export type {
 export {
   InvalidSlugError,
   SlugTakenError,
+  asSlugTaken,
   releaseSlug,
   renameSlug,
   reserveSlug,
+  reserveSlugInTransaction,
 } from './lib/slugs';
 export type { SlugCollection, SlugRename, SlugReservation } from './lib/slugs';
 
