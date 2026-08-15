@@ -17,7 +17,7 @@ describe('LandingHeaderComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('Upskills');
 
-    const callToAction = root.querySelector('a[href="#waitlist"]');
+    const callToAction = root.querySelector('a[href="/#waitlist"]');
     expect(callToAction?.textContent?.trim()).toBe('Join the waitlist');
   });
 });

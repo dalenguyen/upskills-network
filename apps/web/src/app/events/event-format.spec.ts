@@ -1,0 +1,68 @@
+import { describe, expect, it } from 'vitest';
+
+import { formatEventWhen, formatPrice, formatSpots } from './event-format';
+
+describe('formatPrice', () => {
+  it('names a zero price rather than printing $0.00', () => {
+    expect(formatPrice(0, 'cad')).toBe('Free');
+  });
+
+  it('renders minor units as major units with the currency', () => {
+    expect(formatPrice(4500, 'cad')).toBe('$45.00 CAD');
+  });
+});
+
+describe('formatEventWhen', () => {
+  const timezone = 'America/Toronto';
+
+  it('renders the start in the event timezone, not the viewer timezone', () => {
+    // 2026-09-10T13:30Z is 09:30 in Toronto (EDT, UTC-4).
+    const when = formatEventWhen(
+      '2026-09-10T13:30:00.000Z',
+      undefined,
+      timezone,
+    );
+
+    expect(when).toContain('September 10, 2026');
+    expect(when).toContain('9:30');
+  });
+
+  it('appends an end time when the event has one', () => {
+    const when = formatEventWhen(
+      '2026-09-10T13:30:00.000Z',
+      '2026-09-10T16:00:00.000Z',
+      timezone,
+    );
+
+    expect(when).toContain('9:30');
+    expect(when).toContain('12:00');
+  });
+
+  it('falls back to the raw value when the date cannot be parsed', () => {
+    expect(formatEventWhen('not-a-date', undefined, timezone)).toBe(
+      'not-a-date',
+    );
+  });
+});
+
+describe('formatSpots', () => {
+  it('says nothing when capacity is unlimited', () => {
+    expect(formatSpots(null)).toBeNull();
+  });
+
+  it('says nothing when the count is not scarce enough to matter', () => {
+    expect(formatSpots(40)).toBeNull();
+  });
+
+  it('singularises the last spot', () => {
+    expect(formatSpots(1)).toBe('1 spot left');
+  });
+
+  it('counts down once the number is small enough to create urgency', () => {
+    expect(formatSpots(6)).toBe('6 spots left');
+  });
+
+  it('says nothing at zero — the sold-out state speaks for itself', () => {
+    expect(formatSpots(0)).toBeNull();
+  });
+});

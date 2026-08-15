@@ -26,16 +26,19 @@ import { Component } from '@angular/core';
           class="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex"
           aria-label="Primary"
         >
-          <a href="#how-it-works" class="transition-colors hover:text-zinc-900">
+          <a
+            href="/#how-it-works"
+            class="transition-colors hover:text-zinc-900"
+          >
             How it works
           </a>
-          <a href="#features" class="transition-colors hover:text-zinc-900">
+          <a href="/#features" class="transition-colors hover:text-zinc-900">
             Why Upskills
           </a>
         </nav>
 
         <a
-          href="#waitlist"
+          href="/#waitlist"
           class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
         >
           Join the waitlist
