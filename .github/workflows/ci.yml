@@ -24,17 +24,25 @@ jobs:
       # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
       - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
 
-      # Cache node_modules
+      # This workspace is pnpm (pnpm-lock.yaml, lockfileVersion 9). pnpm must be
+      # installed BEFORE setup-node, because `cache: 'pnpm'` asks pnpm for its
+      # store path. The previous `cache: 'npm'` looked for a package-lock.json
+      # that does not exist and failed the job before a single test ran —
+      # every run on `main` was red for that reason alone.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
-      - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
-      - run: npx nx run-many -t lint test build typecheck e2e
+      - run: pnpm exec nx record -- pnpm exec nx format:check --base="remotes/origin/main"
+      - run: pnpm exec nx run-many -t lint test build typecheck e2e
       # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/docs/features/ci-features/self-healing-ci
-      - run: npx nx fix-ci
+      - run: pnpm exec nx fix-ci
         if: always()
