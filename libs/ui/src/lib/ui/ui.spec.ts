@@ -13,7 +13,6 @@ describe('ui primitives', () => {
 });
 
 describe('Button', () => {
-  let component: Button;
   let fixture: ComponentFixture<Button>;
 
   beforeEach(async () => {
@@ -22,7 +21,6 @@ describe('Button', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(Button);
-    component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
@@ -37,7 +35,7 @@ describe('Button', () => {
   });
 
   it('renders the secondary variant', () => {
-    component.variant = 'secondary';
+    fixture.componentRef.setInput('variant', 'secondary');
     fixture.detectChanges();
 
     const button = fixture.nativeElement.querySelector(
@@ -49,7 +47,7 @@ describe('Button', () => {
   });
 
   it('renders the ghost variant', () => {
-    component.variant = 'ghost';
+    fixture.componentRef.setInput('variant', 'ghost');
     fixture.detectChanges();
 
     const button = fixture.nativeElement.querySelector(
@@ -74,9 +72,7 @@ describe('Card', () => {
   });
 
   it('renders a card surface', () => {
-    const card = fixture.nativeElement.querySelector(
-      'div',
-    ) as HTMLDivElement;
+    const card = fixture.nativeElement.querySelector('div') as HTMLDivElement;
 
     expect(card).toBeTruthy();
     expect(card.classList.contains('rounded-xl')).toBe(true);
@@ -132,7 +128,6 @@ describe('Badge', () => {
 });
 
 describe('Icon', () => {
-  let component: Icon;
   let fixture: ComponentFixture<Icon>;
 
   beforeEach(async () => {
@@ -141,7 +136,6 @@ describe('Icon', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(Icon);
-    component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
@@ -155,7 +149,7 @@ describe('Icon', () => {
   });
 
   it('renders the calendar glyph when requested', () => {
-    component.name = 'calendar';
+    fixture.componentRef.setInput('name', 'calendar');
     fixture.detectChanges();
 
     const path = fixture.nativeElement.querySelector('path') as SVGPathElement;
@@ -164,7 +158,7 @@ describe('Icon', () => {
   });
 
   it('renders the check glyph when requested', () => {
-    component.name = 'check';
+    fixture.componentRef.setInput('name', 'check');
     fixture.detectChanges();
 
     const path = fixture.nativeElement.querySelector('path') as SVGPathElement;

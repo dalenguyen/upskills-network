@@ -4,16 +4,11 @@
   "sourceRoot": "libs/ui/src",
   "prefix": "ui",
   "projectType": "library",
-  "tags": [
-    "scope:shared",
-    "type:ui"
-  ],
+  "tags": ["scope:shared", "type:ui"],
   "targets": {
     "test": {
       "executor": "@nx/jest:jest",
-      "outputs": [
-        "{workspaceRoot}/coverage/{projectRoot}"
-      ],
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
         "jestConfig": "libs/ui/jest.config.cts",
         "tsConfig": "libs/ui/tsconfig.spec.json"
