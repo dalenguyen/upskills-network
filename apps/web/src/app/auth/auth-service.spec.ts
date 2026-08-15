@@ -77,7 +77,10 @@ class FakeAuthClient implements AuthClient {
     return this.become('email-uid', email);
   }
 
-  async registerWithEmail(email: string, password: string): Promise<ClientUser> {
+  async registerWithEmail(
+    email: string,
+    password: string,
+  ): Promise<ClientUser> {
     this.calls.push(`registerWithEmail(${email}, ${password})`);
     return this.become('new-uid', email);
   }
@@ -521,9 +524,9 @@ describe('AuthService', () => {
       await expect(service.loginWithGoogle()).rejects.toBeInstanceOf(
         AuthUnavailableError,
       );
-      await expect(service.loginWithEmail('a@b.com', 'pw')).rejects.toBeInstanceOf(
-        AuthUnavailableError,
-      );
+      await expect(
+        service.loginWithEmail('a@b.com', 'pw'),
+      ).rejects.toBeInstanceOf(AuthUnavailableError);
       await expect(
         service.registerWithEmail('a@b.com', 'pw'),
       ).rejects.toBeInstanceOf(AuthUnavailableError);

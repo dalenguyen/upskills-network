@@ -111,7 +111,11 @@ export function createFirebaseAuthClient(auth: Auth): AuthClient {
     },
 
     signInWithEmail: async (email, password) => {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       return credential.user;
     },
 

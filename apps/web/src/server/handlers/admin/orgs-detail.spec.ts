@@ -1,6 +1,9 @@
 import type { AuthContext } from '@upskills/auth';
 import { describe, expect, it, vi } from 'vitest';
-import { fakeForbiddenError, fakeInvalidSessionError } from '../../testing/fakes';
+import {
+  fakeForbiddenError,
+  fakeInvalidSessionError,
+} from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
 import { fakeOrg } from '../../testing/public-fixtures';
 import { createOrgsDetailHandler, type OrgsDetailDeps } from './orgs-detail';
@@ -45,12 +48,12 @@ describe('GET /api/v1/admin/orgs/:orgId', () => {
   it('answers 404 for an unknown org id', async () => {
     const d = deps({ getOrg: vi.fn(async () => null) });
 
-    await expect(createOrgsDetailHandler(d)(request('nope'))).rejects.toMatchObject(
-      {
-        statusCode: 404,
-        data: { error: 'org-not-found' },
-      },
-    );
+    await expect(
+      createOrgsDetailHandler(d)(request('nope')),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      data: { error: 'org-not-found' },
+    });
   });
 
   it('answers 403 for a signed-in caller who is not an admin', async () => {

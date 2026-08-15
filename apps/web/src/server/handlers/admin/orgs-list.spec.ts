@@ -1,6 +1,9 @@
 import type { AuthContext } from '@upskills/auth';
 import { describe, expect, it, vi } from 'vitest';
-import { fakeForbiddenError, fakeInvalidSessionError } from '../../testing/fakes';
+import {
+  fakeForbiddenError,
+  fakeInvalidSessionError,
+} from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
 import { fakeOrg } from '../../testing/public-fixtures';
 import { createOrgsListHandler, type OrgsListDeps } from './orgs-list';

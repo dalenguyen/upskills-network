@@ -77,9 +77,7 @@ describe('POST /api/v1/admin/orgs/:orgId/members', () => {
     });
 
     await expect(
-      createOrgMembersSetHandler(d)(
-        request({ uid: 'uid-1', role: 'manager' }),
-      ),
+      createOrgMembersSetHandler(d)(request({ uid: 'uid-1', role: 'manager' })),
     ).rejects.toMatchObject({
       statusCode: 409,
       data: { error: 'last-org-admin' },
@@ -111,9 +109,7 @@ describe('POST /api/v1/admin/orgs/:orgId/members', () => {
     });
 
     await expect(
-      createOrgMembersSetHandler(d)(
-        request({ uid: 'uid-2', role: 'manager' }),
-      ),
+      createOrgMembersSetHandler(d)(request({ uid: 'uid-2', role: 'manager' })),
     ).rejects.toMatchObject({
       statusCode: 403,
       data: { error: 'forbidden' },
@@ -129,9 +125,7 @@ describe('POST /api/v1/admin/orgs/:orgId/members', () => {
     });
 
     await expect(
-      createOrgMembersSetHandler(d)(
-        request({ uid: 'uid-2', role: 'manager' }),
-      ),
+      createOrgMembersSetHandler(d)(request({ uid: 'uid-2', role: 'manager' })),
     ).rejects.toMatchObject({
       statusCode: 401,
       data: { error: 'invalid-session', reason: 'expired' },

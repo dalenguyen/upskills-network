@@ -33,7 +33,9 @@ describe('readFirebaseWebConfig', () => {
   it.each(Object.keys(complete) as (keyof typeof complete)[])(
     'is null when %s is missing',
     (key) => {
-      expect(readFirebaseWebConfig({ ...complete, [key]: undefined })).toBeNull();
+      expect(
+        readFirebaseWebConfig({ ...complete, [key]: undefined }),
+      ).toBeNull();
     },
   );
 

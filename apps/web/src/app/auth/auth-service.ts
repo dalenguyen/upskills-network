@@ -298,7 +298,11 @@ export class AuthService {
 
     try {
       await firstValueFrom(
-        this.http.post(SESSION_ENDPOINT, { idToken }, { withCredentials: true }),
+        this.http.post(
+          SESSION_ENDPOINT,
+          { idToken },
+          { withCredentials: true },
+        ),
       );
     } catch (error) {
       await this.abandonSignIn(client);
