@@ -36,6 +36,7 @@ import { describe, expect, it, vi } from 'vitest';
 const firestore = vi.hoisted(() => ({
   listPublishedEvents: vi.fn(async () => ({ events: [], nextCursor: null })),
   listPublishedOrgEvents: vi.fn(async () => ({ events: [], nextCursor: null })),
+  listOrgEvents: vi.fn(async () => []),
   getEventBySlug: vi.fn(async () => null),
   getOrgBySlug: vi.fn(async () => null),
   getEvent: vi.fn(async () => null),
@@ -56,6 +57,7 @@ const firestore = vi.hoisted(() => ({
   getOrg: vi.fn(async () => null),
   listOrgs: vi.fn(async () => []),
   createOrg: vi.fn(async () => ({})),
+  createEvent: vi.fn(async () => ({})),
   setOrgMember: vi.fn(async () => ({})),
   removeOrgMember: vi.fn(async () => ({})),
 }));
@@ -85,6 +87,15 @@ const auth = vi.hoisted(() => ({
   clearedSessionCookie: vi.fn(() => '__session=; Max-Age=0'),
   requireAuth: vi.fn(async () => ({ uid: 'uid-1', role: 'user' })),
   requireAdmin: vi.fn(async () => ({ uid: 'uid-1', role: 'admin' })),
+  requireOrgRole: vi.fn(async () => ({
+    uid: 'uid-1',
+    role: 'user',
+    session: {},
+    orgId: 'org-1',
+    orgRole: 'admin',
+    viaPlatformAdmin: false,
+    org: { orgId: 'org-1' },
+  })),
 }));
 
 vi.mock('@upskills/firestore', () => firestore);
@@ -109,6 +120,9 @@ import adminOrgDetailRoute from './routes/api/v1/admin/orgs/[orgId]/index.get';
 import adminOrgMembersPostRoute from './routes/api/v1/admin/orgs/[orgId]/members.post';
 import adminOrgMembersPutRoute from './routes/api/v1/admin/orgs/[orgId]/members.put';
 import adminOrgMembersDeleteRoute from './routes/api/v1/admin/orgs/[orgId]/members.delete';
+
+import dashboardEventsListRoute from './routes/api/v1/dashboard/events/index.get';
+import dashboardEventsCreateRoute from './routes/api/v1/dashboard/events/index.post';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -339,5 +353,54 @@ describe('admin org route wiring', () => {
 
     expect(auth.requireAdmin).toHaveBeenCalled();
     expect(firestore.removeOrgMember).toHaveBeenCalledWith('org-1', 'uid-2');
+  });
+});
+
+describe('dashboard event route wiring', () => {
+  it('GET /dashboard/events requires an org role and lists the query org id', async () => {
+    await run(dashboardEventsListRoute, {
+      method: 'GET',
+      url: '/api/v1/dashboard/events?orgId=org-1',
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+    expect(firestore.listOrgEvents).toHaveBeenCalledWith('org-1');
+  });
+
+  it('POST /dashboard/events requires an org role and creates with the query org id', async () => {
+    await run(dashboardEventsCreateRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/events?orgId=org-1',
+      body: {
+        title: '  Workshop  ',
+        slug: '  workshop  ',
+        description: 'Hands-on',
+        startsAt: '2026-09-01T18:00:00Z',
+        timezone: 'UTC',
+        price: 0,
+        currency: 'cad',
+        maxGuests: 30,
+      },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+    expect(firestore.createEvent).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({
+        title: 'Workshop',
+        slug: 'workshop',
+        status: 'draft',
+      }),
+    );
   });
 });
