@@ -34,13 +34,13 @@ Then open http://localhost:4200.
 
 ## Common commands
 
-| Command | Description |
-| --- | --- |
-| `pnpm start:web` | Serve the web app locally with HMR (`nx serve web`). |
-| `pnpm build:web` | Production build of the web app (`nx build web`). |
-| `pnpm typecheck` | Type-check all projects (`nx run-many -t typecheck`). |
-| `pnpm test` | Run unit tests across all projects (`nx run-many -t test`). |
-| `pnpm lint` | Lint all projects (`nx run-many -t lint`). |
+| Command           | Description                                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm start:web`  | Serve the web app locally with HMR (`nx serve web`).                                                                         |
+| `pnpm build:web`  | Production build of the web app (`nx build web`).                                                                            |
+| `pnpm typecheck`  | Type-check all projects (`nx run-many -t typecheck`).                                                                        |
+| `pnpm test`       | Run unit tests across all projects (`nx run-many -t test`).                                                                  |
+| `pnpm lint`       | Lint all projects (`nx run-many -t lint`).                                                                                   |
 | `pnpm deploy:web` | Deploy the web app: build a Docker image and push it, then deploy the `upskills-web` service to Cloud Run (`nx deploy web`). |
 
 ## Domain model
