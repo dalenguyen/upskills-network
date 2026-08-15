@@ -31,7 +31,10 @@ import { Section } from '@upskills/ui';
             class="flex flex-col items-center gap-3 text-sm text-zinc-600 sm:items-end"
             aria-label="Footer"
           >
-            <a href="#how-it-works" class="transition-colors hover:text-zinc-900">
+            <a
+              href="#how-it-works"
+              class="transition-colors hover:text-zinc-900"
+            >
               How it works
             </a>
             <a href="#features" class="transition-colors hover:text-zinc-900">

@@ -35,7 +35,9 @@ interface Step {
         ></div>
 
         @for (step of steps; track step.title; let index = $index) {
-          <li class="relative flex flex-col gap-4 sm:items-center sm:text-center">
+          <li
+            class="relative flex flex-col gap-4 sm:items-center sm:text-center"
+          >
             <div
               class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm ring-1 ring-zinc-200"
             >
