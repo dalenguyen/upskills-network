@@ -26,6 +26,15 @@ import { runTransaction } from './transactions';
  * `transactions.ts`: one {@link runTransaction}, every read before any write,
  * and the decision taken from what the transaction itself read.
  *
+ * ## Two layers: the transaction helpers and the public wrappers
+ *
+ * The exported `reserveSlug` / `renameSlug` wrappers open a transaction and run
+ * the corresponding `…InTransaction` helper. The helpers exist because some
+ * callers already own a transaction — `events-write.ts` must reserve a slug and
+ * write the event document in the *same* commit — and a nested `runTransaction`
+ * inside a transaction body is not legal. A caller that has its own transaction
+ * therefore uses the helper directly; everyone else uses the wrapper.
+ *
  * ## Why the same docs back the public pages
  *
  * `getEventBySlug` / `getOrgBySlug` in `reads.ts` resolve a slug with a single
@@ -107,25 +116,39 @@ export async function reserveSlug(
 ): Promise<string> {
   const normalized = normalizeSlug(slug);
 
-  return runTransaction(async (transaction) => {
-    const ref = reservationRef(collection, normalized);
-    // Read first — and reading a *missing* document is the whole mechanism:
-    // it puts the empty key in the transaction's read set, so a racer that
-    // creates it before we commit forces this transaction to be retried rather
-    // than silently overwriting them.
-    const holder = await readOwner(transaction, ref);
+  return runTransaction((transaction) =>
+    reserveSlugInTransaction(transaction, collection, normalized, ownerId),
+  ).catch(asSlugTaken(collection, normalized));
+}
 
-    if (holder !== null) {
-      if (holder === ownerId) {
-        return normalized;
-      }
+/**
+ * The transaction body behind {@link reserveSlug}. Use this from inside a
+ * transaction you already own; use {@link reserveSlug} everywhere else.
+ */
+export async function reserveSlugInTransaction(
+  transaction: Transaction,
+  collection: SlugCollection,
+  slug: string,
+  ownerId: string,
+): Promise<string> {
+  const normalized = normalizeSlug(slug);
+  const ref = reservationRef(collection, normalized);
+  // Read first — and reading a *missing* document is the whole mechanism:
+  // it puts the empty key in the transaction's read set, so a racer that
+  // creates it before we commit forces this transaction to be retried rather
+  // than silently overwriting them.
+  const holder = await readOwner(transaction, ref);
 
-      throw new SlugTakenError(collection, normalized, holder);
+  if (holder !== null) {
+    if (holder === ownerId) {
+      return normalized;
     }
 
-    createReservation(transaction, collection, normalized, ownerId);
-    return normalized;
-  }).catch(asSlugTaken(collection, normalized));
+    throw new SlugTakenError(collection, normalized, holder);
+  }
+
+  createReservation(transaction, collection, normalized, ownerId);
+  return normalized;
 }
 
 /**
@@ -150,38 +173,53 @@ export async function renameSlug(
   ownerId: string,
   rename: SlugRename,
 ): Promise<string> {
+  const to = normalizeSlug(rename.to);
+
+  return runTransaction((transaction) =>
+    renameSlugInTransaction(transaction, collection, ownerId, rename),
+  ).catch(asSlugTaken(collection, to));
+}
+
+/**
+ * The transaction body behind {@link renameSlug}. Use this from inside a
+ * transaction you already own; use {@link renameSlug} everywhere else.
+ */
+export async function renameSlugInTransaction(
+  transaction: Transaction,
+  collection: SlugCollection,
+  ownerId: string,
+  rename: SlugRename,
+): Promise<string> {
   const from = normalizeSlug(rename.from);
   const to = normalizeSlug(rename.to);
 
   if (from === to) {
-    return reserveSlug(collection, to, ownerId);
+    return reserveSlugInTransaction(transaction, collection, to, ownerId);
   }
 
-  return runTransaction(async (transaction) => {
-    const refs = {
-      from: reservationRef(collection, from),
-      to: reservationRef(collection, to),
-    };
+  const refs = {
+    from: reservationRef(collection, from),
+    to: reservationRef(collection, to),
+  };
 
-    // Both reads before either write, per the house pattern — and both keys
-    // join the read set, so a racer touching either one aborts this attempt.
-    const currentHolder = await readOwner(transaction, refs.from);
-    const targetHolder = await readOwner(transaction, refs.to);
+  // Both reads before either write, per the house pattern — and both keys
+  // join the read set, so a racer touching either one aborts this attempt.
+  const currentHolder = await readOwner(transaction, refs.from);
+  const targetHolder = await readOwner(transaction, refs.to);
 
-    if (targetHolder !== null && targetHolder !== ownerId) {
-      throw new SlugTakenError(collection, to, targetHolder);
-    }
+  if (targetHolder !== null && targetHolder !== ownerId) {
+    throw new SlugTakenError(collection, to, targetHolder);
+  }
 
-    if (targetHolder === null) {
-      createReservation(transaction, collection, to, ownerId);
-    }
+  if (targetHolder === null) {
+    createReservation(transaction, collection, to, ownerId);
+  }
 
-    if (currentHolder === ownerId) {
-      transaction.delete(refs.from);
-    }
+  if (currentHolder === ownerId) {
+    transaction.delete(refs.from);
+  }
 
-    return to;
-  }).catch(asSlugTaken(collection, to));
+  return to;
 }
 
 /**
@@ -272,8 +310,13 @@ const ALREADY_EXISTS = 6;
 /**
  * Turn the backstop's raw gRPC failure into the same typed error as the normal
  * path, so a route has exactly one thing to map to 409.
+ *
+ * Exported for callers that use {@link reserveSlugInTransaction} /
+ * {@link renameSlugInTransaction} inside a transaction of their own: their
+ * `runTransaction` rejects with the raw code, and this is the same mapping the
+ * public wrappers apply.
  */
-function asSlugTaken(
+export function asSlugTaken(
   collection: SlugCollection,
   slug: string,
 ): (error: unknown) => never {
@@ -293,7 +336,7 @@ function asSlugTaken(
  * so the value it returns, not the caller's string, is what becomes the
  * document id.
  */
-function normalizeSlug(slug: string): string {
+export function normalizeSlug(slug: string): string {
   const parsed = SlugSchema.safeParse(slug);
   if (!parsed.success) {
     throw new InvalidSlugError(
