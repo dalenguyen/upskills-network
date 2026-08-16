@@ -89,12 +89,20 @@ export const routeMeta: RouteMeta = {
                   </h1>
                 </div>
 
-                <a
-                  href="/dashboard"
-                  class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                >
-                  Back to dashboard
-                </a>
+                <div class="flex flex-wrap items-center gap-3">
+                  <a
+                    href="/dashboard/events/new"
+                    class="inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    New event
+                  </a>
+                  <a
+                    href="/dashboard"
+                    class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    Back to dashboard
+                  </a>
+                </div>
               </div>
 
               @if (notice(); as message) {

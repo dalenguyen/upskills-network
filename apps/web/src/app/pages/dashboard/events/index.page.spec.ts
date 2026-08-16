@@ -101,6 +101,25 @@ describe('DashboardEventsPageComponent', () => {
     http.verify();
   });
 
+  it('links to the new-event page from the page header', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const newEvent = root.querySelector<HTMLAnchorElement>(
+      'a[href="/dashboard/events/new"]',
+    );
+    expect(newEvent?.textContent?.trim()).toBe('New event');
+    http.verify();
+  });
+
   it('links every row to its edit page without replacing the public link', async () => {
     const { fixture, http } = await setup();
 
