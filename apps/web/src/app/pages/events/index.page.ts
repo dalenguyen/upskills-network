@@ -1,5 +1,6 @@
+import { isPlatformServer } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 
@@ -72,8 +73,15 @@ type PageState =
                 Something went wrong
               </h2>
               <p class="mt-3 text-zinc-600">
-                We couldn't load the events. Please refresh to try again.
+                We couldn't load the events. Please try again.
               </p>
+              <button
+                type="button"
+                (click)="tryAgain()"
+                class="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              >
+                Try again
+              </button>
             </section>
           }
 
@@ -128,6 +136,7 @@ type PageState =
 export default class EventsPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly title = inject(Title);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly state = signal<PageState>({ status: 'loading' });
   readonly loadingMore = signal(false);
@@ -147,6 +156,11 @@ export default class EventsPageComponent implements OnInit {
     return state.status === 'ready' ? state.nextCursor : null;
   }
 
+  async tryAgain(): Promise<void> {
+    this.state.set({ status: 'loading' });
+    await this.loadFirstPage();
+  }
+
   private async loadFirstPage(): Promise<void> {
     try {
       const response = await firstValueFrom(
@@ -159,7 +173,15 @@ export default class EventsPageComponent implements OnInit {
         nextCursor: response.nextCursor,
       });
     } catch {
-      this.state.set({ status: 'error' });
+      // A freshly booted Cloud Run instance opens its Firestore connection on
+      // the first request, which can fail before the instance warms up. If the
+      // server paints `error` here, the reader sees "Something went wrong" and
+      // then watches it correct itself a moment later when hydration's own
+      // fetch succeeds. Render `loading` instead so the browser retries quietly
+      // and only shows the error when the client's fetch also fails.
+      this.state.set({
+        status: isPlatformServer(this.platformId) ? 'loading' : 'error',
+      });
     }
   }
 
