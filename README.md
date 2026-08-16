@@ -46,3 +46,11 @@ Then open http://localhost:4200.
 ## Domain model
 
 An organizer hosts a workshop event (`events/{eventId}`) with a price, capacity, and lifecycle (`draft` → `published` → `cancelled`). A guest registers against an event; their registration is a `Guest` document keyed by normalized email and carries a status: `pending` (waitlist), `held` (paid reservation awaiting the Stripe webhook), `confirmed` (holds a spot), `cancelled`, or `expired` (a held reservation whose payment never landed).
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the checks CI runs, and the pull request workflow.
+
+## License
+
+[MIT](./LICENSE) © Dale Nguyen
