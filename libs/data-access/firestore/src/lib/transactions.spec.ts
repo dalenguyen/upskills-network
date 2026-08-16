@@ -19,6 +19,7 @@ import {
 const event = (counters: Partial<WorkshopEvent> = {}): WorkshopEvent => ({
   eventId: 'evt-1',
   orgId: 'org-1',
+  createdBy: 'uid-1',
   title: 'T',
   slug: 't',
   description: 'd',

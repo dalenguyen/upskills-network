@@ -25,6 +25,8 @@ export interface CreateEventDraft {
   title: string;
   /** Raw user input; normalized by the slug reservation, so callers never pre-process it. */
   slug: string;
+  /** uid of the creator, from the authenticated session rather than the body. */
+  createdBy: string;
   description: string;
   /** ISO-8601 with offset; converted to a Firestore `Timestamp` here. */
   startsAt: string;
@@ -43,8 +45,9 @@ export interface CreateEventDraft {
 /**
  * The caller-supplied half of an event update.
  *
- * `orgId`, `eventId`, the counters, and the timestamps are deliberately absent:
- * the first two come from the path, and the rest are maintained here.
+ * `orgId`, `eventId`, `createdBy`, the counters, and the timestamps are
+ * deliberately absent: the first two come from the path, `createdBy` is set at
+ * creation and never edited, and the rest are maintained here.
  */
 export interface UpdateEventPatch {
   title?: string;
@@ -110,6 +113,7 @@ export async function createEvent(
     const event: WorkshopEvent = {
       eventId: doc.id,
       orgId,
+      createdBy: input.createdBy,
       title: input.title.trim(),
       slug: reservedSlug,
       description: input.description.trim(),

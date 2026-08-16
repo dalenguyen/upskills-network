@@ -22,6 +22,7 @@ export function fakeEvent(
   return {
     eventId: 'evt-1',
     orgId: 'org-1',
+    createdBy: 'uid-1',
     title: 'Intro to Networking',
     slug: 'intro-to-networking',
     description: 'A hands-on session.',

@@ -57,8 +57,8 @@ function request(body: unknown) {
 
 describe('POST /api/v1/dashboard/events', () => {
   it('creates the event for the query org with the schema-normalized body', async () => {
-    const createEvent = vi.fn(async (): Promise<WorkshopEvent> =>
-      fakeEvent({ status: 'draft' }),
+    const createEvent = vi.fn(
+      async (): Promise<WorkshopEvent> => fakeEvent({ status: 'draft' }),
     );
     const d = deps({ createEvent });
     const event = request(CREATE_BODY);
@@ -74,6 +74,7 @@ describe('POST /api/v1/dashboard/events', () => {
     expect(createEvent).toHaveBeenCalledWith('org-1', {
       title: 'Workshop',
       slug: 'workshop',
+      createdBy: 'uid-manager',
       description: 'Hands-on',
       startsAt: '2026-09-01T18:00:00Z',
       timezone: 'UTC',
@@ -86,6 +87,22 @@ describe('POST /api/v1/dashboard/events', () => {
     expect(result).toEqual({
       event: expect.objectContaining({ eventId: 'evt-1', status: 'draft' }),
     });
+  });
+
+  it('stamps createdBy from the session uid, never from the request body', async () => {
+    const createEvent = vi.fn(
+      async (): Promise<WorkshopEvent> => fakeEvent({ status: 'draft' }),
+    );
+    const d = deps({ createEvent });
+
+    await createDashboardEventsCreateHandler(d)(
+      request({ ...CREATE_BODY, createdBy: 'uid-from-body' }),
+    );
+
+    expect(createEvent).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ createdBy: 'uid-manager' }),
+    );
   });
 
   // A Firestore `Timestamp` serializes to `{_seconds,_nanoseconds}` — an object
