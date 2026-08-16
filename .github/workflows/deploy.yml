@@ -84,10 +84,19 @@ jobs:
       - name: Deploy to Cloud Run
         run: pnpm exec nx run web:deploy-cloudrun --configuration production
 
+      # The service's default run.app URL is disabled — it is reachable only
+      # through the custom domain, so `status.url` comes back empty and cannot
+      # be used here.
       - name: Smoke check
+        env:
+          URL: https://upskillsnetwork.com
         run: |
-          URL=$(gcloud run services describe upskills-web \
-            --region us-central1 --project upskills-network \
-            --format 'value(status.url)')
           echo "Deployed $BUILD_NUMBER to $URL"
-          curl -fsS -o /dev/null -w '%{http_code}\n' "$URL"
+          for attempt in 1 2 3; do
+            if curl -fsS -o /dev/null -w '%{http_code}\n' "$URL"; then
+              exit 0
+            fi
+            echo "attempt $attempt failed, retrying in 10s"
+            sleep 10
+          done
+          exit 1
