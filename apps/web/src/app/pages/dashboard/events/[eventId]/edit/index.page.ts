@@ -59,6 +59,7 @@ type PageState =
   | { status: 'no-orgs' }
   | { status: 'forbidden' }
   | { status: 'not-found' }
+  | { status: 'cancelled' }
   | { status: 'error' }
   | { status: 'ready'; org: MeOrg; workshop: DashboardEvent };
 
@@ -138,6 +139,24 @@ export function centsToDollars(cents: number): string {
               <p class="mt-3 text-zinc-600">
                 It may have been removed, or you don't have permission to edit
                 it.
+              </p>
+              <a
+                href="/dashboard/events"
+                class="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              >
+                Back to events
+              </a>
+            </section>
+          }
+
+          @case ('cancelled') {
+            <section class="mx-auto max-w-lg py-12 text-center">
+              <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
+                This event has been cancelled
+              </h1>
+              <p class="mt-3 text-zinc-600">
+                A cancelled event can't be edited. Cancelling is final and
+                already notified every confirmed guest.
               </p>
               <a
                 href="/dashboard/events"
@@ -449,6 +468,11 @@ export default class DashboardEventsEditPageComponent implements OnInit {
           { withCredentials: true },
         ),
       );
+
+      if (response.event.status === 'cancelled') {
+        this.state.set({ status: 'cancelled' });
+        return;
+      }
 
       this.prefill(response.event);
       this.state.set({ status: 'ready', org, workshop: response.event });

@@ -139,6 +139,28 @@ describe('DashboardEventsPageComponent', () => {
     http.verify();
   });
 
+  it('does not offer an Edit link on a cancelled row', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({
+      events: [workshop({ eventId: 'evt_1', status: 'cancelled' })],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const row = root.querySelector<HTMLTableRowElement>('tbody tr');
+    const links = row?.querySelectorAll<HTMLAnchorElement>('a') ?? [];
+    expect(links.length).toBe(1);
+    expect(links[0]?.getAttribute('href')).toBe('/events/intro-to-kubernetes');
+    expect(row?.textContent).not.toContain('Edit');
+    http.verify();
+  });
+
   it('renders a zero-events empty state distinct from the no-orgs state', async () => {
     const { fixture, http } = await setup();
 

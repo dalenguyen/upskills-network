@@ -277,6 +277,22 @@ describe('DashboardEventsEditPageComponent', () => {
     http.verify();
   });
 
+  it('refuses to render the form for a cancelled event', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(
+      fixture,
+      http,
+      meResponse,
+      workshop({ status: 'cancelled' }),
+    );
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('This event has been cancelled');
+    expect(root.textContent).not.toContain('Edit event');
+    expect(root.querySelector('form')).toBeNull();
+    http.verify();
+  });
+
   it('shows an error when the detail request fails with a server error', async () => {
     const { fixture, http } = await setup();
     const meRequest = http.expectOne(meEndpoint());

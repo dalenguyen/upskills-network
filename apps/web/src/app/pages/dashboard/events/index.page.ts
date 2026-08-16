@@ -149,16 +149,18 @@ export const routeMeta: RouteMeta = {
                             >
                               {{ workshop.title }}
                             </a>
-                            <a
-                              [href]="
-                                '/dashboard/events/' +
-                                workshop.eventId +
-                                '/edit'
-                              "
-                              class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
-                            >
-                              Edit
-                            </a>
+                            @if (workshop.status !== 'cancelled') {
+                              <a
+                                [href]="
+                                  '/dashboard/events/' +
+                                  workshop.eventId +
+                                  '/edit'
+                                "
+                                class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
+                              >
+                                Edit
+                              </a>
+                            }
                           </td>
                           <td class="px-4 py-3 capitalize text-zinc-700">
                             {{ workshop.status }}
