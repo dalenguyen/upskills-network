@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
  * `DELETE /api/v1/admin/orgs/:orgId/members` — remove one member.
@@ -22,7 +23,7 @@ import { badRequest, notFound, toHttpError } from '../http-error';
 const OrgMemberRemovalSchema = OrgMemberSchema.pick({ uid: true });
 
 export interface OrgMembersRemoveResponse {
-  org: Organizer;
+  org: AdminOrg;
 }
 
 export interface OrgMembersRemoveDeps {
@@ -58,7 +59,7 @@ export function createOrgMembersRemoveHandler(
 
       const org = await deps.removeOrgMember(orgId, parsed.data.uid);
 
-      return { org } satisfies OrgMembersRemoveResponse;
+      return { org: toAdminOrg(org) } satisfies OrgMembersRemoveResponse;
     } catch (error) {
       throw toHttpError(error);
     }

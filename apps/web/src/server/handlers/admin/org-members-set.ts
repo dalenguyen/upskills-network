@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
  * `POST` / `PUT /api/v1/admin/orgs/:orgId/members` — add a member, or change
@@ -22,7 +23,7 @@ import { badRequest, notFound, toHttpError } from '../http-error';
  */
 
 export interface OrgMembersSetResponse {
-  org: Organizer;
+  org: AdminOrg;
 }
 
 export interface OrgMembersSetDeps {
@@ -60,7 +61,7 @@ export function createOrgMembersSetHandler(
         parsed.data.role,
       );
 
-      return { org } satisfies OrgMembersSetResponse;
+      return { org: toAdminOrg(org) } satisfies OrgMembersSetResponse;
     } catch (error) {
       throw toHttpError(error);
     }
