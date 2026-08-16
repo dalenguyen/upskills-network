@@ -25,6 +25,12 @@ const TOO_MANY_ATTEMPTS_MESSAGE =
 const SIGN_IN_AGAIN_MESSAGE = 'Please sign in again.';
 const POPUP_BLOCKED_MESSAGE =
   'Sign-in window was blocked. Allow pop-ups for this site and try again.';
+const GOOGLE_DID_NOT_COMPLETE_MESSAGE =
+  "Google sign-in didn't finish. Try again, or use your email and password.";
+const EMAIL_HAS_PASSWORD_MESSAGE =
+  'That email already has an account with a password. Sign in with your email instead.';
+const GOOGLE_UNAVAILABLE_MESSAGE =
+  "Google sign-in isn't available here. Use your email and password instead.";
 
 /** Codes that must all read as the same account-neutral credential failure. */
 const CREDENTIAL_FAILURE_CODES = new Set([
@@ -70,13 +76,24 @@ const POPUP_FAILURE_CODES = new Set(['auth/popup-blocked']);
  * The message to show for a failed sign-in attempt, or `null` when no message
  * should be shown at all (the user closed the Google popup).
  *
+ * `flow` disambiguates the two kinds of attempt so a Google failure is never
+ * phrased as a credential mismatch: a Google flow never asks for a password, so
+ * "that email and password don't match" is nonsense advice for it — and, for an
+ * unmapped error, it also hides the real cause (see the persistence-order note
+ * in `firebase-auth-client.ts`).
+ *
  * Reads Firebase's `code` off `unknown` rather than accepting a
  * `FirebaseError` here: pages should not need to import the Firebase type just
  * to report a failure, and an `instanceof` check against a third-party class
  * silently misses lookalike errors (and is exactly the trap the app's API
  * error readers already avoid).
  */
-export function signInErrorMessage(error: unknown): string | null {
+export type SignInFlow = 'password' | 'google';
+
+export function signInErrorMessage(
+  error: unknown,
+  flow: SignInFlow = 'password',
+): string | null {
   if (error instanceof AuthUnavailableError) {
     return UNAVAILABLE_MESSAGE;
   }
@@ -113,6 +130,27 @@ export function signInErrorMessage(error: unknown): string | null {
 
   if (code === 'auth/weak-password') {
     return WEAK_PASSWORD_MESSAGE;
+  }
+
+  if (flow === 'google') {
+    if (code === 'auth/account-exists-with-different-credential') {
+      return EMAIL_HAS_PASSWORD_MESSAGE;
+    }
+
+    if (
+      code === 'auth/unauthorized-domain' ||
+      code === 'auth/operation-not-supported-in-this-environment'
+    ) {
+      return GOOGLE_UNAVAILABLE_MESSAGE;
+    }
+
+    // An unmapped code — or none at all, e.g. the bare
+    // `Error('Database is closing/hidden')` Arc throws from the IndexedDB
+    // persistence layer — must not be reported as a credential mismatch: a
+    // Google flow never asked for a password. Log it so the real code is
+    // recoverable from the console without a breakpoint.
+    console.warn('[auth] unmapped Google sign-in error', error);
+    return GOOGLE_DID_NOT_COMPLETE_MESSAGE;
   }
 
   return GENERIC_CREDENTIAL_MESSAGE;

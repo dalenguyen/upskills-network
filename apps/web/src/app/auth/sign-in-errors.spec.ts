@@ -119,6 +119,59 @@ describe('signInErrorMessage', () => {
   });
 });
 
+describe('signInErrorMessage with a Google flow', () => {
+  const GOOGLE_DID_NOT_COMPLETE =
+    "Google sign-in didn't finish. Try again, or use your email and password.";
+
+  it('never blames credentials for an unrecognised code', () => {
+    expect(
+      signInErrorMessage(
+        { code: 'auth/some-code-this-client-has-never-seen' },
+        'google',
+      ),
+    ).toBe(GOOGLE_DID_NOT_COMPLETE);
+  });
+
+  it('never blames credentials when no code can be read', () => {
+    expect(
+      signInErrorMessage(new Error('Database is closing/hidden'), 'google'),
+    ).toBe(GOOGLE_DID_NOT_COMPLETE);
+  });
+
+  it('points a Google user with an existing password account at email sign-in', () => {
+    expect(
+      signInErrorMessage(
+        { code: 'auth/account-exists-with-different-credential' },
+        'google',
+      ),
+    ).toBe(
+      'That email already has an account with a password. Sign in with your email instead.',
+    );
+  });
+
+  it('reports an unavailable Google provider as configuration, not a credential failure', () => {
+    expect(
+      signInErrorMessage({ code: 'auth/unauthorized-domain' }, 'google'),
+    ).toBe(
+      "Google sign-in isn't available here. Use your email and password instead.",
+    );
+    expect(
+      signInErrorMessage(
+        { code: 'auth/operation-not-supported-in-this-environment' },
+        'google',
+      ),
+    ).toBe(
+      "Google sign-in isn't available here. Use your email and password instead.",
+    );
+  });
+
+  it('still shows no message when the user closes the popup', () => {
+    expect(
+      signInErrorMessage({ code: 'auth/popup-closed-by-user' }, 'google'),
+    ).toBeNull();
+  });
+});
+
 describe('safeRedirectTarget', () => {
   it('keeps a same-origin relative path', () => {
     expect(safeRedirectTarget('/dashboard/events')).toBe('/dashboard/events');

@@ -1,10 +1,15 @@
 import { isPlatformBrowser } from '@angular/common';
 import { inject, PLATFORM_ID, type Provider } from '@angular/core';
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
+  indexedDBLocalPersistence,
+  initializeAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -24,7 +29,7 @@ import { readFirebaseWebConfig } from './firebase-config';
  * This is an AnalogJS app: `app.config.ts` is evaluated during server-side
  * rendering too. Importing the modular SDK in Node is safe — its entrypoints
  * only register components — but *initialising* it is not useful there and
- * `getAuth()` reaches for browser storage. So {@link provideFirebaseAuth}
+ * `initializeAuth()` reaches for browser storage. So {@link provideFirebaseAuth}
  * returns `null` unless it is running in a browser, and `AuthService` treats a
  * `null` client as "no browser session", which is exactly right during SSR: a
  * server render authorizes from the `__session` cookie, never from client SDK
@@ -68,9 +73,50 @@ export function provideFirebaseAuth(): Provider {
       // `initializeApp` for the same name throws.
       const app = getApps().length > 0 ? getApp() : initializeApp(config);
 
-      return createFirebaseAuthClient(getAuth(app));
+      return createFirebaseAuthClient(getFirebaseAuth(app));
     },
   };
+}
+
+/**
+ * The `Auth` handle for `app`, initialised with a persistence order that keeps
+ * Google sign-in working in Arc.
+ *
+ * ## Why the order matters
+ *
+ * Firebase's default (`getAuth`) puts `indexedDBLocalPersistence` first.
+ * `IndexedDBLocalPersistence` hooks `pagehide`/`visibilitychange`, closes its
+ * database when the page goes hidden, and latches `isHiding`; `_openDb` then
+ * throws a bare `Error('Database is closing/hidden')` until the page is visible
+ * again. Arc backgrounds the opener while the Google popup has focus, so the
+ * credential comes back from Google and the SDK throws *while persisting it* —
+ * an error with no `code`, which the login page could only report as its
+ * generic "email and password don't match". Chrome keeps the opener visible,
+ * which is why it never reproduced there.
+ *
+ * `browserLocalPersistence` is a synchronous `localStorage` wrapper with no such
+ * teardown, so it cannot fail this way. It must be *first*, not merely present:
+ * Firebase takes the first available entry rather than falling back on a
+ * mid-flight throw. IndexedDB stays in the list as the fallback for when
+ * `localStorage` is unavailable.
+ */
+function getFirebaseAuth(app: FirebaseApp): Auth {
+  try {
+    return initializeAuth(app, {
+      persistence: [
+        browserLocalPersistence,
+        indexedDBLocalPersistence,
+        browserSessionPersistence,
+      ],
+    });
+  } catch {
+    // HMR can re-evaluate this module against a live SDK that already holds an
+    // `Auth` for `app`; a second `initializeAuth` throws
+    // `auth/already-initialized`. The persistence list was applied on the first
+    // bootstrap, so the existing instance is already correct — return it rather
+    // than re-initialising.
+    return getAuth(app);
+  }
 }
 
 /**
@@ -106,7 +152,14 @@ export function createFirebaseAuthClient(auth: Auth): AuthClient {
       // Without this, a browser with one Google session signs the user straight
       // back in after "sign out", which reads as the button being broken.
       provider.setCustomParameters({ prompt: 'select_account' });
-      const credential = await signInWithPopup(auth, provider);
+      // The resolver is passed here, not wired into `initializeAuth`, so the
+      // gapi relay iframe only starts on the click that needs it — not on every
+      // page for signed-out visitors.
+      const credential = await signInWithPopup(
+        auth,
+        provider,
+        browserPopupRedirectResolver,
+      );
       return credential.user;
     },
 
