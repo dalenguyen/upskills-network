@@ -42,6 +42,7 @@ export function workshop(
   return {
     eventId: 'evt_1',
     orgId: 'org_1',
+    createdBy: 'user_1',
     title: 'Intro to Kubernetes',
     slug: 'intro-to-kubernetes',
     description: 'A hands-on afternoon.',
