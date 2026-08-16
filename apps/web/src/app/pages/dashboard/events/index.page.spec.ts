@@ -96,6 +96,71 @@ describe('DashboardEventsPageComponent', () => {
     http.verify();
   });
 
+  it('links every row to its edit page without replacing the public link', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({
+      events: [
+        workshop({ eventId: 'evt_1', status: 'published' }),
+        workshop({
+          eventId: 'evt_2',
+          title: 'Rust for the web',
+          slug: 'rust-for-the-web',
+          status: 'draft',
+        }),
+      ],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const rows = root.querySelectorAll<HTMLTableRowElement>('tbody tr');
+    expect(rows.length).toBe(2);
+
+    const firstLinks = rows[0].querySelectorAll<HTMLAnchorElement>('a');
+    expect(firstLinks[0]?.getAttribute('href')).toBe(
+      '/events/intro-to-kubernetes',
+    );
+    expect(firstLinks[1]?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_1/edit',
+    );
+
+    const secondLinks = rows[1].querySelectorAll<HTMLAnchorElement>('a');
+    expect(secondLinks[0]?.getAttribute('href')).toBe(
+      '/events/rust-for-the-web',
+    );
+    expect(secondLinks[1]?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_2/edit',
+    );
+    http.verify();
+  });
+
+  it('does not offer an Edit link on a cancelled row', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({
+      events: [workshop({ eventId: 'evt_1', status: 'cancelled' })],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const row = root.querySelector<HTMLTableRowElement>('tbody tr');
+    const links = row?.querySelectorAll<HTMLAnchorElement>('a') ?? [];
+    expect(links.length).toBe(1);
+    expect(links[0]?.getAttribute('href')).toBe('/events/intro-to-kubernetes');
+    expect(row?.textContent).not.toContain('Edit');
+    http.verify();
+  });
+
   it('renders a zero-events empty state distinct from the no-orgs state', async () => {
     const { fixture, http } = await setup();
 

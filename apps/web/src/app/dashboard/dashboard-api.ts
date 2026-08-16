@@ -4,10 +4,12 @@ import type {
   MeUser,
 } from '../../server/handlers/auth/me-get';
 import type { DashboardEventsCreateResponse } from '../../server/handlers/dashboard/events-create';
+import type { DashboardEventsDetailResponse } from '../../server/handlers/dashboard/events-detail';
 import type {
   DashboardEvent,
   DashboardEventsListResponse,
 } from '../../server/handlers/dashboard/events-list';
+import type { DashboardEventsUpdateResponse } from '../../server/handlers/dashboard/events-update';
 
 /**
  * The organizer dashboard API, as the browser sees it.
@@ -18,14 +20,17 @@ import type {
  * server survives into the browser bundle — the declarations are erased at
  * compile time and the runtime graph is unchanged. What they buy is that the
  * dashboard pages and the routes they call cannot drift apart silently:
- * renaming a field in `MeGetResponse`, `DashboardEventsListResponse`, or
- * `DashboardEventsCreateResponse` breaks the type-check here instead of
+ * renaming a field in `MeGetResponse`, `DashboardEventsListResponse`,
+ * `DashboardEventsCreateResponse`, `DashboardEventsDetailResponse`, or
+ * `DashboardEventsUpdateResponse` breaks the type-check here instead of
  * producing an `undefined` on a rendered page.
  */
 
 export type { MeGetResponse, MeOrg, MeUser };
 export type { DashboardEventsCreateResponse };
+export type { DashboardEventsDetailResponse };
 export type { DashboardEventsListResponse };
+export type { DashboardEventsUpdateResponse };
 export type { DashboardEvent };
 
 /** `GET` — the signed-in user and the organizers they belong to. */
@@ -52,4 +57,14 @@ export function dashboardEventsEndpoint(orgId: string): string {
  */
 export function dashboardEventCreateEndpoint(orgId: string): string {
   return `/api/v1/dashboard/events?orgId=${encodeURIComponent(orgId)}`;
+}
+
+/** `GET` — one event owned by one org. */
+export function dashboardEventDetailEndpoint(eventId: string): string {
+  return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
+}
+
+/** `PUT` — update one event owned by one org. */
+export function dashboardEventUpdateEndpoint(eventId: string): string {
+  return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
 }
