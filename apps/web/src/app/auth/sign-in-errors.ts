@@ -23,6 +23,8 @@ const RETRY_MESSAGE = 'Something went wrong. Try again.';
 const TOO_MANY_ATTEMPTS_MESSAGE =
   'Too many attempts. Wait a moment and try again.';
 const SIGN_IN_AGAIN_MESSAGE = 'Please sign in again.';
+const POPUP_BLOCKED_MESSAGE =
+  'Sign-in window was blocked. Allow pop-ups for this site and try again.';
 
 /** Codes that must all read as the same account-neutral credential failure. */
 const CREDENTIAL_FAILURE_CODES = new Set([
@@ -55,6 +57,16 @@ const NO_MESSAGE_CODES = new Set([
 ]);
 
 /**
+ * Codes that mean the sign-in popup never opened at all.
+ *
+ * The browser (or a browser like Arc that blocks pop-ups more aggressively than
+ * most) refused to open the window. Blaming the credential is worse than
+ * useless here — there is no credential, and "that email and password don't
+ * match" sends the user hunting for a password that was never entered.
+ */
+const POPUP_FAILURE_CODES = new Set(['auth/popup-blocked']);
+
+/**
  * The message to show for a failed sign-in attempt, or `null` when no message
  * should be shown at all (the user closed the Google popup).
  *
@@ -77,6 +89,10 @@ export function signInErrorMessage(error: unknown): string | null {
 
   if (code !== null && NO_MESSAGE_CODES.has(code)) {
     return null;
+  }
+
+  if (code !== null && POPUP_FAILURE_CODES.has(code)) {
+    return POPUP_BLOCKED_MESSAGE;
   }
 
   if (code !== null && CREDENTIAL_FAILURE_CODES.has(code)) {
