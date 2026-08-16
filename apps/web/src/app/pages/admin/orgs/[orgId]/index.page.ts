@@ -208,6 +208,9 @@ export const routeMeta: RouteMeta = {
                             <select
                               [id]="'role-' + member.uid"
                               name="role"
+                              [attr.aria-label]="
+                                'Change role for ' + member.uid
+                              "
                               [disabled]="submitting()"
                               [value]="
                                 pendingRoles()[member.uid] ?? member.role
