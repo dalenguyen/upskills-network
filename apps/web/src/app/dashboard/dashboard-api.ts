@@ -3,6 +3,7 @@ import type {
   MeOrg,
   MeUser,
 } from '../../server/handlers/auth/me-get';
+import type { DashboardEventsCancelResponse } from '../../server/handlers/dashboard/events-cancel';
 import type { DashboardEventsCreateResponse } from '../../server/handlers/dashboard/events-create';
 import type { DashboardEventsDetailResponse } from '../../server/handlers/dashboard/events-detail';
 import type {
@@ -21,12 +22,13 @@ import type { DashboardEventsUpdateResponse } from '../../server/handlers/dashbo
  * compile time and the runtime graph is unchanged. What they buy is that the
  * dashboard pages and the routes they call cannot drift apart silently:
  * renaming a field in `MeGetResponse`, `DashboardEventsListResponse`,
- * `DashboardEventsCreateResponse`, `DashboardEventsDetailResponse`, or
- * `DashboardEventsUpdateResponse` breaks the type-check here instead of
- * producing an `undefined` on a rendered page.
+ * `DashboardEventsCreateResponse`, `DashboardEventsDetailResponse`,
+ * `DashboardEventsCancelResponse`, or `DashboardEventsUpdateResponse` breaks
+ * the type-check here instead of producing an `undefined` on a rendered page.
  */
 
 export type { MeGetResponse, MeOrg, MeUser };
+export type { DashboardEventsCancelResponse };
 export type { DashboardEventsCreateResponse };
 export type { DashboardEventsDetailResponse };
 export type { DashboardEventsListResponse };
@@ -66,5 +68,10 @@ export function dashboardEventDetailEndpoint(eventId: string): string {
 
 /** `PUT` — update one event owned by one org. */
 export function dashboardEventUpdateEndpoint(eventId: string): string {
+  return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
+}
+
+/** `DELETE` — cancel one event owned by one org and notify confirmed guests. */
+export function dashboardEventCancelEndpoint(eventId: string): string {
   return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
 }
