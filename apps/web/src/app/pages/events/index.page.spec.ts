@@ -3,6 +3,7 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -117,6 +118,63 @@ describe('EventsPageComponent', () => {
     expect(root.textContent).toContain('Something went wrong');
     expect(root.textContent).not.toContain('Intro to Kubernetes');
     expect(root.querySelector('app-event-card')).toBeNull();
+    http.verify();
+  });
+
+  it('renders loading on the server instead of an error, so the browser can recover', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [EventsPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: PLATFORM_ID, useValue: 'server' },
+      ],
+    }).compileComponents();
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(EventsPageComponent);
+    fixture.detectChanges();
+
+    http
+      .expectOne(eventsEndpoint())
+      .flush({}, { status: 500, statusText: 'Server Error' });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Loading events');
+    expect(root.textContent).not.toContain('Something went wrong');
+    http.verify();
+  });
+
+  it('offers Try again from the error state and recovers', async () => {
+    const { fixture, http } = await setup();
+
+    http
+      .expectOne(eventsEndpoint())
+      .flush({}, { status: 500, statusText: 'Server Error' });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const button = root.querySelector<HTMLButtonElement>('button');
+    expect(button?.textContent?.trim()).toBe('Try again');
+
+    button?.click();
+
+    http.expectOne(eventsEndpoint()).flush({
+      events: [event()],
+      nextCursor: null,
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelectorAll('app-event-card').length).toBe(1);
+    expect(root.textContent).toContain('Intro to Kubernetes');
     http.verify();
   });
 
