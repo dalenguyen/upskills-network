@@ -267,6 +267,7 @@ export const routeMeta: RouteMeta = {
                               @if (isAdmin()) {
                                 <select
                                   [value]="member.role"
+                                  [attr.aria-label]="'Role for ' + member.uid"
                                   (change)="onRoleChange(member.uid, $event)"
                                   class="rounded-lg border-0 bg-white px-3 py-1.5 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                                 >
@@ -284,6 +285,7 @@ export const routeMeta: RouteMeta = {
                               <td class="px-4 py-3">
                                 <button
                                   type="button"
+                                  [attr.aria-label]="'Remove ' + member.uid"
                                   [disabled]="submittingMember()"
                                   (click)="removeMember(member.uid)"
                                   class="text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -515,13 +517,14 @@ export default class DashboardOverviewPageComponent implements OnInit {
           { withCredentials: true },
         ),
       );
-
-      await this.load();
     } catch (error) {
       this.createError.set(this.describeCreateError(error));
+      return;
     } finally {
       this.submittingCreate.set(false);
     }
+
+    await this.load();
   }
 
   async addMember(): Promise<void> {
@@ -549,15 +552,16 @@ export default class DashboardOverviewPageComponent implements OnInit {
           { withCredentials: true },
         ),
       );
-
-      this.memberForm.uid = '';
-      await this.load();
-      this.memberNotice.set('Member added.');
     } catch (error) {
       this.memberError.set(this.describeMemberError(error));
+      return;
     } finally {
       this.submittingMember.set(false);
     }
+
+    this.memberForm.uid = '';
+    await this.load();
+    this.memberNotice.set('Member added.');
   }
 
   async changeRole(uid: string, role: string): Promise<void> {
@@ -582,14 +586,15 @@ export default class DashboardOverviewPageComponent implements OnInit {
           { withCredentials: true },
         ),
       );
-
-      await this.load();
-      this.memberNotice.set('Member role updated.');
     } catch (error) {
       this.memberError.set(this.describeMemberError(error));
+      return;
     } finally {
       this.submittingMember.set(false);
     }
+
+    await this.load();
+    this.memberNotice.set('Member role updated.');
   }
 
   onRoleChange(uid: string, event: Event): void {
@@ -621,14 +626,15 @@ export default class DashboardOverviewPageComponent implements OnInit {
           { body: { uid }, withCredentials: true },
         ),
       );
-
-      await this.load();
-      this.memberNotice.set('Member removed.');
     } catch (error) {
       this.memberError.set(this.describeMemberError(error));
+      return;
     } finally {
       this.submittingMember.set(false);
     }
+
+    await this.load();
+    this.memberNotice.set('Member removed.');
   }
 
   user(): MeUser | null {
