@@ -209,7 +209,10 @@ export const routeMeta: RouteMeta = {
                               [id]="'role-' + member.uid"
                               name="role"
                               [disabled]="submitting()"
-                              [(ngModel)]="member.role"
+                              [value]="
+                                pendingRoles()[member.uid] ?? member.role
+                              "
+                              (change)="onPendingRole(member.uid, $event)"
                               class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               @for (role of roles; track role) {
@@ -225,7 +228,12 @@ export const routeMeta: RouteMeta = {
                                   'Change role for ' + member.uid
                                 "
                                 [disabled]="submitting()"
-                                (click)="changeRole(member.uid, member.role)"
+                                (click)="
+                                  changeRole(
+                                    member.uid,
+                                    pendingRoles()[member.uid] ?? member.role
+                                  )
+                                "
                                 class="inline-flex h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Update role
@@ -291,7 +299,8 @@ export const routeMeta: RouteMeta = {
                       type="text"
                       required
                       [disabled]="submitting()"
-                      [(ngModel)]="form.uid"
+                      [value]="form.uid"
+                      (input)="form.uid = $any($event.target).value"
                       class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -308,7 +317,8 @@ export const routeMeta: RouteMeta = {
                       name="role"
                       required
                       [disabled]="submitting()"
-                      [(ngModel)]="form.role"
+                      [value]="form.role"
+                      (change)="form.role = $any($event.target).value"
                       class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       @for (role of roles; track role) {
@@ -346,6 +356,7 @@ export default class AdminOrgDetailPageComponent implements OnInit {
   readonly members = signal<MemberRow[]>([]);
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
+  readonly pendingRoles = signal<Record<string, OrgRole>>({});
 
   readonly roles: OrgRole[] = ['admin', 'manager', 'check_in', 'volunteer'];
 
@@ -432,6 +443,12 @@ export default class AdminOrgDetailPageComponent implements OnInit {
     }
   }
 
+  onPendingRole(uid: string, event: Event): void {
+    const role = (event.target as HTMLSelectElement).value as OrgRole;
+
+    this.pendingRoles.update((pending) => ({ ...pending, [uid]: role }));
+  }
+
   async changeRole(uid: string, role: OrgRole): Promise<void> {
     const org = this.org();
 
@@ -456,8 +473,17 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       this.setOrg(org);
       this.submitError.set(this.describeMemberError(error));
     } finally {
+      this.clearPendingRole(uid);
       this.submitting.set(false);
     }
+  }
+
+  private clearPendingRole(uid: string): void {
+    this.pendingRoles.update((pending) => {
+      const next = { ...pending };
+      delete next[uid];
+      return next;
+    });
   }
 
   async removeMember(uid: string): Promise<void> {
