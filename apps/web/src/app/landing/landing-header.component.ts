@@ -57,7 +57,9 @@ import { AuthService } from '../auth/auth-service';
 
         <div class="flex items-center gap-4 sm:gap-5">
           @if (auth.user(); as user) {
-            <span class="whitespace-nowrap text-sm font-medium text-zinc-600">
+            <span
+              class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
+            >
               {{ user.displayName ?? user.email ?? 'Account' }}
             </span>
             <button
