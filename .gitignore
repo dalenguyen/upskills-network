@@ -40,8 +40,20 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
+
+# Agent configs for tools other than Claude Code. Nx regenerates these on
+# `nx g`/`nx sync`; this repo only checks in `.claude/` and `CLAUDE.md`.
+.agents/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+AGENTS.md
+opencode.json
+.github/agents/
+.github/prompts/
+.github/skills/
+.github/instructions/
 
 .claude/worktrees
 .claude/settings.local.json
