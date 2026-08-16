@@ -23,7 +23,20 @@ jobs:
     # `workflow_run` fires on failure too, so the conclusion has to be checked
     # explicitly. On a manual run there is no workflow_run payload, hence the
     # event-name fallback.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    #
+    # The other three checks are what keeps an untrusted commit out of
+    # production. `on.workflow_run.branches` filters the *head branch* of the
+    # triggering run, not the event: CI also runs on `pull_request`, so a PR
+    # whose head branch happens to be called `main` — the default branch of any
+    # fork — produces a green CI run that matches the filter. Without these,
+    # that run would deploy the PR's head commit with production GCP
+    # credentials. Require a push, on main, from this repository.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     environment:
       name: production
