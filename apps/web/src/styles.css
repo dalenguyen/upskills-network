@@ -17,3 +17,17 @@ body {
   display: block;
   height: 100%;
 }
+
+/* Pin the footer to the bottom of short pages. Angular renders the routed page
+   component as the element sibling that follows <router-outlet>, so give that
+   host the full viewport height and let its <main> grow — the footer then
+   trails the content instead of sitting mid-screen on empty pages. */
+router-outlet + * {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+router-outlet + * > main {
+  flex: 1 1 auto;
+}
