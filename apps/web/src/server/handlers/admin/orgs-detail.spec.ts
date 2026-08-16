@@ -5,7 +5,7 @@ import {
   fakeInvalidSessionError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { fakeOrg } from '../../testing/public-fixtures';
+import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
 import { createOrgsDetailHandler, type OrgsDetailDeps } from './orgs-detail';
 
 /** `GET /api/v1/admin/orgs/:orgId` — the platform-admin org detail. */
@@ -41,7 +41,16 @@ describe('GET /api/v1/admin/orgs/:orgId', () => {
     expect(d.requireAdmin).toHaveBeenCalledOnce();
     expect(d.getOrg).toHaveBeenCalledWith('org-1');
     expect(result).toEqual({
-      org: expect.objectContaining({ orgId: 'org-1' }),
+      org: expect.objectContaining({
+        orgId: 'org-1',
+        createdAt: FIXTURE_START.toISOString(),
+        members: expect.objectContaining({
+          'uid-1': expect.objectContaining({
+            role: 'admin',
+            addedAt: FIXTURE_START.toISOString(),
+          }),
+        }),
+      }),
     });
   });
 

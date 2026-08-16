@@ -8,7 +8,7 @@ import {
   fakeOrgNotFoundError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { fakeOrg } from '../../testing/public-fixtures';
+import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
 import {
   createOrgMembersSetHandler,
   type OrgMembersSetDeps,
@@ -53,7 +53,16 @@ describe('POST /api/v1/admin/orgs/:orgId/members', () => {
 
     expect(setOrgMember).toHaveBeenCalledWith('org-1', 'uid-2', 'manager');
     expect(result).toEqual({
-      org: expect.objectContaining({ orgId: 'org-1' }),
+      org: expect.objectContaining({
+        orgId: 'org-1',
+        createdAt: FIXTURE_START.toISOString(),
+        members: expect.objectContaining({
+          'uid-1': expect.objectContaining({
+            role: 'admin',
+            addedAt: FIXTURE_START.toISOString(),
+          }),
+        }),
+      }),
     });
   });
 

@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
  * `POST /api/v1/admin/orgs` — create an organizer and reserve its slug.
@@ -20,7 +21,7 @@ import { badRequest, toHttpError } from '../http-error';
  */
 
 export interface OrgsCreateResponse {
-  org: Organizer;
+  org: AdminOrg;
 }
 
 export interface OrgsCreateDeps {
@@ -49,7 +50,7 @@ export function createOrgsCreateHandler(deps: OrgsCreateDeps): EventHandler {
         createdBy: uid,
       });
 
-      return { org } satisfies OrgsCreateResponse;
+      return { org: toAdminOrg(org) } satisfies OrgsCreateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

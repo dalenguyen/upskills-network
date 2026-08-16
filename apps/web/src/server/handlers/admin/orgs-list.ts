@@ -2,6 +2,7 @@ import type { AuthContext } from '@upskills/auth';
 import type { Organizer } from '@upskills/models';
 import { defineEventHandler, type EventHandler, type H3Event } from 'h3';
 import { toHttpError } from '../http-error';
+import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
  * `GET /api/v1/admin/orgs` — every organizer, oldest first.
@@ -12,7 +13,7 @@ import { toHttpError } from '../http-error';
  */
 
 export interface OrgsListResponse {
-  orgs: Organizer[];
+  orgs: AdminOrg[];
 }
 
 export interface OrgsListDeps {
@@ -28,7 +29,7 @@ export function createOrgsListHandler(deps: OrgsListDeps): EventHandler {
       await deps.requireAdmin(event);
 
       return {
-        orgs: await deps.listOrgs(),
+        orgs: (await deps.listOrgs()).map(toAdminOrg),
       } satisfies OrgsListResponse;
     } catch (error) {
       throw toHttpError(error);

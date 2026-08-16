@@ -7,6 +7,7 @@ import {
   type H3Event,
 } from 'h3';
 import { notFound, toHttpError } from '../http-error';
+import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
  * `GET /api/v1/admin/orgs/:orgId` — one organizer by id.
@@ -17,7 +18,7 @@ import { notFound, toHttpError } from '../http-error';
  */
 
 export interface OrgsDetailResponse {
-  org: Organizer;
+  org: AdminOrg;
 }
 
 export interface OrgsDetailDeps {
@@ -44,7 +45,7 @@ export function createOrgsDetailHandler(deps: OrgsDetailDeps): EventHandler {
         throw notFound('org-not-found', 'No such organizer.');
       }
 
-      return { org } satisfies OrgsDetailResponse;
+      return { org: toAdminOrg(org) } satisfies OrgsDetailResponse;
     } catch (error) {
       throw toHttpError(error);
     }
