@@ -16,6 +16,7 @@ import { AuthService } from '../../auth/auth-service';
 import {
   safeRedirectTarget,
   signInErrorMessage,
+  type SignInFlow,
 } from '../../auth/sign-in-errors';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
@@ -202,7 +203,7 @@ export default class LoginPageComponent implements OnInit {
   }
 
   async continueWithGoogle(): Promise<void> {
-    await this.signIn(() => this.auth.loginWithGoogle());
+    await this.signIn(() => this.auth.loginWithGoogle(), 'google');
   }
 
   async submit(): Promise<void> {
@@ -218,21 +219,26 @@ export default class LoginPageComponent implements OnInit {
       return;
     }
 
-    await this.signIn(() =>
-      this.auth.loginWithEmail(
-        parsedEmail.data,
-        this.form.controls.password.value,
-      ),
+    await this.signIn(
+      () =>
+        this.auth.loginWithEmail(
+          parsedEmail.data,
+          this.form.controls.password.value,
+        ),
+      'password',
     );
   }
 
-  private async signIn(action: () => Promise<unknown>): Promise<void> {
+  private async signIn(
+    action: () => Promise<unknown>,
+    flow: SignInFlow,
+  ): Promise<void> {
     this.state.set({ status: 'submitting' });
 
     try {
       await action();
     } catch (error) {
-      const message = signInErrorMessage(error);
+      const message = signInErrorMessage(error, flow);
       this.state.set(
         message === null ? { status: 'idle' } : { status: 'error', message },
       );
