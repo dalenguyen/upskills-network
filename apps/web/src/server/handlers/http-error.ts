@@ -73,7 +73,7 @@ function errorName(error: unknown): string | null {
  *   ids for an operator's log, and echoing it would tell a caller about
  *   memberships they cannot see.
  * - `InvalidSlugError` → 400.
- * - `SlugTakenError` and `LastOrgAdminError` → 409.
+ * - `SlugTakenError`, `LastOrgAdminError`, and `OrgLimitExceededError` → 409.
  * - `OrgNotFoundError` → 404.
  * - Anything else is returned as-is, so it surfaces as a 500.
  */
@@ -110,6 +110,12 @@ export function toHttpError(error: unknown): unknown {
       return conflict(
         'last-org-admin',
         'An organizer must keep at least one admin.',
+      );
+
+    case 'OrgLimitExceededError':
+      return conflict(
+        'org-limit-exceeded',
+        'A user can belong to only one organizer.',
       );
 
     case 'OrgNotFoundError':

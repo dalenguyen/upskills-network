@@ -5,6 +5,7 @@ import {
   fakeForbiddenError,
   fakeInvalidSessionError,
   fakeInvalidSlugError,
+  fakeOrgLimitExceededError,
   fakeSlugTakenError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
@@ -79,6 +80,23 @@ describe('POST /api/v1/admin/orgs', () => {
     ).rejects.toMatchObject({
       statusCode: 409,
       data: { error: 'slug-taken' },
+    });
+  });
+
+  it('answers 409 when the admin already belongs to an org', async () => {
+    const d = deps({
+      createOrg: vi.fn(async () => {
+        throw fakeOrgLimitExceededError('uid-admin');
+      }),
+    });
+
+    await expect(
+      createOrgsCreateHandler(d)(
+        post({ name: 'Upskills Ottawa', slug: 'upskills-ottawa' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      data: { error: 'org-limit-exceeded' },
     });
   });
 
