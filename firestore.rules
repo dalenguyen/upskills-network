@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Every Firestore read and write in this app goes through `firebase-admin` in
+// the Nitro server routes (libs/data-access/firestore), and the Admin SDK
+// bypasses these rules entirely. Nothing in apps/ or libs/ imports the client
+// Firestore SDK, so denying all direct client access costs the app nothing and
+// closes the database to anyone holding the public web API key.
+//
+// Deployed with `firebase deploy --only firestore:rules`. Edit here, not in the
+// console — a console edit is invisible to review and gets clobbered by the
+// next deploy from this file.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
