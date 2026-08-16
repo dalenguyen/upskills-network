@@ -26,6 +26,18 @@ import { createUserIfAbsent } from './users';
 
 const RACERS = 2;
 
+/**
+ * Two racers contend for far less time than the 25 in
+ * `reserve-spot.concurrency`, but they contend the same way: the loser is
+ * retried with backoff until the winner commits, and how long that takes is the
+ * emulator's business, not ours. Vitest's 5s default is not that budget — this
+ * file has timed out at 5s and passed on the next run, and on a loaded machine
+ * it has taken 4.3s while passing. Sized like its siblings so a genuinely
+ * broken `createUserIfAbsent` reports a failed assertion, and a slow machine
+ * reports nothing at all.
+ */
+const RACE_TIMEOUT_MS = 120_000;
+
 const NEW_USER: User = {
   uid: 'uid-racer',
   email: 'racer@example.com',
@@ -38,37 +50,45 @@ const NEW_USER: User = {
 beforeEach(clearFirestore);
 
 describe('createUserIfAbsent under concurrency', () => {
-  it(`lets exactly one of ${RACERS} simultaneous first sign-ins create the document`, async () => {
-    // Fired together: both calls are in flight before either commits, which is
-    // the only way to reach the lost-update window.
-    const results = await Promise.all(
-      Array.from({ length: RACERS }, () => createUserIfAbsent(NEW_USER)),
-    );
+  it(
+    `lets exactly one of ${RACERS} simultaneous first sign-ins create the document`,
+    async () => {
+      // Fired together: both calls are in flight before either commits, which is
+      // the only way to reach the lost-update window.
+      const results = await Promise.all(
+        Array.from({ length: RACERS }, () => createUserIfAbsent(NEW_USER)),
+      );
 
-    expect(results.filter((result) => result.created)).toHaveLength(1);
-    expect(results.filter((result) => !result.created)).toHaveLength(
-      RACERS - 1,
-    );
+      expect(results.filter((result) => result.created)).toHaveLength(1);
+      expect(results.filter((result) => !result.created)).toHaveLength(
+        RACERS - 1,
+      );
 
-    // Nobody was told about a document other than the one that exists.
-    for (const result of results) {
-      expect(result.user).toEqual(NEW_USER);
-    }
-  });
+      // Nobody was told about a document other than the one that exists.
+      for (const result of results) {
+        expect(result.user).toEqual(NEW_USER);
+      }
+    },
+    RACE_TIMEOUT_MS,
+  );
 
-  it('does not demote an admin promoted between a racer’s read and its write', async () => {
-    // The failure this protects against, staged as directly as the emulator
-    // allows: an existing admin, and a sign-in that would write `role: "user"`
-    // if it ever got to write at all.
-    const admin = await seedUser({ uid: 'uid-racer', role: 'admin' });
+  it(
+    'does not demote an admin promoted between a racer’s read and its write',
+    async () => {
+      // The failure this protects against, staged as directly as the emulator
+      // allows: an existing admin, and a sign-in that would write `role: "user"`
+      // if it ever got to write at all.
+      const admin = await seedUser({ uid: 'uid-racer', role: 'admin' });
 
-    const results = await Promise.all(
-      Array.from({ length: RACERS }, () => createUserIfAbsent(NEW_USER)),
-    );
+      const results = await Promise.all(
+        Array.from({ length: RACERS }, () => createUserIfAbsent(NEW_USER)),
+      );
 
-    expect(results.every((result) => !result.created)).toBe(true);
-    expect((await userRef('uid-racer').get()).data()).toEqual(admin);
-  });
+      expect(results.every((result) => !result.created)).toBe(true);
+      expect((await userRef('uid-racer').get()).data()).toEqual(admin);
+    },
+    RACE_TIMEOUT_MS,
+  );
 });
 
 /**
