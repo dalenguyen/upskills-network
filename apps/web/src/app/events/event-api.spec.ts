@@ -1,7 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { describe, expect, it } from 'vitest';
 
-import { apiErrorCode, apiErrorStatus, eventDetailEndpoint } from './event-api';
+import {
+  apiErrorCode,
+  apiErrorStatus,
+  eventDetailEndpoint,
+  eventsEndpoint,
+} from './event-api';
 
 /**
  * The two shapes one failed request can take.
@@ -108,6 +113,18 @@ describe('eventDetailEndpoint', () => {
   it('escapes the slug so a path segment cannot be smuggled in', () => {
     expect(eventDetailEndpoint('../orgs/secret')).toBe(
       '/api/v1/events/..%2Forgs%2Fsecret',
+    );
+  });
+});
+
+describe('eventsEndpoint', () => {
+  it('asks for the first page when no cursor is given', () => {
+    expect(eventsEndpoint()).toBe('/api/v1/events');
+  });
+
+  it('encodes the cursor into the query string', () => {
+    expect(eventsEndpoint('a/b?c=d')).toBe(
+      '/api/v1/events?cursor=a%2Fb%3Fc%3Dd',
     );
   });
 });

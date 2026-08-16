@@ -53,6 +53,9 @@ import { AuthService } from '../auth/auth-service';
           <a href="/#features" class="transition-colors hover:text-zinc-900">
             Why Upskills
           </a>
+          <a href="/events" class="transition-colors hover:text-zinc-900">
+            Events
+          </a>
         </nav>
 
         <div class="flex items-center gap-4 sm:gap-5">
