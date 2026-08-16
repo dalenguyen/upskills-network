@@ -11,6 +11,14 @@ import type {
   DashboardEventsListResponse,
 } from '../../server/handlers/dashboard/events-list';
 import type { DashboardEventsUpdateResponse } from '../../server/handlers/dashboard/events-update';
+import type { DashboardOrgMembersRemoveResponse } from '../../server/handlers/dashboard/org-members-remove';
+import type { DashboardOrgMembersSetResponse } from '../../server/handlers/dashboard/org-members-set';
+import type { DashboardOrgsCreateResponse } from '../../server/handlers/dashboard/orgs-create';
+import type { DashboardOrgsDetailResponse } from '../../server/handlers/dashboard/orgs-detail';
+import type {
+  DashboardOrg,
+  DashboardOrgMembership,
+} from '../../server/handlers/dashboard/org-view';
 
 /**
  * The organizer dashboard API, as the browser sees it.
@@ -23,8 +31,11 @@ import type { DashboardEventsUpdateResponse } from '../../server/handlers/dashbo
  * dashboard pages and the routes they call cannot drift apart silently:
  * renaming a field in `MeGetResponse`, `DashboardEventsListResponse`,
  * `DashboardEventsCreateResponse`, `DashboardEventsDetailResponse`,
- * `DashboardEventsCancelResponse`, or `DashboardEventsUpdateResponse` breaks
- * the type-check here instead of producing an `undefined` on a rendered page.
+ * `DashboardEventsCancelResponse`, `DashboardEventsUpdateResponse`,
+ * `DashboardOrgsCreateResponse`, `DashboardOrgsDetailResponse`,
+ * `DashboardOrgMembersSetResponse`, or `DashboardOrgMembersRemoveResponse`
+ * breaks the type-check here instead of producing an `undefined` on a rendered
+ * page.
  */
 
 export type { MeGetResponse, MeOrg, MeUser };
@@ -34,6 +45,11 @@ export type { DashboardEventsDetailResponse };
 export type { DashboardEventsListResponse };
 export type { DashboardEventsUpdateResponse };
 export type { DashboardEvent };
+export type { DashboardOrgsCreateResponse };
+export type { DashboardOrgsDetailResponse };
+export type { DashboardOrgMembersSetResponse };
+export type { DashboardOrgMembersRemoveResponse };
+export type { DashboardOrg, DashboardOrgMembership };
 
 /** `GET` — the signed-in user and the organizers they belong to. */
 export function meEndpoint(): string {
@@ -74,4 +90,24 @@ export function dashboardEventUpdateEndpoint(eventId: string): string {
 /** `DELETE` — cancel one event owned by one org and notify confirmed guests. */
 export function dashboardEventCancelEndpoint(eventId: string): string {
   return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
+}
+
+/** `POST` — create the caller's own organizer. */
+export function dashboardOrgCreateEndpoint(): string {
+  return '/api/v1/dashboard/orgs';
+}
+
+/** `GET` — the caller's own organizer, staff roster included. */
+export function dashboardOrgDetailEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}`;
+}
+
+/**
+ * `POST` / `PUT` / `DELETE` — add, change, or remove one member of an org.
+ *
+ * Same `orgId` encoding as `dashboardEventsEndpoint`: the path segment must not
+ * be able to smuggle `/` into the request.
+ */
+export function dashboardOrgMembersEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}/members`;
 }

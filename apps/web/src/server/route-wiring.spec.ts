@@ -129,6 +129,12 @@ import dashboardEventDetailRoute from './routes/api/v1/dashboard/events/[eventId
 import dashboardEventUpdateRoute from './routes/api/v1/dashboard/events/[eventId]/index.put';
 import dashboardEventCancelRoute from './routes/api/v1/dashboard/events/[eventId]/index.delete';
 
+import dashboardOrgsCreateRoute from './routes/api/v1/dashboard/orgs/index.post';
+import dashboardOrgDetailRoute from './routes/api/v1/dashboard/orgs/[orgId]/index.get';
+import dashboardOrgMembersPostRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.post';
+import dashboardOrgMembersPutRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.put';
+import dashboardOrgMembersDeleteRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.delete';
+
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
   handler: (event: ReturnType<typeof createTestEvent>['event']) => unknown,
@@ -479,5 +485,96 @@ describe('dashboard event route wiring', () => {
       'manager',
     );
     expect(firestore.cancelEvent).toHaveBeenCalledWith('evt-1');
+  });
+});
+
+describe('dashboard org route wiring', () => {
+  it('POST /dashboard/orgs requires a session and creates with the session uid', async () => {
+    await run(dashboardOrgsCreateRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/orgs',
+      body: { name: 'Upskills Ottawa', slug: 'upskills-ottawa' },
+    });
+
+    expect(auth.requireAuth).toHaveBeenCalled();
+    expect(firestore.createOrg).toHaveBeenCalledWith({
+      name: 'Upskills Ottawa',
+      slug: 'upskills-ottawa',
+      createdBy: 'uid-1',
+    });
+  });
+
+  it('GET /dashboard/orgs/:orgId authorizes every member role', async () => {
+    await run(dashboardOrgDetailRoute, {
+      method: 'GET',
+      url: '/api/v1/dashboard/orgs/org-1',
+      params: { orgId: 'org-1' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+      'check_in',
+      'volunteer',
+    );
+    expect(firestore.getOrg).not.toHaveBeenCalled();
+  });
+
+  it('POST /dashboard/orgs/:orgId/members requires an org admin and sets the role', async () => {
+    await run(dashboardOrgMembersPostRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2', role: 'manager' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+    expect(firestore.setOrgMember).toHaveBeenCalledWith(
+      'org-1',
+      'uid-2',
+      'manager',
+    );
+  });
+
+  it('PUT /dashboard/orgs/:orgId/members requires an org admin and changes the role', async () => {
+    await run(dashboardOrgMembersPutRoute, {
+      method: 'PUT',
+      url: '/api/v1/dashboard/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2', role: 'check_in' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+    expect(firestore.setOrgMember).toHaveBeenCalledWith(
+      'org-1',
+      'uid-2',
+      'check_in',
+    );
+  });
+
+  it('DELETE /dashboard/orgs/:orgId/members requires an org admin and removes the uid', async () => {
+    await run(dashboardOrgMembersDeleteRoute, {
+      method: 'DELETE',
+      url: '/api/v1/dashboard/orgs/org-1/members',
+      params: { orgId: 'org-1' },
+      body: { uid: 'uid-2' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+    expect(firestore.removeOrgMember).toHaveBeenCalledWith('org-1', 'uid-2');
   });
 });
