@@ -304,9 +304,7 @@ export default class DashboardEventsPageComponent implements OnInit {
       );
 
       await this.reloadEvents(state.org.orgId);
-      this.notice.set(
-        this.notificationMessage(response.notification.attempted),
-      );
+      this.notice.set(this.notificationMessage(response.notification));
     } catch {
       this.cancelError.set(
         'Something went wrong while cancelling the event. Please try again.',
@@ -337,12 +335,18 @@ export default class DashboardEventsPageComponent implements OnInit {
     });
   }
 
-  private notificationMessage(attempted: number): string {
-    if (attempted === 0) {
+  private notificationMessage(
+    notification: DashboardEventsCancelResponse['notification'],
+  ): string {
+    if (notification.attempted === 0) {
       return 'Event cancelled. 0 guests to notify.';
     }
 
-    return `Event cancelled. ${attempted} guests notified.`;
+    if (notification.failed > 0) {
+      return `Event cancelled. ${notification.sent} of ${notification.attempted} guests notified; ${notification.failed} could not be emailed.`;
+    }
+
+    return `Event cancelled. ${notification.sent} guests notified.`;
   }
 
   startDate(workshop: DashboardEvent): string {

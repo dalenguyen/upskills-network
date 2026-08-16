@@ -308,6 +308,49 @@ describe('DashboardEventsPageComponent', () => {
     http.verify();
   });
 
+  it('reports partial failures from the notification fan-out', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({
+      events: [workshop({ eventId: 'evt_1', status: 'published' })],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
+
+    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    deleteRequest.flush({
+      event: workshop({ eventId: 'evt_1', status: 'cancelled' }),
+      notification: {
+        attempted: 3,
+        sent: 2,
+        failed: 1,
+        failures: [{ email: 'guest@example.com', reason: 'error', detail: '' }],
+      },
+    });
+
+    await Promise.resolve();
+
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({
+      events: [workshop({ eventId: 'evt_1', status: 'cancelled' })],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      '2 of 3 guests notified; 1 could not be emailed.',
+    );
+    http.verify();
+  });
+
   it('shows the zero-guests message when the cancel notifies nobody', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { fixture, http } = await setup();
