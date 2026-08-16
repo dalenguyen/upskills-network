@@ -20,6 +20,19 @@ export function eventDetailEndpoint(slug: string): string {
   return `/api/v1/events/${encodeURIComponent(slug)}`;
 }
 
+/**
+ * `GET` — the public browse listing, one page at a time.
+ *
+ * `cursor` names the position after the last event of the previous page, so a
+ * passed cursor fetches the *next* page. Omit it for the first page.
+ */
+export function eventsEndpoint(cursor?: string): string {
+  const base = '/api/v1/events';
+  return cursor === undefined
+    ? base
+    : `${base}?cursor=${encodeURIComponent(cursor)}`;
+}
+
 /** `POST` — the free registration path for one event. */
 export function registerEndpoint(eventId: string): string {
   return `/api/v1/registration/${encodeURIComponent(eventId)}/register`;
@@ -28,6 +41,13 @@ export function registerEndpoint(eventId: string): string {
 /** What `GET /api/v1/events/:slug` answers with. */
 export interface EventDetailResponse {
   event: PublicEvent;
+}
+
+/** What `GET /api/v1/events` answers with. */
+export interface EventsListResponse {
+  events: PublicEvent[];
+  /** Pass back to `eventsEndpoint()` for the next page; `null` on the last. */
+  nextCursor: string | null;
 }
 
 /**
