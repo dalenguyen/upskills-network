@@ -105,6 +105,7 @@ describe('WorkshopEvent', () => {
   const event: WorkshopEvent = {
     eventId: 'evt-1',
     orgId: 'org-1',
+    createdBy: 'uid-1',
     title: 'Intro to Networking',
     slug: 'intro-to-networking',
     description: 'A hands-on session.',
@@ -125,6 +126,10 @@ describe('WorkshopEvent', () => {
 
   it('stores orgId as a field because events are a top-level collection', () => {
     expect(event.orgId).toBe('org-1');
+  });
+
+  it('records the uid of the creator', () => {
+    expect(event.createdBy).toBe('uid-1');
   });
 
   it('stores price in minor units and only supports cad', () => {

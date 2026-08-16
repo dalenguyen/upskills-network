@@ -42,7 +42,12 @@ export function createDashboardEventsCreateHandler(
   return defineEventHandler(async (event) => {
     try {
       const orgId = readOrgId(event);
-      await deps.requireOrgRole(event, orgId, 'admin', 'manager');
+      const orgContext = await deps.requireOrgRole(
+        event,
+        orgId,
+        'admin',
+        'manager',
+      );
 
       const parsed = CreateEventSchema.safeParse(
         await readBody<unknown>(event),
@@ -58,7 +63,12 @@ export function createDashboardEventsCreateHandler(
       // Not `event` — that name is the H3Event this handler was called with,
       // and shadowing it here puts every earlier use of it in this block into
       // the temporal dead zone.
-      const created = await deps.createEvent(orgId, parsed.data);
+      const created = await deps.createEvent(orgId, {
+        ...parsed.data,
+        // `createdBy` is the authenticated session uid, never the body, so a
+        // caller cannot forge the audit trail by supplying their own uid.
+        createdBy: orgContext.uid,
+      });
 
       return {
         event: toDashboardEvent(created),

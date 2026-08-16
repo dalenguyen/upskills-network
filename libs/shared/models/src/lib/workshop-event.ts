@@ -19,6 +19,8 @@ export interface WorkshopEvent {
   eventId: string;
   /** Owning organizer; events are top-level, so the org is a field. */
   orgId: string;
+  /** uid of the creator. */
+  createdBy: string;
   title: string;
   /** Unique; enforced by an `eventSlugs/{slug}` reservation doc. */
   slug: string;

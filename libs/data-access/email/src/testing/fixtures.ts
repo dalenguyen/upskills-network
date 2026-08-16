@@ -48,6 +48,7 @@ export function eventFixture(
   return {
     eventId: 'evt-typescript-101',
     orgId: 'org-upskills',
+    createdBy: 'uid-1',
     title: 'TypeScript for Working Developers',
     slug: 'typescript-for-working-developers',
     description: 'A hands-on evening on the type system you already use.',

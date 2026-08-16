@@ -17,6 +17,7 @@ beforeEach(clearFirestore);
 const draft: CreateEventDraft = {
   title: '  React Basics  ',
   slug: '  react-basics  ',
+  createdBy: 'uid-1',
   description: '  A hands-on session.  ',
   startsAt: '2026-09-01T18:00:00.000Z',
   timezone: 'America/Toronto',
@@ -31,6 +32,7 @@ describe('createEvent', () => {
 
     expect(created).toMatchObject({
       orgId: 'org-1',
+      createdBy: 'uid-1',
       title: 'React Basics',
       slug: 'react-basics',
       description: 'A hands-on session.',
@@ -49,6 +51,7 @@ describe('createEvent', () => {
     expect(stored).toMatchObject({
       eventId: created.eventId,
       orgId: 'org-1',
+      createdBy: 'uid-1',
       title: 'React Basics',
       slug: 'react-basics',
       status: 'draft',
