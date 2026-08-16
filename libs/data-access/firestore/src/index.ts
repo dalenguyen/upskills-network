@@ -65,6 +65,7 @@ export type { CreateUserResult } from './lib/users';
 
 export {
   LastOrgAdminError,
+  OrgLimitExceededError,
   OrgNotFoundError,
   createOrg,
   removeOrgMember,

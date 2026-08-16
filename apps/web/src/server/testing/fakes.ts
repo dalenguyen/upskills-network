@@ -72,3 +72,11 @@ export function fakeOrgNotFoundError(orgId: string): Error {
     name: 'OrgNotFoundError',
   });
 }
+
+/** An error indistinguishable from `OrgLimitExceededError` to a route. */
+export function fakeOrgLimitExceededError(uid: string): Error {
+  return Object.assign(
+    new Error(`User "${uid}" already belongs to an organizer.`),
+    { name: 'OrgLimitExceededError' },
+  );
+}

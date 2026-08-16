@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { T0, seedOrg } from '../testing/seed';
-import { orgsCol, orgSlugRef } from './collections';
+import { T0, seedOrg, seedUser } from '../testing/seed';
+import { orgsCol, orgSlugRef, userRef } from './collections';
 import {
   LastOrgAdminError,
+  OrgLimitExceededError,
   createOrg,
   removeOrgMember,
   setOrgMember,
@@ -46,6 +47,30 @@ describe('createOrg', () => {
     expect((await orgSlugRef('upskills-toronto').get()).data()).toEqual({
       orgId: org.orgId,
     });
+  });
+
+  it('links the org on the creator in the same commit', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: [] });
+
+    const org = await createOrg({
+      name: 'Upskills Toronto',
+      slug: 'upskills-toronto',
+      createdBy: 'uid-1',
+    });
+
+    expect((await userRef('uid-1').get()).data()?.orgIds).toEqual([org.orgId]);
+  });
+
+  it('throws OrgLimitExceededError for a creator who already has an org', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: ['org-existing'] });
+
+    await expect(
+      createOrg({ name: 'Another', slug: 'another', createdBy: 'uid-1' }),
+    ).rejects.toBeInstanceOf(OrgLimitExceededError);
+
+    // The aborted transaction leaves no slug reservation or organizer behind.
+    expect((await orgSlugRef('another').get()).data()).toBeUndefined();
+    expect((await orgsCol().get()).docs).toHaveLength(0);
   });
 
   it('throws SlugTakenError for a taken slug and leaves no organizer behind', async () => {

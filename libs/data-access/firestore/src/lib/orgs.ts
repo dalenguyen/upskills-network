@@ -1,6 +1,6 @@
 import type { OrgRole, Organizer } from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
-import { orgRef, orgsCol } from './collections';
+import { orgRef, orgsCol, userRef } from './collections';
 import { asSlugTaken, reserveSlugInTransaction } from './slugs';
 import { runTransaction } from './transactions';
 
@@ -58,6 +58,22 @@ export class OrgNotFoundError extends Error {
   }
 }
 
+/**
+ * Raised when a user would get a second organizer.
+ *
+ * The product model is one org per user. Checked inside the `createOrg`
+ * transaction against the user document, so two simultaneous creates for the
+ * same user serialize on `users/{uid}` and exactly one commits — the loser
+ * re-reads a populated `orgIds` and throws rather than silently building a
+ * second org.
+ */
+export class OrgLimitExceededError extends Error {
+  constructor(readonly uid: string) {
+    super(`User "${uid}" already belongs to an organizer.`);
+    this.name = 'OrgLimitExceededError';
+  }
+}
+
 /** The caller-supplied half of a new organizer document. */
 export interface CreateOrgDraft {
   name: string;
@@ -77,6 +93,7 @@ export interface CreateOrgDraft {
  * @returns the created organizer, with its generated `orgId`.
  * @throws InvalidSlugError when `slug` is not a legal slug.
  * @throws SlugTakenError when another org already holds the slug.
+ * @throws OrgLimitExceededError when `createdBy` already belongs to an org.
  */
 export async function createOrg({
   name,
@@ -91,6 +108,19 @@ export async function createOrg({
   let reservedSlug = slug;
 
   return runTransaction(async (transaction) => {
+    // One org per user, serialized on the user document. This read happens
+    // before any write, and reading the (usually present) document puts its key
+    // in the transaction's read set — so two racing creates for the same user
+    // contend on `users/{uid}`, and the loser re-reads a populated `orgIds` and
+    // throws. Sign-in creates the user document before an org can exist, so it
+    // is present by the time this runs.
+    const userDoc = userRef(createdBy);
+    const user = (await transaction.get(userDoc)).data();
+
+    if (user && user.orgIds.length > 0) {
+      throw new OrgLimitExceededError(createdBy);
+    }
+
     reservedSlug = await reserveSlugInTransaction(
       transaction,
       'orgSlugs',
@@ -115,6 +145,13 @@ export async function createOrg({
     // org id cannot already exist, but if it somehow does the write fails
     // rather than overwriting a live organizer.
     transaction.create(doc, organizer);
+
+    // Record the org on the creator in the same commit, so `me.get` can answer
+    // "my org" and the next create for this user throws. Merge rather than
+    // overwrite: the user document carries fields this path must not touch.
+    if (user) {
+      transaction.set(userDoc, { ...user, orgIds: [...user.orgIds, doc.id] });
+    }
 
     return organizer;
   }).catch((error: unknown) => asSlugTaken('orgSlugs', reservedSlug)(error));
