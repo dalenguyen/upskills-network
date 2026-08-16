@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth-service';
@@ -78,10 +78,10 @@ import { AuthService } from '../auth/auth-service';
           }
 
           <a
-            href="/#waitlist"
+            [href]="ctaHref()"
             class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
-            Join the waitlist
+            {{ ctaLabel() }}
           </a>
         </div>
       </div>
@@ -101,6 +101,14 @@ export class LandingHeaderComponent {
    * in-flight state as a signal.
    */
   readonly signingOut = signal(false);
+
+  /** The primary call-to-action: dashboard for signed-in users, waitlist for everyone else. */
+  readonly ctaHref = computed(() =>
+    this.auth.user() ? '/dashboard' : '/#waitlist',
+  );
+  readonly ctaLabel = computed(() =>
+    this.auth.user() ? 'Dashboard' : 'Join the waitlist',
+  );
 
   private readonly router = inject(Router);
 

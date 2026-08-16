@@ -98,8 +98,9 @@ describe('LandingHeaderComponent', () => {
     expect(signOutButton(root)).toBeTruthy();
     expect(root.querySelector('a[href="/auth/login"]')).toBeNull();
 
-    const callToAction = root.querySelector('a[href="/#waitlist"]');
-    expect(callToAction?.textContent?.trim()).toBe('Join the waitlist');
+    const callToAction = root.querySelector('a[href="/dashboard"]');
+    expect(callToAction?.textContent?.trim()).toBe('Dashboard');
+    expect(root.querySelector('a[href="/#waitlist"]')).toBeNull();
   });
 
   it('falls back to email when the signed-in user has no display name', async () => {
