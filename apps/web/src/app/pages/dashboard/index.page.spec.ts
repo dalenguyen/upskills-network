@@ -8,11 +8,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   dashboardEventsEndpoint,
+  dashboardOrgDetailEndpoint,
   meEndpoint,
   type MeGetResponse,
   type DashboardEvent,
 } from '../../dashboard/dashboard-api';
 import {
+  dashboardOrg,
   meResponse,
   workshop,
 } from '../../dashboard/testing/dashboard-fixtures';
@@ -57,7 +59,11 @@ describe('DashboardOverviewPageComponent', () => {
     const { fixture, http } = await setup();
 
     http.expectOne(meEndpoint()).flush(meResponse);
-    await Promise.resolve();
+    await fixture.whenStable();
+
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg() });
 
     const eventsRequest = http.expectOne(dashboardEventsEndpoint('org_1'));
     expect(eventsRequest.request.withCredentials).toBe(true);
@@ -78,7 +84,9 @@ describe('DashboardOverviewPageComponent', () => {
       ],
     });
 
-    await fixture.whenStable();
+    // `Promise.all` in `load()` resolves a microtask hop after `whenStable`
+    // settles in this zoneless setup, so wait a macrotask.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent;
@@ -103,13 +111,17 @@ describe('DashboardOverviewPageComponent', () => {
     const { fixture, http } = await setup();
 
     http.expectOne(meEndpoint()).flush(meResponse);
-    await Promise.resolve();
+    await fixture.whenStable();
+
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg() });
 
     http
       .expectOne(dashboardEventsEndpoint('org_1'))
       .flush({}, { status: 500, statusText: 'Server Error' });
 
-    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent;

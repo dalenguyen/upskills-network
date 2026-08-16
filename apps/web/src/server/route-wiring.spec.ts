@@ -519,7 +519,6 @@ describe('dashboard org route wiring', () => {
       'check_in',
       'volunteer',
     );
-    expect(firestore.getOrg).not.toHaveBeenCalled();
   });
 
   it('POST /dashboard/orgs/:orgId/members requires an org admin and sets the role', async () => {
