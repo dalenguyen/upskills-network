@@ -1,0 +1,80 @@
+name: Deploy
+
+# Deploys only after CI is green on `main`. `workflow_run` is the only way one
+# workflow can gate on another across files — `needs:` works within a workflow
+# only. `workflow_dispatch` is kept for manual redeploys of the current main.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # `workflow_run` fires on failure too, so the conclusion has to be checked
+    # explicitly. On a manual run there is no workflow_run payload, hence the
+    # event-name fallback.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://upskillsnetwork.com
+
+    steps:
+      # Check out the exact commit CI validated, not whatever main points at
+      # now — otherwise a push landing mid-run would ship untested code.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Keyless auth: no service-account JSON key is stored anywhere. The
+      # provider trusts GitHub's OIDC token, and only for this repository.
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve build tag
+        # Same short-SHA scheme deploys have used by hand, so image tags stay
+        # comparable across CI and local deploys.
+        run: echo "BUILD_NUMBER=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      # Both steps go through the Nx targets in apps/web/project.json so the
+      # image name, build args, secrets and service config have exactly one
+      # definition. BUILD_NUMBER must be identical across the two: deploy-docker
+      # pushes `web:$BUILD_NUMBER` and deploy-cloudrun deploys that same tag.
+      - name: Build and push image
+        run: pnpm exec nx run web:deploy-docker
+
+      - name: Deploy to Cloud Run
+        run: pnpm exec nx run web:deploy-cloudrun --configuration production
+
+      - name: Smoke check
+        run: |
+          URL=$(gcloud run services describe upskills-web \
+            --region us-central1 --project upskills-network \
+            --format 'value(status.url)')
+          echo "Deployed $BUILD_NUMBER to $URL"
+          curl -fsS -o /dev/null -w '%{http_code}\n' "$URL"
