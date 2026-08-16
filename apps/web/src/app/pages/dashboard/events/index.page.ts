@@ -5,8 +5,10 @@ import { firstValueFrom } from 'rxjs';
 
 import { authGuard } from '../../../auth/auth-guard';
 import {
+  dashboardEventCancelEndpoint,
   dashboardEventsEndpoint,
   meEndpoint,
+  type DashboardEventsCancelResponse,
   type DashboardEventsListResponse,
   type MeGetResponse,
   type MeOrg,
@@ -95,6 +97,26 @@ export const routeMeta: RouteMeta = {
                 </a>
               </div>
 
+              @if (notice(); as message) {
+                <div class="mt-6" role="status">
+                  <p
+                    class="rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700 ring-1 ring-inset ring-green-200"
+                  >
+                    {{ message }}
+                  </p>
+                </div>
+              }
+
+              @if (cancelError(); as message) {
+                <div class="mt-6" role="alert">
+                  <p
+                    class="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-200"
+                  >
+                    {{ message }}
+                  </p>
+                </div>
+              }
+
               @if (events().length === 0) {
                 <section
                   class="mt-12 rounded-xl border border-dashed border-zinc-300 py-12 text-center"
@@ -161,6 +183,19 @@ export const routeMeta: RouteMeta = {
                                 Edit
                               </a>
                             }
+                            @if (
+                              workshop.status === 'draft' ||
+                              workshop.status === 'published'
+                            ) {
+                              <button
+                                type="button"
+                                [disabled]="cancelling()"
+                                (click)="cancel(workshop)"
+                                class="ml-3 text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Cancel
+                              </button>
+                            }
                           </td>
                           <td class="px-4 py-3 capitalize text-zinc-700">
                             {{ workshop.status }}
@@ -190,12 +225,18 @@ export default class DashboardEventsPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
 
   readonly state = signal<PageState>({ status: 'loading' });
+  readonly cancelling = signal(false);
+  readonly notice = signal<string | null>(null);
+  readonly cancelError = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
     await this.load();
   }
 
   private async load(): Promise<void> {
+    this.notice.set(null);
+    this.cancelError.set(null);
+
     try {
       const me = await firstValueFrom(
         this.http.get<MeGetResponse>(meEndpoint(), { withCredentials: true }),
@@ -234,6 +275,74 @@ export default class DashboardEventsPageComponent implements OnInit {
   events(): DashboardEvent[] {
     const state = this.state();
     return state.status === 'ready' ? state.events : [];
+  }
+
+  async cancel(workshop: DashboardEvent): Promise<void> {
+    if (this.cancelling()) {
+      return;
+    }
+
+    const state = this.state();
+    if (state.status !== 'ready') {
+      return;
+    }
+
+    if (!window.confirm('Cancel this event and notify confirmed guests?')) {
+      return;
+    }
+
+    this.cancelling.set(true);
+    this.notice.set(null);
+    this.cancelError.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.http.delete<DashboardEventsCancelResponse>(
+          dashboardEventCancelEndpoint(workshop.eventId),
+          { withCredentials: true },
+        ),
+      );
+
+      await this.reloadEvents(state.org.orgId);
+      this.notice.set(
+        this.notificationMessage(response.notification.attempted),
+      );
+    } catch {
+      this.cancelError.set(
+        'Something went wrong while cancelling the event. Please try again.',
+      );
+    } finally {
+      this.cancelling.set(false);
+    }
+  }
+
+  private async reloadEvents(orgId: string): Promise<void> {
+    const response = await firstValueFrom(
+      this.http.get<DashboardEventsListResponse>(
+        dashboardEventsEndpoint(orgId),
+        { withCredentials: true },
+      ),
+    );
+
+    const state = this.state();
+    if (state.status !== 'ready') {
+      return;
+    }
+
+    this.state.set({
+      status: 'ready',
+      user: state.user,
+      org: state.org,
+      events: response.events,
+    });
+  }
+
+  private notificationMessage(attempted: number): string {
+    if (attempted === 0) {
+      return 'Event cancelled. 0 guests to notify.';
+    }
+
+    return `Event cancelled. ${attempted} guests notified.`;
   }
 
   startDate(workshop: DashboardEvent): string {
