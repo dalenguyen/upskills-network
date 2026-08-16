@@ -73,6 +73,12 @@ describe('signInErrorMessage', () => {
     });
   }
 
+  it('blames the browser, not the credential, for a blocked sign-in popup', () => {
+    expect(signInErrorMessage({ code: 'auth/popup-blocked' })).toBe(
+      'Sign-in window was blocked. Allow pop-ups for this site and try again.',
+    );
+  });
+
   it('reports an unavailable client as configuration, not a credential failure', () => {
     expect(
       signInErrorMessage(new AuthUnavailableError('missing Firebase config')),
