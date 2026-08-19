@@ -11,6 +11,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import type { NotifyOrganizers } from '../organizer-notify';
 import { forbidden } from './registration-errors';
 
 /**
@@ -91,6 +92,11 @@ export interface CancelDeps {
   ): Promise<SendResult>;
   /** `sendSpotOpenedEmail` from `@upskills/email`. Never throws. */
   sendSpotOpenedEmail(guest: Guest, event: WorkshopEvent): Promise<SendResult>;
+  /**
+   * Tell the org's staff a spot was released — the one party who can act on it.
+   * See `handlers/organizer-notify.ts`; it swallows its own failures.
+   */
+  notifyOrganizers: NotifyOrganizers;
 }
 
 /**
@@ -210,6 +216,19 @@ async function notify(
   if (!result.changed || result.guest === null) {
     return true;
   }
+
+  // Before the guest's own send rather than after, so a Resend failure on the
+  // guest's copy cannot skip the notice to the people who would have to chase
+  // it. `sendCancellationEmail` does not throw, but the ordering costs nothing
+  // and stops that from being load-bearing.
+  // Guarded here as well as inside the notifier, for the reason `register.ts`
+  // gives: an accepted cancellation answering 200 is this handler's guarantee,
+  // not one delegated to whatever the route injected.
+  await deps
+    .notifyOrganizers(workshop.orgId, workshop, 'cancellation', {
+      guest: result.guest,
+    })
+    .catch(() => undefined);
 
   return (await deps.sendCancellationEmail(result.guest, workshop)).sent;
 }
