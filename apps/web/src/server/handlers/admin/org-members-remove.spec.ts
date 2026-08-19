@@ -8,7 +8,11 @@ import {
   fakeOrgNotFoundError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_EMAILS,
+  FIXTURE_START,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import {
   createOrgMembersRemoveHandler,
   type OrgMembersRemoveDeps,
@@ -28,6 +32,7 @@ function deps(
   return {
     requireAdmin: vi.fn(async () => ADMIN),
     removeOrgMember: vi.fn(async () => fakeOrg()),
+    getUserEmails: vi.fn(async () => FIXTURE_EMAILS),
     ...overrides,
   };
 }

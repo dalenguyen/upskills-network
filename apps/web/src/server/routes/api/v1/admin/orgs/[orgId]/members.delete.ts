@@ -1,5 +1,5 @@
 import { requireAdmin } from '@upskills/auth';
-import { removeOrgMember } from '@upskills/firestore';
+import { getUserEmails, removeOrgMember } from '@upskills/firestore';
 import { createOrgMembersRemoveHandler } from '../../../../../../handlers/admin/org-members-remove';
 
 /**
@@ -11,4 +11,5 @@ import { createOrgMembersRemoveHandler } from '../../../../../../handlers/admin/
 export default createOrgMembersRemoveHandler({
   requireAdmin,
   removeOrgMember,
+  getUserEmails,
 });

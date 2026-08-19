@@ -1,5 +1,5 @@
 import { requireAuth } from '@upskills/auth';
-import { createOrg } from '@upskills/firestore';
+import { createOrg, getUserEmails } from '@upskills/firestore';
 import { createDashboardOrgsCreateHandler } from '../../../../../handlers/dashboard/orgs-create';
 
 /**
@@ -11,4 +11,5 @@ import { createDashboardOrgsCreateHandler } from '../../../../../handlers/dashbo
 export default createDashboardOrgsCreateHandler({
   requireAuth,
   createOrg,
+  getUserEmails,
 });

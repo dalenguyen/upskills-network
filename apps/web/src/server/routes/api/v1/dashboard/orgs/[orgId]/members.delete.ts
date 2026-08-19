@@ -1,5 +1,5 @@
 import { requireOrgRole } from '@upskills/auth';
-import { removeOrgMember } from '@upskills/firestore';
+import { getUserEmails, removeOrgMember } from '@upskills/firestore';
 import { createDashboardOrgMembersRemoveHandler } from '../../../../../../handlers/dashboard/org-members-remove';
 
 /**
@@ -11,4 +11,5 @@ import { createDashboardOrgMembersRemoveHandler } from '../../../../../../handle
 export default createDashboardOrgMembersRemoveHandler({
   requireOrgRole,
   removeOrgMember,
+  getUserEmails,
 });

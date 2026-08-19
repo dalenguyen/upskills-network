@@ -1,5 +1,9 @@
 import { requireOrgRole } from '@upskills/auth';
-import { setOrgMember } from '@upskills/firestore';
+import {
+  findUserByEmail,
+  getUserEmails,
+  setOrgMember,
+} from '@upskills/firestore';
 import { createDashboardOrgMembersSetHandler } from '../../../../../../handlers/dashboard/org-members-set';
 
 /**
@@ -11,4 +15,6 @@ import { createDashboardOrgMembersSetHandler } from '../../../../../../handlers/
 export default createDashboardOrgMembersSetHandler({
   requireOrgRole,
   setOrgMember,
+  findUserByEmail,
+  getUserEmails,
 });

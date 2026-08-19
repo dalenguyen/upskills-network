@@ -23,19 +23,23 @@ import { LandingHeaderComponent } from '../../../../landing/landing-header.compo
  * `/admin/orgs/[orgId]` — one organizer's detail and member roster.
  *
  * The detail route answers the whole org document, so the page does not need a
- * separate roster request: `org.members` is already keyed by uid. Member writes
+ * separate roster request: `org.members` is already keyed by uid, and each entry
+ * carries the member's email so the roster can name people rather than ids. Member writes
  * post back to `/api/v1/admin/orgs/:orgId/members` and each response carries
  * the updated org, which replaces the local state without a second fetch.
  */
 
 interface MemberForm {
-  uid: string;
+  email: string;
   role: OrgRole;
 }
 
 interface MemberRow {
   uid: string;
   role: OrgRole;
+  /** What the row is labelled by: the member's email, or their uid when the
+   * account behind the membership is gone. */
+  label: string;
 }
 
 type PageState =
@@ -45,14 +49,19 @@ type PageState =
   | { status: 'error' }
   | { status: 'ready'; org: AdminOrg };
 
-/** Stable, uid-sorted roster rows so the per-row role selects keep their model. */
+/**
+ * Roster rows sorted by the label they render, so the list reads alphabetically
+ * by email. The row key stays the uid — that is what member writes are keyed by
+ * and what keeps the per-row role selects bound to the right member.
+ */
 function toMemberRows(org: AdminOrg): MemberRow[] {
   return Object.entries(org.members)
     .map(([uid, membership]): MemberRow => ({
       uid,
       role: membership.role,
+      label: membership.email ?? uid,
     }))
-    .sort((left, right) => left.uid.localeCompare(right.uid));
+    .sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export const routeMeta: RouteMeta = {
@@ -202,14 +211,14 @@ export const routeMeta: RouteMeta = {
                       @for (member of members(); track member.uid) {
                         <tr>
                           <td class="px-4 py-3 font-medium text-zinc-900">
-                            {{ member.uid }}
+                            {{ member.label }}
                           </td>
                           <td class="px-4 py-3">
                             <select
                               [id]="'role-' + member.uid"
                               name="role"
                               [attr.aria-label]="
-                                'Change role for ' + member.uid
+                                'Change role for ' + member.label
                               "
                               [disabled]="submitting()"
                               [value]="
@@ -228,7 +237,7 @@ export const routeMeta: RouteMeta = {
                               <button
                                 type="button"
                                 [attr.aria-label]="
-                                  'Change role for ' + member.uid
+                                  'Change role for ' + member.label
                                 "
                                 [disabled]="submitting()"
                                 (click)="
@@ -243,7 +252,7 @@ export const routeMeta: RouteMeta = {
                               </button>
                               <button
                                 type="button"
-                                [attr.aria-label]="'Remove ' + member.uid"
+                                [attr.aria-label]="'Remove ' + member.label"
                                 [disabled]="submitting()"
                                 (click)="removeMember(member.uid)"
                                 class="inline-flex h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-red-700 shadow-sm ring-1 ring-inset ring-red-200 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
@@ -291,19 +300,20 @@ export const routeMeta: RouteMeta = {
                 >
                   <div>
                     <label
-                      for="uid"
+                      for="email"
                       class="block text-sm font-medium leading-6 text-zinc-900"
                     >
-                      Member uid
+                      Member email
                     </label>
                     <input
-                      id="uid"
-                      name="uid"
-                      type="text"
+                      id="email"
+                      name="email"
+                      type="email"
                       required
+                      placeholder="person@example.com"
                       [disabled]="submitting()"
-                      [value]="form.uid"
-                      (input)="form.uid = $any($event.target).value"
+                      [value]="form.email"
+                      (input)="form.email = $any($event.target).value"
                       class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
@@ -364,7 +374,7 @@ export default class AdminOrgDetailPageComponent implements OnInit {
   readonly roles: OrgRole[] = ['admin', 'manager', 'check_in', 'volunteer'];
 
   readonly form: MemberForm = {
-    uid: '',
+    email: '',
     role: 'volunteer',
   };
 
@@ -417,9 +427,9 @@ export default class AdminOrgDetailPageComponent implements OnInit {
 
   async addMember(): Promise<void> {
     const org = this.org();
-    const uid = this.form.uid.trim();
+    const email = this.form.email.trim();
 
-    if (org === null || uid === '' || this.submitting()) {
+    if (org === null || email === '' || this.submitting()) {
       return;
     }
 
@@ -430,13 +440,13 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       const response = await firstValueFrom(
         this.http.post<OrgMembersSetResponse>(
           adminOrgMembersEndpoint(org.orgId),
-          { uid, role: this.form.role },
+          { email, role: this.form.role },
           { withCredentials: true },
         ),
       );
 
       this.setOrg(response.org);
-      this.form.uid = '';
+      this.form.email = '';
       this.form.role = 'volunteer';
     } catch (error) {
       this.setOrg(org);
@@ -530,10 +540,14 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       return 'That organizer no longer exists.';
     }
 
+    if (code === 'user-not-found') {
+      return 'No account with that email address. They need to sign in once before they can be added.';
+    }
+
     const status = apiErrorStatus(error);
 
     if (status === 400) {
-      return 'That member change could not be made. Check the uid and role and try again.';
+      return 'That member change could not be made. Check the email address and role and try again.';
     }
 
     if (status === 403) {

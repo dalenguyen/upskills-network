@@ -1,5 +1,9 @@
 import { requireAdmin } from '@upskills/auth';
-import { setOrgMember } from '@upskills/firestore';
+import {
+  findUserByEmail,
+  getUserEmails,
+  setOrgMember,
+} from '@upskills/firestore';
 import { createOrgMembersSetHandler } from '../../../../../../handlers/admin/org-members-set';
 
 /**
@@ -11,4 +15,6 @@ import { createOrgMembersSetHandler } from '../../../../../../handlers/admin/org
 export default createOrgMembersSetHandler({
   requireAdmin,
   setOrgMember,
+  findUserByEmail,
+  getUserEmails,
 });

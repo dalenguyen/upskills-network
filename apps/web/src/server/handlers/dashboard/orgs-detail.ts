@@ -31,6 +31,8 @@ export interface DashboardOrgsDetailDeps {
     orgId: string,
     ...roles: OrgRole[]
   ): Promise<OrgContext>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createDashboardOrgsDetailHandler(
@@ -56,8 +58,10 @@ export function createDashboardOrgsDetailHandler(
         'volunteer',
       );
 
+      const emails = await deps.getUserEmails(Object.keys(context.org.members));
+
       return {
-        org: toDashboardOrg(context.org),
+        org: toDashboardOrg(context.org, emails),
       } satisfies DashboardOrgsDetailResponse;
     } catch (error) {
       throw toHttpError(error);

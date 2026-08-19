@@ -24,8 +24,10 @@ import {
   orgSlugRef,
   orgsCol,
   userRef,
+  usersCol,
 } from './collections';
 import { decodeEventCursor, encodeEventCursor } from './cursor';
+import { getDb } from './db';
 
 /**
  * Non-mutating reads. Every helper returns `null` (or an empty array) for a
@@ -93,6 +95,57 @@ function guestFrom(snapshot: DocumentSnapshot<Guest>): Guest | null {
 /** `users/{uid}` */
 export async function getUser(uid: string): Promise<User | null> {
   return userFrom(await userRef(uid).get());
+}
+
+/**
+ * The one user with this email, or `null`.
+ *
+ * `users/{uid}.email` is written normalized (`user-upsert.ts`), so the lookup
+ * normalizes too — otherwise `Ada@Example.com` would miss the document it
+ * created. Backed by the automatic single-field index on `email`; no composite
+ * index is needed.
+ *
+ * Nothing enforces email uniqueness across uids — two providers can hand the
+ * same address to two accounts — so this answers the first match rather than
+ * pretending the query is a key lookup.
+ */
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const snapshot = await usersCol()
+    .where('email', '==', normalizeEmail(email))
+    .limit(1)
+    .get();
+
+  const doc = snapshot.docs[0];
+
+  return doc ? { ...doc.data(), uid: doc.id } : null;
+}
+
+/**
+ * Email for each of `uids`, keyed by uid — the roster's "who is this?" lookup.
+ *
+ * One `getAll` rather than N gets, and uids with no `users/{uid}` document are
+ * simply absent from the result: a membership can outlive the account it names,
+ * and the caller renders what it has.
+ */
+export async function getUserEmails(
+  uids: string[],
+): Promise<Record<string, string>> {
+  if (uids.length === 0) {
+    return {};
+  }
+
+  const snapshots = await getDb().getAll(...uids.map((uid) => userRef(uid)));
+  const emails: Record<string, string> = {};
+
+  for (const snapshot of snapshots) {
+    const email = (snapshot.data() as User | undefined)?.email;
+
+    if (email !== undefined && email !== '') {
+      emails[snapshot.id] = email;
+    }
+  }
+
+  return emails;
 }
 
 /** `organizers/{orgId}` */

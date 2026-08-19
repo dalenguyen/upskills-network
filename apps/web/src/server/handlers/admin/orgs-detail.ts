@@ -26,6 +26,8 @@ export interface OrgsDetailDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `getOrg` from `@upskills/firestore`. */
   getOrg(orgId: string): Promise<Organizer | null>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createOrgsDetailHandler(deps: OrgsDetailDeps): EventHandler {
@@ -45,7 +47,9 @@ export function createOrgsDetailHandler(deps: OrgsDetailDeps): EventHandler {
         throw notFound('org-not-found', 'No such organizer.');
       }
 
-      return { org: toAdminOrg(org) } satisfies OrgsDetailResponse;
+      const emails = await deps.getUserEmails(Object.keys(org.members));
+
+      return { org: toAdminOrg(org, emails) } satisfies OrgsDetailResponse;
     } catch (error) {
       throw toHttpError(error);
     }

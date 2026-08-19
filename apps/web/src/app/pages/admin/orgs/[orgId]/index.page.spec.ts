@@ -31,10 +31,12 @@ function adminOrg(overrides: Partial<AdminOrg> = {}): AdminOrg {
       'uid-admin': {
         role: 'admin',
         addedAt: '2026-01-01T00:00:00.000Z',
+        email: 'ada@example.com',
       },
       'uid-member': {
         role: 'manager',
         addedAt: '2026-01-02T00:00:00.000Z',
+        email: 'grace@example.com',
       },
     },
     memberUids: ['uid-admin', 'uid-member'],
@@ -44,14 +46,19 @@ function adminOrg(overrides: Partial<AdminOrg> = {}): AdminOrg {
 }
 
 /** One member write, then a roster update, as the member routes answer it. */
-function withMember(org: AdminOrg, uid: string, role: OrgRole): AdminOrg {
+function withMember(
+  org: AdminOrg,
+  uid: string,
+  role: OrgRole,
+  email: string | null = null,
+): AdminOrg {
   const addedAt = '2026-02-01T00:00:00.000Z';
 
   return {
     ...org,
     members: {
       ...org.members,
-      [uid]: { role, addedAt },
+      [uid]: { role, addedAt, email: email ?? org.members[uid]?.email ?? null },
     },
     memberUids: Array.from(new Set([...org.memberUids, uid])),
   };
@@ -172,7 +179,7 @@ describe('AdminOrgDetailPageComponent', () => {
     return root.querySelectorAll<HTMLTableRowElement>('tbody tr');
   }
 
-  it('shows name, slug, createdAt, and the member roster with uid and role', async () => {
+  it('shows name, slug, createdAt, and the member roster by email and role', async () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
@@ -183,10 +190,25 @@ describe('AdminOrgDetailPageComponent', () => {
 
     const rows = memberRows(fixture);
     expect(rows).toHaveLength(2);
-    expect(rows[0].textContent).toContain('uid-admin');
+    expect(rows[0].textContent).toContain('ada@example.com');
     expect(rows[0].textContent).toContain('admin');
-    expect(rows[1].textContent).toContain('uid-member');
+    expect(rows[1].textContent).toContain('grace@example.com');
     expect(rows[1].textContent).toContain('manager');
+    expect(root.textContent).not.toContain('uid-admin');
+    http.verify();
+  });
+
+  it('falls back to the uid for a member whose account is gone', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(
+      fixture,
+      http,
+      withMember(adminOrg(), 'uid-orphan', 'volunteer'),
+    );
+
+    const rows = memberRows(fixture);
+    expect(rows).toHaveLength(3);
+    expect(rows[2].textContent).toContain('uid-orphan');
     http.verify();
   });
 
@@ -194,7 +216,7 @@ describe('AdminOrgDetailPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
-    setValue(fixture, '#uid', 'uid-new');
+    setValue(fixture, '#email', 'new@example.com');
     setValue(fixture, '#role', 'volunteer');
 
     buttonByText(fixture, 'Add member').click();
@@ -204,11 +226,11 @@ describe('AdminOrgDetailPageComponent', () => {
     expect(addRequest.request.method).toBe('POST');
     expect(addRequest.request.withCredentials).toBe(true);
     expect(addRequest.request.body).toEqual({
-      uid: 'uid-new',
+      email: 'new@example.com',
       role: 'volunteer',
     });
     addRequest.flush({
-      org: withMember(adminOrg(), 'uid-new', 'volunteer'),
+      org: withMember(adminOrg(), 'uid-new', 'volunteer', 'new@example.com'),
     });
 
     await fixture.whenStable();
@@ -217,9 +239,9 @@ describe('AdminOrgDetailPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     const rows = memberRows(fixture);
     expect(rows).toHaveLength(3);
-    expect(rows[2].textContent).toContain('uid-new');
+    expect(rows[2].textContent).toContain('new@example.com');
     expect(rows[2].textContent).toContain('volunteer');
-    expect(root.querySelector<HTMLInputElement>('#uid')?.value).toBe('');
+    expect(root.querySelector<HTMLInputElement>('#email')?.value).toBe('');
     expect(root.querySelector<HTMLSelectElement>('#role')?.value).toBe(
       'volunteer',
     );
@@ -231,7 +253,7 @@ describe('AdminOrgDetailPageComponent', () => {
     await loadPage(fixture, http);
 
     setValue(fixture, '#role-uid-member', 'volunteer');
-    buttonByLabel(fixture, 'Change role for uid-member').click();
+    buttonByLabel(fixture, 'Change role for grace@example.com').click();
     fixture.detectChanges();
 
     const changeRequest = http.expectOne(adminOrgMembersEndpoint('org_1'));
@@ -260,7 +282,7 @@ describe('AdminOrgDetailPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
-    buttonByLabel(fixture, 'Remove uid-member').click();
+    buttonByLabel(fixture, 'Remove grace@example.com').click();
     fixture.detectChanges();
 
     const removeRequest = http.expectOne(adminOrgMembersEndpoint('org_1'));
@@ -276,8 +298,8 @@ describe('AdminOrgDetailPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(memberRows(fixture)).toHaveLength(1);
-    expect(root.textContent).toContain('uid-admin');
-    expect(root.textContent).not.toContain('uid-member');
+    expect(root.textContent).toContain('ada@example.com');
+    expect(root.textContent).not.toContain('grace@example.com');
     http.verify();
   });
 
@@ -286,7 +308,7 @@ describe('AdminOrgDetailPageComponent', () => {
     await loadPage(fixture, http, withoutMember(adminOrg(), 'uid-member'));
 
     setValue(fixture, '#role-uid-admin', 'manager');
-    buttonByLabel(fixture, 'Change role for uid-admin').click();
+    buttonByLabel(fixture, 'Change role for ada@example.com').click();
     fixture.detectChanges();
 
     http
@@ -314,7 +336,7 @@ describe('AdminOrgDetailPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http, withoutMember(adminOrg(), 'uid-member'));
 
-    buttonByLabel(fixture, 'Remove uid-admin').click();
+    buttonByLabel(fixture, 'Remove ada@example.com').click();
     fixture.detectChanges();
 
     http
@@ -331,6 +353,30 @@ describe('AdminOrgDetailPageComponent', () => {
     expect(text).toContain('must keep at least one admin');
     expect(text).not.toContain(
       'Something went wrong while updating the member',
+    );
+    http.verify();
+  });
+
+  it('names an email that belongs to no account', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http);
+
+    setValue(fixture, '#email', 'nobody@example.com');
+    buttonByText(fixture, 'Add member').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(adminOrgMembersEndpoint('org_1'))
+      .flush(
+        { data: { error: 'user-not-found' } },
+        { status: 404, statusText: 'Not Found' },
+      );
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'No account with that email address',
     );
     http.verify();
   });

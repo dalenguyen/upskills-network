@@ -35,6 +35,8 @@ export interface DashboardOrgMembersRemoveDeps {
   ): Promise<OrgContext>;
   /** `removeOrgMember` from `@upskills/firestore`. */
   removeOrgMember(orgId: string, uid: string): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createDashboardOrgMembersRemoveHandler(
@@ -67,9 +69,10 @@ export function createDashboardOrgMembersRemoveHandler(
       }
 
       const org = await deps.removeOrgMember(orgId, parsed.data.uid);
+      const emails = await deps.getUserEmails(Object.keys(org.members));
 
       return {
-        org: toDashboardOrg(org),
+        org: toDashboardOrg(org, emails),
       } satisfies DashboardOrgMembersRemoveResponse;
     } catch (error) {
       throw toHttpError(error);

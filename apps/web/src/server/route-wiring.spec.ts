@@ -62,6 +62,8 @@ const firestore = vi.hoisted(() => ({
   cancelEvent: vi.fn(async () => ({ event: {}, confirmedGuests: [] })),
   setOrgMember: vi.fn(async () => ({})),
   removeOrgMember: vi.fn(async () => ({})),
+  findUserByEmail: vi.fn(async () => null),
+  getUserEmails: vi.fn(async () => ({})),
 }));
 
 const email = vi.hoisted(() => ({

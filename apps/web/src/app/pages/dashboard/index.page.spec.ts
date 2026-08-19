@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   dashboardEventsEndpoint,
   dashboardOrgDetailEndpoint,
+  dashboardOrgMembersEndpoint,
   meEndpoint,
   type MeGetResponse,
   type DashboardEvent,
@@ -132,5 +133,118 @@ describe('DashboardOverviewPageComponent', () => {
         'a[href="/dashboard/events"]',
       ),
     ).toBeNull();
+  });
+
+  it('names roster members by email and adds a member by email', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await fixture.whenStable();
+
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg() });
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const roster = root.querySelector('tbody');
+    expect(roster?.textContent).toContain('ada@example.com');
+    // The uid is the key the write travels by, not something the roster shows.
+    expect(roster?.textContent).not.toContain('user_1');
+
+    const input = root.querySelector<HTMLInputElement>('#member-email');
+    if (input === null) {
+      throw new Error('No member email field');
+    }
+
+    input.value = 'grace@example.com';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const add = Array.from(root.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Add member',
+    );
+    if (add === undefined) {
+      throw new Error('No add-member button');
+    }
+
+    add.click();
+    fixture.detectChanges();
+
+    const post = http.expectOne(dashboardOrgMembersEndpoint('org_1'));
+    expect(post.request.method).toBe('POST');
+    expect(post.request.withCredentials).toBe(true);
+    expect(post.request.body).toEqual({
+      email: 'grace@example.com',
+      role: 'manager',
+    });
+    post.flush({ org: dashboardOrg() });
+
+    await fixture.whenStable();
+
+    // The page reloads itself from the API after a member write.
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await fixture.whenStable();
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg() });
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Member added.');
+    http.verify();
+  });
+
+  it('names an email that belongs to no account', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush(meResponse);
+    await fixture.whenStable();
+
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg() });
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const input = root.querySelector<HTMLInputElement>('#member-email');
+    if (input === null) {
+      throw new Error('No member email field');
+    }
+
+    input.value = 'nobody@example.com';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const add = Array.from(root.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Add member',
+    );
+    if (add === undefined) {
+      throw new Error('No add-member button');
+    }
+
+    add.click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(dashboardOrgMembersEndpoint('org_1'))
+      .flush(
+        { data: { error: 'user-not-found' } },
+        { status: 404, statusText: 'Not Found' },
+      );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('No account with that email address');
+    http.verify();
   });
 });

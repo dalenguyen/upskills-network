@@ -56,6 +56,13 @@ type PageState =
 interface MemberRow {
   uid: string;
   role: DashboardOrgMembership['role'];
+  /**
+   * What the row is named by: the member's email, falling back to the uid when
+   * the account behind the membership is gone. Member writes still travel by
+   * uid — an email is how a human recognizes a colleague, not how the roster is
+   * keyed.
+   */
+  label: string;
 }
 
 const ORG_ROLES: readonly DashboardOrgMembership['role'][] = [
@@ -239,7 +246,7 @@ export const routeMeta: RouteMeta = {
                             scope="col"
                             class="px-4 py-3 text-sm font-semibold text-zinc-900"
                           >
-                            UID
+                            Member
                           </th>
                           <th
                             scope="col"
@@ -261,13 +268,13 @@ export const routeMeta: RouteMeta = {
                         @for (member of members(); track member.uid) {
                           <tr>
                             <td class="px-4 py-3 text-zinc-900">
-                              {{ member.uid }}
+                              {{ member.label }}
                             </td>
                             <td class="px-4 py-3 text-zinc-700">
                               @if (isAdmin()) {
                                 <select
                                   [value]="member.role"
-                                  [attr.aria-label]="'Role for ' + member.uid"
+                                  [attr.aria-label]="'Role for ' + member.label"
                                   (change)="onRoleChange(member.uid, $event)"
                                   class="rounded-lg border-0 bg-white px-3 py-1.5 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                                 >
@@ -285,7 +292,7 @@ export const routeMeta: RouteMeta = {
                               <td class="px-4 py-3">
                                 <button
                                   type="button"
-                                  [attr.aria-label]="'Remove ' + member.uid"
+                                  [attr.aria-label]="'Remove ' + member.label"
                                   [disabled]="submittingMember()"
                                   (click)="removeMember(member.uid)"
                                   class="text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -306,17 +313,18 @@ export const routeMeta: RouteMeta = {
                     >
                       <div>
                         <label
-                          for="member-uid"
+                          for="member-email"
                           class="block text-sm font-medium leading-6 text-zinc-900"
                         >
-                          Member uid
+                          Member email
                         </label>
                         <input
-                          id="member-uid"
-                          name="uid"
-                          type="text"
+                          id="member-email"
+                          name="email"
+                          type="email"
                           required
-                          [(ngModel)]="memberForm.uid"
+                          placeholder="person@example.com"
+                          [(ngModel)]="memberForm.email"
                           class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                         />
                       </div>
@@ -449,8 +457,11 @@ export default class DashboardOverviewPageComponent implements OnInit {
 
   readonly roles = ORG_ROLES;
   readonly createForm = { name: '', slug: '' };
-  readonly memberForm: { uid: string; role: DashboardOrgMembership['role'] } = {
-    uid: '',
+  readonly memberForm: {
+    email: string;
+    role: DashboardOrgMembership['role'];
+  } = {
+    email: '',
     role: 'manager',
   };
 
@@ -546,7 +557,7 @@ export default class DashboardOverviewPageComponent implements OnInit {
         this.http.post<DashboardOrgMembersSetResponse>(
           dashboardOrgMembersEndpoint(state.org.orgId),
           {
-            uid: this.memberForm.uid.trim(),
+            email: this.memberForm.email.trim(),
             role: this.memberForm.role,
           },
           { withCredentials: true },
@@ -559,7 +570,7 @@ export default class DashboardOverviewPageComponent implements OnInit {
       this.submittingMember.set(false);
     }
 
-    this.memberForm.uid = '';
+    this.memberForm.email = '';
     await this.load();
     this.memberNotice.set('Member added.');
   }
@@ -665,8 +676,12 @@ export default class DashboardOverviewPageComponent implements OnInit {
     }
 
     return Object.entries(org.members)
-      .map(([uid, membership]) => ({ uid, role: membership.role }))
-      .sort((left, right) => left.uid.localeCompare(right.uid));
+      .map(([uid, membership]) => ({
+        uid,
+        role: membership.role,
+        label: membership.email ?? uid,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label));
   }
 
   isAdmin(): boolean {
@@ -721,8 +736,12 @@ export default class DashboardOverviewPageComponent implements OnInit {
       return 'That organizer no longer exists.';
     }
 
+    if (code === 'user-not-found') {
+      return 'No account with that email address. They need to sign in once before they can be added.';
+    }
+
     if (apiErrorStatus(error) === 400) {
-      return 'Check the member uid and role and try again.';
+      return 'Check the email address and role and try again.';
     }
 
     return 'Something went wrong while updating members. Please try again.';

@@ -31,5 +31,15 @@ export type {
   RegisterGuestInput,
 } from './lib/guest.schema';
 
-export { CreateOrgSchema, OrgMemberSchema } from './lib/org.schema';
-export type { CreateOrgInput, OrgMemberInput } from './lib/org.schema';
+export {
+  CreateOrgSchema,
+  OrgMemberByEmailSchema,
+  OrgMemberSchema,
+  SetOrgMemberSchema,
+} from './lib/org.schema';
+export type {
+  CreateOrgInput,
+  OrgMemberByEmailInput,
+  OrgMemberInput,
+  SetOrgMemberInput,
+} from './lib/org.schema';

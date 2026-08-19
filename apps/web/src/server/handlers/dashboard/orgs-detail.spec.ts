@@ -5,7 +5,11 @@ import {
   fakeInvalidSessionError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_EMAILS,
+  FIXTURE_START,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import {
   createDashboardOrgsDetailHandler,
   type DashboardOrgsDetailDeps,
@@ -28,6 +32,7 @@ function deps(
 ): DashboardOrgsDetailDeps {
   return {
     requireOrgRole: vi.fn(async () => ORG),
+    getUserEmails: vi.fn(async () => FIXTURE_EMAILS),
     ...overrides,
   };
 }
@@ -131,6 +136,17 @@ describe('GET /api/v1/dashboard/orgs/:orgId', () => {
     ).rejects.toMatchObject({
       statusCode: 401,
       data: { error: 'invalid-session', reason: 'expired' },
+    });
+  });
+
+  it('answers each member with the email behind their uid', async () => {
+    const d = deps();
+
+    const result = await createDashboardOrgsDetailHandler(d)(request());
+
+    expect(d.getUserEmails).toHaveBeenCalledWith(['uid-1']);
+    expect(result).toMatchObject({
+      org: { members: { 'uid-1': { email: 'ada@example.com' } } },
     });
   });
 });

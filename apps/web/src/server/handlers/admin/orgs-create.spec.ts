@@ -9,7 +9,11 @@ import {
   fakeSlugTakenError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_EMAILS,
+  FIXTURE_START,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import { createOrgsCreateHandler, type OrgsCreateDeps } from './orgs-create';
 
 /** `POST /api/v1/admin/orgs` — create an organizer as its first admin. */
@@ -24,6 +28,7 @@ function deps(overrides: Partial<OrgsCreateDeps> = {}): OrgsCreateDeps {
   return {
     requireAdmin: vi.fn(async () => ADMIN),
     createOrg: vi.fn(async () => fakeOrg()),
+    getUserEmails: vi.fn(async () => FIXTURE_EMAILS),
     ...overrides,
   };
 }

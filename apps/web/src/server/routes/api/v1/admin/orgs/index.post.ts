@@ -1,5 +1,5 @@
 import { requireAdmin } from '@upskills/auth';
-import { createOrg } from '@upskills/firestore';
+import { createOrg, getUserEmails } from '@upskills/firestore';
 import { createOrgsCreateHandler } from '../../../../../handlers/admin/orgs-create';
 
 /**
@@ -11,4 +11,5 @@ import { createOrgsCreateHandler } from '../../../../../handlers/admin/orgs-crea
 export default createOrgsCreateHandler({
   requireAdmin,
   createOrg,
+  getUserEmails,
 });

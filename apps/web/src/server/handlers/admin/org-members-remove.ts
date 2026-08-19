@@ -31,6 +31,8 @@ export interface OrgMembersRemoveDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `removeOrgMember` from `@upskills/firestore`. */
   removeOrgMember(orgId: string, uid: string): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createOrgMembersRemoveHandler(
@@ -58,8 +60,11 @@ export function createOrgMembersRemoveHandler(
       }
 
       const org = await deps.removeOrgMember(orgId, parsed.data.uid);
+      const emails = await deps.getUserEmails(Object.keys(org.members));
 
-      return { org: toAdminOrg(org) } satisfies OrgMembersRemoveResponse;
+      return {
+        org: toAdminOrg(org, emails),
+      } satisfies OrgMembersRemoveResponse;
     } catch (error) {
       throw toHttpError(error);
     }
