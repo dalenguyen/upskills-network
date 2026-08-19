@@ -190,22 +190,25 @@ describe('updateEvent', () => {
     });
   });
 
-  it('sets an image, and removes it again when passed an empty string', async () => {
-    await seedEvent({ eventId: 'evt-1', slug: 'react-basics' });
+  it.each(['imageUrl', 'location'] as const)(
+    'sets %s, and removes it again when passed an empty string',
+    async (field) => {
+      await seedEvent({ eventId: 'evt-1', slug: 'react-basics' });
 
-    await updateEvent('org-1', 'evt-1', {
-      imageUrl: 'https://example.com/poster.jpg',
-    });
-    expect(await getEvent('org-1', 'evt-1')).toMatchObject({
-      imageUrl: 'https://example.com/poster.jpg',
-    });
+      await updateEvent('org-1', 'evt-1', { [field]: 'https://a.example/x' });
+      expect(await getEvent('org-1', 'evt-1')).toMatchObject({
+        [field]: 'https://a.example/x',
+      });
 
-    // The key is deleted rather than set to `''` — an organizer who pasted the
-    // wrong URL has to be able to get back to having no image at all.
-    await updateEvent('org-1', 'evt-1', { imageUrl: '' });
-    const cleared = await getEvent('org-1', 'evt-1');
-    expect(cleared && 'imageUrl' in cleared).toBe(false);
-  });
+      // The key is deleted rather than set to `''`. An organizer who pasted
+      // the wrong image, or whose event moved online, has to be able to get
+      // back to having none — and a stored `''` would make `if (event.location)`
+      // and `if (event.location !== undefined)` disagree.
+      await updateEvent('org-1', 'evt-1', { [field]: '' });
+      const cleared = await getEvent('org-1', 'evt-1');
+      expect(cleared && field in cleared).toBe(false);
+    },
+  );
 
   it('leaves the listing fields alone when the patch does not mention them', async () => {
     // This is what makes a seeded event survive an edit through the dashboard,

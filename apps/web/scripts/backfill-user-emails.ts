@@ -15,8 +15,12 @@ import { backfillUserEmails } from '../src/server/scripts/backfill-user-emails';
  * Idempotent: a second run finds every email already normalized and writes
  * nothing.
  *
- * Run from the repo root with a TypeScript runner that resolves the workspace
- * path aliases (the same aliases Vite uses for the server bundle).
+ * Run with:
+ *
+ *     pnpm nx run web:backfill-user-emails
+ *
+ * The target runs this file under `tsx` with `tsconfig.base.json`, which is what
+ * resolves the `@upskills/*` aliases.
  */
 async function main(): Promise<void> {
   const snapshot = await usersCol().get();

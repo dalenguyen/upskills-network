@@ -326,7 +326,7 @@ describe('DashboardEventsEditPageComponent', () => {
     http.verify();
   });
 
-  it('puts a draft with dollars converted to cents and omits empty endsAt and location', async () => {
+  it('puts a draft with dollars converted to cents, clearing an emptied location and image', async () => {
     const { fixture, http, navigateByUrl } = await setup();
     await loadPage(fixture, http);
     fillRequiredFields(fixture);
@@ -345,9 +345,11 @@ describe('DashboardEventsEditPageComponent', () => {
       description: 'A hands-on afternoon.',
       startsAt: '2026-09-01T18:00:00-04:00',
       timezone: 'America/Toronto',
-      // Sent even when empty, unlike `endsAt` and `location`: an absent field
-      // means "leave it alone", so an empty string is the only way this form
-      // can express "remove the image".
+      // Both sent even when empty, unlike `endsAt`. On a PUT an absent field
+      // means "leave it alone", so omitting an emptied input would leave the
+      // old value in the database while the form showed it as cleared. The
+      // empty string is how this form says "remove it".
+      location: '',
       imageUrl: '',
       price: 4950,
       currency: 'cad',

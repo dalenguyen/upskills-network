@@ -74,15 +74,24 @@ export const UpdateEventSchema = z
   .object({
     ...eventFields,
     /**
-     * On update only, `''` is a legal value and means "remove the image".
+     * On update, `''` is a legal value for the optional text fields and means
+     * "remove this".
      *
-     * Optional-and-absent already means "leave it alone", so without a third
-     * spelling there is no way to express removal: an organizer who pasted the
-     * wrong URL could overwrite it but never get back to having none. The data
-     * layer deletes the key rather than storing the empty string — see
-     * `applyOptionalText` in `events-write.ts`.
+     * A patch has three states where a create has two. Absent means "leave it
+     * alone", a value means "set it", and without a third spelling there is no
+     * way to say "clear it" — an organizer who pasted the wrong image URL could
+     * overwrite it but never get back to having none, and an event that moved
+     * online would keep its old address forever. The data layer deletes the key
+     * rather than storing the empty string; see `applyOptionalText` in
+     * `events-write.ts`.
+     *
+     * `location` is spelled out here even though `eventFields.location` happens
+     * to admit `''` already, because it does so only by not having a `.min(1)`
+     * — an accident that the next person tightening the field would remove
+     * without ever learning it was load-bearing.
      */
     imageUrl: z.union([z.literal(''), eventFields.imageUrl.unwrap()]),
+    location: z.union([z.literal(''), eventFields.location.unwrap()]),
     status: EventStatusSchema,
   })
   .partial()

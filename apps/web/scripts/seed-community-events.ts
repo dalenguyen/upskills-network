@@ -25,10 +25,14 @@ import {
  *
  * ## Usage
  *
- * Run from the repo root with a TypeScript runner that resolves the workspace
- * path aliases (the same aliases Vite uses for the server bundle):
+ *     pnpm nx run web:seed-events --org=<orgSlug> [--file=<path>] [--dry-run]
  *
- *     seed-community-events --org=<orgSlug> [--file=<path>] [--dry-run]
+ * The target runs this file under `tsx` with `tsconfig.base.json`, which is what
+ * resolves the `@upskills/*` aliases — the same ones Vite resolves for the
+ * server bundle. It is marked `"cache": false` in `project.json`: this writes to
+ * a live database, and a cached second run would replay the first run's output
+ * while touching nothing, which for an idempotent seed is precisely the lie that
+ * would go unnoticed.
  *
  * `--dry-run` reads and validates everything, resolves every slug against the
  * live database, and prints exactly what it *would* write without writing it.

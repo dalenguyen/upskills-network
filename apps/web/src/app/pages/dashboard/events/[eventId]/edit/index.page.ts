@@ -578,10 +578,16 @@ export default class DashboardEventsEditPageComponent implements OnInit {
         ? {}
         : { endsAt: toIsoWithOffset(endsAt, this.form.timezone) }),
       timezone: this.form.timezone,
-      ...(location === '' ? {} : { location }),
-      // Always sent, empty string included — that is how an image is removed.
-      // `location` above cannot express removal, which is a pre-existing gap in
-      // this form rather than a rule this field is following.
+      // Both always sent, empty string included, because this is an *edit*:
+      // omitting a field means "leave it as it was", so an emptied input that
+      // is then omitted silently keeps the old value — the field looks cleared
+      // on screen and is not cleared in the database. The empty string is what
+      // says "remove it", and `applyOptionalText` in `events-write.ts` deletes
+      // the key rather than storing `''`.
+      //
+      // The create form is different, and correctly omits both: there is no
+      // previous value there for an absent field to preserve.
+      location,
       imageUrl: this.form.imageUrl.trim(),
       price: dollarsToCents(Number(this.form.price)),
       currency: 'cad',
