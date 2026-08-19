@@ -88,7 +88,7 @@ describe('DashboardEventsPageComponent', () => {
     expect(firstRow.textContent).toContain('published');
     expect(firstRow.textContent).toContain('20 guests');
     expect(firstRow.querySelector('a')?.getAttribute('href')).toBe(
-      '/events/intro-to-kubernetes',
+      '/upskills-toronto/intro-to-kubernetes',
     );
 
     const secondRow = rows[1];
@@ -96,7 +96,7 @@ describe('DashboardEventsPageComponent', () => {
     expect(secondRow.textContent).toContain('draft');
     expect(secondRow.textContent).toContain('Unlimited');
     expect(secondRow.querySelector('a')?.getAttribute('href')).toBe(
-      '/events/rust-for-the-web',
+      '/upskills-toronto/rust-for-the-web',
     );
     http.verify();
   });
@@ -147,7 +147,7 @@ describe('DashboardEventsPageComponent', () => {
 
     const firstLinks = rows[0].querySelectorAll<HTMLAnchorElement>('a');
     expect(firstLinks[0]?.getAttribute('href')).toBe(
-      '/events/intro-to-kubernetes',
+      '/upskills-toronto/intro-to-kubernetes',
     );
     expect(firstLinks[1]?.getAttribute('href')).toBe(
       '/dashboard/events/evt_1/edit',
@@ -155,7 +155,7 @@ describe('DashboardEventsPageComponent', () => {
 
     const secondLinks = rows[1].querySelectorAll<HTMLAnchorElement>('a');
     expect(secondLinks[0]?.getAttribute('href')).toBe(
-      '/events/rust-for-the-web',
+      '/upskills-toronto/rust-for-the-web',
     );
     expect(secondLinks[1]?.getAttribute('href')).toBe(
       '/dashboard/events/evt_2/edit',
@@ -180,7 +180,9 @@ describe('DashboardEventsPageComponent', () => {
     const row = root.querySelector<HTMLTableRowElement>('tbody tr');
     const links = row?.querySelectorAll<HTMLAnchorElement>('a') ?? [];
     expect(links.length).toBe(1);
-    expect(links[0]?.getAttribute('href')).toBe('/events/intro-to-kubernetes');
+    expect(links[0]?.getAttribute('href')).toBe(
+      '/upskills-toronto/intro-to-kubernetes',
+    );
     expect(row?.textContent).not.toContain('Edit');
     http.verify();
   });
@@ -238,7 +240,9 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
 
-    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    const deleteRequest = http.expectOne(
+      dashboardEventCancelEndpoint('org_1', 'evt_1'),
+    );
     expect(deleteRequest.request.method).toBe('DELETE');
     expect(deleteRequest.request.withCredentials).toBe(true);
     deleteRequest.flush({
@@ -285,7 +289,7 @@ describe('DashboardEventsPageComponent', () => {
     expect(confirm).toHaveBeenCalledWith(
       'Cancel this event and notify confirmed guests?',
     );
-    http.expectNone(dashboardEventCancelEndpoint('evt_1'));
+    http.expectNone(dashboardEventCancelEndpoint('org_1', 'evt_1'));
     http.verify();
   });
 
@@ -306,7 +310,9 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
 
-    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    const deleteRequest = http.expectOne(
+      dashboardEventCancelEndpoint('org_1', 'evt_1'),
+    );
     deleteRequest.flush({
       event: workshop({ eventId: 'evt_1', status: 'cancelled' }),
       notification: { attempted: 3, sent: 3, failed: 0, failures: [] },
@@ -344,7 +350,9 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
 
-    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    const deleteRequest = http.expectOne(
+      dashboardEventCancelEndpoint('org_1', 'evt_1'),
+    );
     deleteRequest.flush({
       event: workshop({ eventId: 'evt_1', status: 'cancelled' }),
       notification: {
@@ -387,7 +395,9 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
 
-    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    const deleteRequest = http.expectOne(
+      dashboardEventCancelEndpoint('org_1', 'evt_1'),
+    );
     deleteRequest.flush({
       event: workshop({ eventId: 'evt_1', status: 'cancelled' }),
       notification: { attempted: 0, sent: 0, failed: 0, failures: [] },
@@ -425,7 +435,9 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('tbody tr button')?.click();
 
-    const deleteRequest = http.expectOne(dashboardEventCancelEndpoint('evt_1'));
+    const deleteRequest = http.expectOne(
+      dashboardEventCancelEndpoint('org_1', 'evt_1'),
+    );
     deleteRequest.flush({}, { status: 500, statusText: 'Server Error' });
 
     await fixture.whenStable();

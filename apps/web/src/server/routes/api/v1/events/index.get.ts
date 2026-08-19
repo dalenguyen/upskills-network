@@ -1,4 +1,4 @@
-import { listPublishedEvents } from '@upskills/firestore';
+import { getOrgSlugs, listPublishedEvents } from '@upskills/firestore';
 import { createEventsListHandler } from '../../../../handlers/public/events-list';
 
 /**
@@ -9,4 +9,5 @@ import { createEventsListHandler } from '../../../../handlers/public/events-list
  */
 export default createEventsListHandler({
   listPublishedEvents: (options) => listPublishedEvents(options),
+  getOrgSlugs: (orgIds) => getOrgSlugs(orgIds),
 });

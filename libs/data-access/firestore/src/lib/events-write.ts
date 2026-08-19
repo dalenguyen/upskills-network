@@ -1,9 +1,11 @@
 import type { EventStatus, Guest, WorkshopEvent } from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
-import { eventRef, eventsCol } from './collections';
+import { eventRef, eventsCol, guestsCol } from './collections';
 import { listEventGuests } from './reads';
 import {
   asSlugTaken,
+  eventSlugsOf,
+  releaseSlugInTransaction,
   renameSlugInTransaction,
   reserveSlugInTransaction,
 } from './slugs';
@@ -95,7 +97,7 @@ export async function createEvent(
   orgId: string,
   input: CreateEventDraft,
 ): Promise<WorkshopEvent> {
-  const doc = eventsCol().doc();
+  const doc = eventsCol(orgId).doc();
   const createdAt = Timestamp.now();
   // Read in the catch handler, at rejection time, rather than when the catch is
   // built: the transaction body assigns this to the normalized slug before the
@@ -105,7 +107,7 @@ export async function createEvent(
   return runTransaction(async (transaction) => {
     reservedSlug = await reserveSlugInTransaction(
       transaction,
-      'eventSlugs',
+      eventSlugsOf(orgId),
       input.slug,
       doc.id,
     );
@@ -141,7 +143,9 @@ export async function createEvent(
     transaction.create(doc, event);
 
     return event;
-  }).catch((error: unknown) => asSlugTaken('eventSlugs', reservedSlug)(error));
+  }).catch((error: unknown) =>
+    asSlugTaken(eventSlugsOf(orgId), reservedSlug)(error),
+  );
 }
 
 /**
@@ -159,6 +163,7 @@ export async function createEvent(
  * @throws SlugTakenError when another event already holds the new slug.
  */
 export async function updateEvent(
+  orgId: string,
   eventId: string,
   patch: UpdateEventPatch,
 ): Promise<WorkshopEvent> {
@@ -166,7 +171,7 @@ export async function updateEvent(
   let reservedSlug = patch.slug ?? '';
 
   return runTransaction(async (transaction) => {
-    const doc = eventRef(eventId);
+    const doc = eventRef(orgId, eventId);
     const existing = eventFromSnapshot(await transaction.get(doc));
     if (!existing) {
       throw new EventNotFoundError(eventId);
@@ -174,10 +179,12 @@ export async function updateEvent(
 
     let slug = existing.slug;
     if (patch.slug !== undefined) {
-      slug = await renameSlugInTransaction(transaction, 'eventSlugs', eventId, {
-        from: existing.slug,
-        to: patch.slug,
-      });
+      slug = await renameSlugInTransaction(
+        transaction,
+        eventSlugsOf(orgId),
+        eventId,
+        { from: existing.slug, to: patch.slug },
+      );
       reservedSlug = slug;
     }
 
@@ -225,7 +232,9 @@ export async function updateEvent(
 
     transaction.set(doc, next);
     return next;
-  }).catch((error: unknown) => asSlugTaken('eventSlugs', reservedSlug)(error));
+  }).catch((error: unknown) =>
+    asSlugTaken(eventSlugsOf(orgId), reservedSlug)(error),
+  );
 }
 
 /**
@@ -239,11 +248,14 @@ export async function updateEvent(
  * @returns the cancelled event and the guests who need to be told.
  * @throws EventNotFoundError when `eventId` names no event.
  */
-export async function cancelEvent(eventId: string): Promise<CancelEventResult> {
+export async function cancelEvent(
+  orgId: string,
+  eventId: string,
+): Promise<CancelEventResult> {
   const updatedAt = Timestamp.now();
 
   const event = await runTransaction(async (transaction) => {
-    const doc = eventRef(eventId);
+    const doc = eventRef(orgId, eventId);
     const existing = eventFromSnapshot(await transaction.get(doc));
     if (!existing) {
       throw new EventNotFoundError(eventId);
@@ -259,19 +271,105 @@ export async function cancelEvent(eventId: string): Promise<CancelEventResult> {
     return next;
   });
 
-  const confirmedGuests = await listEventGuests(eventId, {
+  const confirmedGuests = await listEventGuests(orgId, eventId, {
     status: 'confirmed',
   });
 
   return { event, confirmedGuests };
 }
 
-/** The event as it now stands, with the id stamped on from the path. */
+/**
+ * Raised when a hard delete is refused because the event is not a throwaway.
+ *
+ * Deleting an event that anybody registered for would orphan their guest
+ * documents and destroy the payment audit trail — the same reason
+ * {@link cancelEvent} is a soft delete. This error is what keeps the narrow
+ * hard-delete path narrow.
+ *
+ * A route maps this to **409**.
+ */
+export class EventNotDeletableError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** `'not-draft'` or `'has-guests'` — which rule refused. */
+    readonly reason: 'not-draft' | 'has-guests',
+  ) {
+    super(`Event "${eventId}" cannot be deleted: ${reason}.`);
+    this.name = 'EventNotDeletableError';
+  }
+}
+
+/**
+ * Hard-delete a **draft** event nobody has registered for, releasing its slug.
+ *
+ * This is the "I typed the title wrong, make it go away" path, and it is
+ * deliberately the only hard delete there is. Everything else goes through
+ * {@link cancelEvent}: once an event has been published and taken registrations,
+ * the document is a record, and the honest way to withdraw it is to cancel it
+ * and tell the guests.
+ *
+ * Both refusals are checked against what *this transaction* read, not against
+ * what the caller believed. Reading the guest query inside the transaction is
+ * also what makes the check safe under concurrency: a registration landing
+ * between the check and the commit joins the read set and forces a retry, which
+ * then sees the guest and refuses. Checking first and deleting afterwards would
+ * race a guest into an event that no longer exists.
+ *
+ * The slug reservation is released in the same commit, so the name is free the
+ * instant the event is gone — and stays taken if the delete is refused.
+ *
+ * @throws EventNotFoundError when `eventId` names no event.
+ * @throws EventNotDeletableError when the event is published/cancelled, or has
+ *   any guest document at all — including cancelled and expired ones.
+ */
+export async function deleteDraftEvent(
+  orgId: string,
+  eventId: string,
+): Promise<void> {
+  return runTransaction(async (transaction) => {
+    const doc = eventRef(orgId, eventId);
+
+    // Every read before any write. The guest probe is `limit(1)`: the question
+    // is "has anybody ever registered?", and one document answers it.
+    const existing = eventFromSnapshot(await transaction.get(doc));
+    if (!existing) {
+      throw new EventNotFoundError(eventId);
+    }
+
+    const anyGuest = await transaction.get(guestsCol(orgId, eventId).limit(1));
+
+    if (existing.status !== 'draft') {
+      throw new EventNotDeletableError(eventId, 'not-draft');
+    }
+
+    if (!anyGuest.empty) {
+      throw new EventNotDeletableError(eventId, 'has-guests');
+    }
+
+    await releaseSlugInTransaction(
+      transaction,
+      eventSlugsOf(orgId),
+      existing.slug,
+      eventId,
+    );
+
+    transaction.delete(doc);
+  });
+}
+
+/** The event as it now stands, with both ids stamped on from the path. */
 function eventFromSnapshot(
   snapshot: DocumentSnapshot<WorkshopEvent>,
 ): WorkshopEvent | null {
   const data = snapshot.data();
-  return data ? { ...data, eventId: snapshot.id } : null;
+
+  return data
+    ? {
+        ...data,
+        eventId: snapshot.id,
+        orgId: snapshot.ref.parent.parent?.id ?? data.orgId,
+      }
+    : null;
 }
 
 /** ISO-8601 instant → Firestore `Timestamp`. */

@@ -1,7 +1,6 @@
-import { SlugSchema } from '@upskills/validation';
+import { OrgSlugSchema, SlugSchema } from '@upskills/validation';
 import type { DocumentReference, Transaction } from 'firebase-admin/firestore';
 import {
-  COLLECTIONS,
   eventSlugRef,
   orgSlugRef,
   type EventSlugReservation,
@@ -33,14 +32,46 @@ import { runTransaction } from './transactions';
  * and `{ orgId }` — is load-bearing. It is not a duplicate of the `slug` field
  * on the event or organizer; it is the index that makes that field unique and
  * O(1) to look up.
+ *
+ * ## Two namespaces, not one
+ *
+ * Organizer slugs are global, because `/{orgSlug}` is a top-level URL. Event
+ * slugs are scoped to one organizer, because `/{orgSlug}/{eventSlug}` has
+ * already resolved the organizer by the time the event slug is read — so two
+ * organizers can each hold `react-basics` without either one losing.
+ *
+ * {@link SlugTarget} is how a caller says which namespace it means, and carrying
+ * the `orgId` in the type is what makes "reserve an event slug" impossible to
+ * write without naming the organizer it belongs to.
  */
 
-/** The two collections that key documents by slug. */
-export type SlugCollection =
-  typeof COLLECTIONS.orgSlugs | typeof COLLECTIONS.eventSlugs;
+/**
+ * Which slug namespace an operation is addressing.
+ *
+ * A discriminated union rather than a collection name, because the two
+ * namespaces do not take the same arguments: an event slug is meaningless
+ * without the organizer that scopes it, and the compiler should say so.
+ */
+export type SlugTarget =
+  { kind: 'org' } | { kind: 'event'; readonly orgId: string };
+
+/** The organizer-slug namespace — global, one document per slug. */
+export const ORG_SLUGS: SlugTarget = { kind: 'org' };
+
+/** The event-slug namespace inside one organizer. */
+export function eventSlugsOf(orgId: string): SlugTarget {
+  return { kind: 'event', orgId };
+}
 
 /** The body of a reservation document, whichever collection it lives in. */
 export type SlugReservation = OrgSlugReservation | EventSlugReservation;
+
+/** How a target reads in an error message and a log line. */
+function describe(target: SlugTarget): string {
+  return target.kind === 'org'
+    ? 'orgSlugs'
+    : `organizers/${target.orgId}/eventSlugs`;
+}
 
 /**
  * Raised when the slug is already held by somebody else.
@@ -52,12 +83,12 @@ export type SlugReservation = OrgSlugReservation | EventSlugReservation;
  */
 export class SlugTakenError extends Error {
   constructor(
-    readonly collection: SlugCollection,
+    readonly target: SlugTarget,
     readonly slug: string,
     /** Who holds it now — for logs and for the "that's already yours" case. */
     readonly heldBy: string,
   ) {
-    super(`Slug "${slug}" in ${collection} is already taken.`);
+    super(`Slug "${slug}" in ${describe(target)} is already taken.`);
     this.name = 'SlugTakenError';
   }
 }
@@ -69,6 +100,12 @@ export class SlugTakenError extends Error {
  * caller because an unchecked `/` would silently address a *subcollection*
  * instead of failing, and a slug that differs only by case or padding would
  * reserve a second document for what users read as the same name.
+ *
+ * For an organizer this also covers the reserved words: `/{orgSlug}` is a
+ * top-level URL, so an org called `dashboard` would sit on top of a route. The
+ * API schema rejects those too, but the rule belongs here as well — this is the
+ * layer that actually creates the document, and it is reachable from a seed
+ * script or an admin path that never passed through a request body.
  */
 export class InvalidSlugError extends Error {
   constructor(
@@ -101,15 +138,15 @@ export interface SlugRename {
  * @throws SlugTakenError when another owner holds it.
  */
 export async function reserveSlug(
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
   ownerId: string,
 ): Promise<string> {
-  const normalized = normalizeSlug(slug);
+  const normalized = normalizeSlug(target, slug);
 
   return runTransaction((transaction) =>
-    reserveSlugInTransaction(transaction, collection, normalized, ownerId),
-  ).catch(asSlugTaken(collection, normalized));
+    reserveSlugInTransaction(transaction, target, normalized, ownerId),
+  ).catch(asSlugTaken(target, normalized));
 }
 
 /**
@@ -131,12 +168,12 @@ export async function reserveSlug(
  */
 export async function reserveSlugInTransaction(
   transaction: Transaction,
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
   ownerId: string,
 ): Promise<string> {
-  const normalized = normalizeSlug(slug);
-  const ref = reservationRef(collection, normalized);
+  const normalized = normalizeSlug(target, slug);
+  const ref = reservationRef(target, normalized);
 
   // Read first — and reading a *missing* document is the whole mechanism:
   // it puts the empty key in the transaction's read set, so a racer that
@@ -149,10 +186,10 @@ export async function reserveSlugInTransaction(
       return normalized;
     }
 
-    throw new SlugTakenError(collection, normalized, holder);
+    throw new SlugTakenError(target, normalized, holder);
   }
 
-  createReservation(transaction, collection, normalized, ownerId);
+  createReservation(transaction, target, normalized, ownerId);
   return normalized;
 }
 
@@ -173,20 +210,20 @@ export async function reserveSlugInTransaction(
  */
 export async function renameSlugInTransaction(
   transaction: Transaction,
-  collection: SlugCollection,
+  target: SlugTarget,
   ownerId: string,
   rename: SlugRename,
 ): Promise<string> {
-  const from = normalizeSlug(rename.from);
-  const to = normalizeSlug(rename.to);
+  const from = normalizeSlug(target, rename.from);
+  const to = normalizeSlug(target, rename.to);
 
   if (from === to) {
-    return reserveSlugInTransaction(transaction, collection, to, ownerId);
+    return reserveSlugInTransaction(transaction, target, to, ownerId);
   }
 
   const refs = {
-    from: reservationRef(collection, from),
-    to: reservationRef(collection, to),
+    from: reservationRef(target, from),
+    to: reservationRef(target, to),
   };
 
   // Both reads before either write, per the house pattern — and both keys
@@ -195,11 +232,11 @@ export async function renameSlugInTransaction(
   const targetHolder = await readOwner(transaction, refs.to);
 
   if (targetHolder !== null && targetHolder !== ownerId) {
-    throw new SlugTakenError(collection, to, targetHolder);
+    throw new SlugTakenError(target, to, targetHolder);
   }
 
   if (targetHolder === null) {
-    createReservation(transaction, collection, to, ownerId);
+    createReservation(transaction, target, to, ownerId);
   }
 
   if (currentHolder === ownerId) {
@@ -227,15 +264,15 @@ export async function renameSlugInTransaction(
  * @throws SlugTakenError when another owner holds `to`.
  */
 export async function renameSlug(
-  collection: SlugCollection,
+  target: SlugTarget,
   ownerId: string,
   rename: SlugRename,
 ): Promise<string> {
-  const to = normalizeSlug(rename.to);
+  const to = normalizeSlug(target, rename.to);
 
   return runTransaction((transaction) =>
-    renameSlugInTransaction(transaction, collection, ownerId, rename),
-  ).catch(asSlugTaken(collection, to));
+    renameSlugInTransaction(transaction, target, ownerId, rename),
+  ).catch(asSlugTaken(target, to));
 }
 
 /**
@@ -248,23 +285,44 @@ export async function renameSlug(
  * @throws InvalidSlugError when `slug` is not a legal slug.
  */
 export async function releaseSlug(
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
   ownerId: string,
 ): Promise<boolean> {
-  const normalized = normalizeSlug(slug);
+  const normalized = normalizeStoredSlug(slug);
 
-  return runTransaction(async (transaction) => {
-    const ref = reservationRef(collection, normalized);
-    const holder = await readOwner(transaction, ref);
+  return runTransaction((transaction) =>
+    releaseSlugInTransaction(transaction, target, normalized, ownerId),
+  );
+}
 
-    if (holder !== ownerId) {
-      return false;
-    }
+/**
+ * Give a slug back on a transaction the caller already owns.
+ *
+ * The composable half of {@link releaseSlug}, for the delete paths: a document
+ * and the slug it held have to disappear in the same commit, or a crash between
+ * them either strands the slug forever or frees a name that still resolves to a
+ * live page.
+ *
+ * @returns `true` when a reservation was actually deleted.
+ */
+export async function releaseSlugInTransaction(
+  transaction: Transaction,
+  target: SlugTarget,
+  slug: string,
+  ownerId: string,
+): Promise<boolean> {
+  // Shape only, never policy — see {@link normalizeStoredSlug}.
+  const normalized = normalizeStoredSlug(slug);
+  const ref = reservationRef(target, normalized);
+  const holder = await readOwner(transaction, ref);
 
-    transaction.delete(ref);
-    return true;
-  });
+  if (holder !== ownerId) {
+    return false;
+  }
+
+  transaction.delete(ref);
+  return true;
 }
 
 /**
@@ -274,12 +332,12 @@ export async function releaseSlug(
  * the document shape `reads.ts` expects — stay in one place.
  */
 function reservationRef(
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
 ): DocumentReference<SlugReservation> {
-  return collection === COLLECTIONS.orgSlugs
+  return target.kind === 'org'
     ? orgSlugRef(slug)
-    : eventSlugRef(slug);
+    : eventSlugRef(target.orgId, slug);
 }
 
 /** Who holds this reservation right now, or `null` if nobody does. */
@@ -309,14 +367,14 @@ async function readOwner(
  */
 function createReservation(
   transaction: Transaction,
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
   ownerId: string,
 ): void {
-  if (collection === COLLECTIONS.orgSlugs) {
+  if (target.kind === 'org') {
     transaction.create(orgSlugRef(slug), { orgId: ownerId });
   } else {
-    transaction.create(eventSlugRef(slug), { eventId: ownerId });
+    transaction.create(eventSlugRef(target.orgId, slug), { eventId: ownerId });
   }
 }
 
@@ -332,12 +390,12 @@ const ALREADY_EXISTS = 6;
  * backstop, and they need the same translation applied to their promise.
  */
 export function asSlugTaken(
-  collection: SlugCollection,
+  target: SlugTarget,
   slug: string,
 ): (error: unknown) => never {
   return (error: unknown) => {
     if ((error as { code?: number } | null)?.code === ALREADY_EXISTS) {
-      throw new SlugTakenError(collection, slug, 'unknown');
+      throw new SlugTakenError(target, slug, 'unknown');
     }
 
     throw error;
@@ -347,12 +405,45 @@ export function asSlugTaken(
 /**
  * The slug as it will be stored, or a typed error.
  *
- * `SlugSchema` is the same rule the API routes validate against, and it trims —
- * so the value it returns, not the caller's string, is what becomes the
- * document id.
+ * The same schemas the API routes validate against, and they trim — so the value
+ * returned here, not the caller's string, is what becomes the document id.
+ *
+ * The stricter `OrgSlugSchema` applies only to organizers: it additionally
+ * rejects the reserved words, which matter because `/{orgSlug}` is a top-level
+ * URL. An event slug is always the second segment of
+ * `/{orgSlug}/{eventSlug}`, so there is no route for it to shadow and no reason
+ * to refuse an organizer an event called `dashboard`.
  */
-function normalizeSlug(slug: string): string {
-  const parsed = SlugSchema.safeParse(slug);
+function normalizeSlug(target: SlugTarget, slug: string): string {
+  return parseSlug(target.kind === 'org' ? OrgSlugSchema : SlugSchema, slug);
+}
+
+/**
+ * Normalize a slug that is already **stored**, for giving it back.
+ *
+ * Deliberately the shape rule only, never {@link OrgSlugSchema}'s reserved-word
+ * policy. Those two rules answer different questions: "may this name be taken?"
+ * is a policy that can tighten over time, while "is this a legal document id?"
+ * is a fact about the string.
+ *
+ * Applying the policy here would be a trap. Add a word to `RESERVED_SLUGS` that
+ * some organizer already holds — a word that was free when they took it — and
+ * `deleteOrg` starts throwing `InvalidSlugError` on the release, leaving an
+ * organizer that can never be deleted because of a rule introduced after it was
+ * created. A release only ever removes a reservation the owner already holds, so
+ * there is nothing for the policy to protect.
+ */
+function normalizeStoredSlug(slug: string): string {
+  return parseSlug(SlugSchema, slug);
+}
+
+/** Run one slug schema, reporting a failure as {@link InvalidSlugError}. */
+function parseSlug(
+  schema: typeof SlugSchema | typeof OrgSlugSchema,
+  slug: string,
+): string {
+  const parsed = schema.safeParse(slug);
+
   if (!parsed.success) {
     throw new InvalidSlugError(
       slug,

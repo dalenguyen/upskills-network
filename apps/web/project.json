@@ -99,12 +99,14 @@
           "secrets": [
             "STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest",
             "STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
-            "LOOKUP_TOKEN_SECRET=LOOKUP_TOKEN_SECRET:latest"
+            "LOOKUP_TOKEN_SECRET=LOOKUP_TOKEN_SECRET:latest",
+            "RESEND_API_KEY=RESEND_API_KEY:latest"
           ],
           "envVars": {
             "NODE_ENV": "production",
             "GCP_PROJECT_ID": "upskills-network",
-            "SITE_URL": "https://upskillsnetwork.com"
+            "SITE_URL": "https://upskillsnetwork.com",
+            "EMAIL_FROM": "Upskills Network <dale@updates.upskillsnetwork.com>"
           }
         }
       }

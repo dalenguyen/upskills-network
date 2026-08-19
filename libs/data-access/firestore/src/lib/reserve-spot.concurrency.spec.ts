@@ -46,7 +46,12 @@ describe('reserveSpot under concurrency', () => {
       // of them commits, which is the only way to reach the lost-update window.
       const results = await Promise.all(
         emails.map((email) =>
-          reserveSpot('evt-race', { email, name: `Racer ${email}` }, 'confirm'),
+          reserveSpot(
+            'org-1',
+            'evt-race',
+            { email, name: `Racer ${email}` },
+            'confirm',
+          ),
         ),
       );
 
@@ -59,7 +64,7 @@ describe('reserveSpot under concurrency', () => {
       ).toHaveLength(RACERS - 1);
 
       // ...and the database agrees with what the callers were told.
-      const guests = await listEventGuests('evt-race');
+      const guests = await listEventGuests('org-1', 'evt-race');
       expect(guests).toHaveLength(RACERS);
 
       const confirmed = guests.filter((guest) => guest.status === 'confirmed');
@@ -67,7 +72,7 @@ describe('reserveSpot under concurrency', () => {
       expect(confirmed).toHaveLength(1);
       expect(pending).toHaveLength(RACERS - 1);
 
-      const event = await getEvent('evt-race');
+      const event = await getEvent('org-1', 'evt-race');
       expect(event).toMatchObject({
         confirmedCount: 1,
         heldCount: 0,
@@ -107,12 +112,12 @@ describe('reserveSpot under concurrency', () => {
 
       await Promise.all(
         emails.map((email) =>
-          reserveSpot('evt-race-2', { email, name: 'Dup' }, 'confirm'),
+          reserveSpot('org-1', 'evt-race-2', { email, name: 'Dup' }, 'confirm'),
         ),
       );
 
-      const guests = await listEventGuests('evt-race-2');
-      const event = await getEvent('evt-race-2');
+      const guests = await listEventGuests('org-1', 'evt-race-2');
+      const event = await getEvent('org-1', 'evt-race-2');
 
       // One doc per distinct email — the doc id is the normalized email, so a
       // duplicate registration overwrites rather than multiplying.

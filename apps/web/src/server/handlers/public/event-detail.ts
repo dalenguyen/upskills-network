@@ -1,4 +1,4 @@
-import type { WorkshopEvent } from '@upskills/models';
+import type { EventPage } from '@upskills/firestore';
 import {
   defineEventHandler,
   getRouterParam,
@@ -6,16 +6,34 @@ import {
   type H3Event,
 } from 'h3';
 import { notFound, toHttpError } from '../http-error';
-import { toPublicEvent, type PublicEvent } from './public-view';
+import {
+  toPublicEvent,
+  toPublicOrg,
+  type PublicEvent,
+  type PublicOrg,
+} from './public-view';
 
 /**
- * `GET /api/v1/events/:slug` — one event's public detail page.
+ * `GET /api/v1/orgs/:orgSlug/events/:eventSlug` — one event's public detail
+ * page.
+ *
+ * ## Why the organizer is in the path
+ *
+ * Event slugs are unique per organizer, not globally, so `react-basics` alone
+ * does not name an event. The organizer segment is what resolves it — the same
+ * shape as the public URL, `/{orgSlug}/{eventSlug}`.
+ *
+ * The response carries the organizer too, because `getEventByPath` has already
+ * read that document to get there and the page renders the organizer's name;
+ * returning only the event would just make the client pay for a second request.
  *
  * ## Draft and "does not exist" answer identically
  *
- * `getEventBySlug` resolves any event, whatever its status. Everything that is
+ * `getEventByPath` resolves any event, whatever its status. Everything that is
  * not `published` gets the same 404 as a slug nobody has ever reserved: same
- * status, same `error` code, same message.
+ * status, same `error` code, same message. A wrong organizer segment answers
+ * the same way, so probing cannot even distinguish "no such org" from "no such
+ * event of theirs".
  *
  * The difference matters. Slugs are guessable — they are derived from titles —
  * and an endpoint that answered 403 for a draft would confirm the existence of
@@ -32,11 +50,12 @@ import { toPublicEvent, type PublicEvent } from './public-view';
 
 export interface EventDetailResponse {
   event: PublicEvent;
+  org: PublicOrg;
 }
 
 export interface EventDetailDeps {
-  /** `getEventBySlug` from `@upskills/firestore`. */
-  getEventBySlug(slug: string): Promise<WorkshopEvent | null>;
+  /** `getEventByPath` from `@upskills/firestore`. */
+  getEventByPath(orgSlug: string, eventSlug: string): Promise<EventPage | null>;
 }
 
 /** The one 404 this route produces, for every reason it produces one. */
@@ -47,19 +66,23 @@ function eventNotFound() {
 export function createEventDetailHandler(deps: EventDetailDeps): EventHandler {
   return defineEventHandler(async (event: H3Event) => {
     try {
-      const slug = getRouterParam(event, 'slug');
+      const orgSlug = getRouterParam(event, 'orgSlug');
+      const eventSlug = getRouterParam(event, 'eventSlug');
 
-      if (slug === undefined || slug === '') {
+      if (!orgSlug || !eventSlug) {
         throw eventNotFound();
       }
 
-      const found = await deps.getEventBySlug(slug);
+      const found = await deps.getEventByPath(orgSlug, eventSlug);
 
-      if (found === null || found.status !== 'published') {
+      if (found === null || found.event.status !== 'published') {
         throw eventNotFound();
       }
 
-      return { event: toPublicEvent(found) } satisfies EventDetailResponse;
+      return {
+        event: toPublicEvent(found.event, found.organizer.slug),
+        org: toPublicOrg(found.organizer),
+      } satisfies EventDetailResponse;
     } catch (error) {
       throw toHttpError(error);
     }

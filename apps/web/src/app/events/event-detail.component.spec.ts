@@ -7,6 +7,7 @@ import { EventDetailComponent } from './event-detail.component';
 const baseEvent: PublicEvent = {
   eventId: 'evt_1',
   orgId: 'org_1',
+  orgSlug: 'acme',
   title: 'Intro to Kubernetes',
   slug: 'intro-to-kubernetes',
   description: 'First line.\nSecond line.',

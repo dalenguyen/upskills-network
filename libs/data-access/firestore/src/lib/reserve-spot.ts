@@ -106,14 +106,15 @@ function outcomeFor(status: GuestStatus): ReserveOutcome {
  * @throws PaymentRequiredError in `confirm` mode if the event has a price.
  */
 export async function reserveSpot(
+  orgId: string,
   eventId: string,
   draft: GuestDraft,
   mode: ReserveMode,
 ): Promise<ReserveSpotResult> {
   const email = normalizeEmail(draft.email);
   const documents = {
-    event: eventRef(eventId),
-    guest: guestRef(eventId, email),
+    event: eventRef(orgId, eventId),
+    guest: guestRef(orgId, eventId, email),
   };
 
   // Generated once, outside the transaction: a retried attempt must not mint a
@@ -156,7 +157,9 @@ export async function reserveSpot(
     const base = {
       guestId: email,
       eventId,
-      orgId: event.orgId,
+      // From the path the guest is being written to, not from the event body:
+      // these are the same value, and the path is the one that cannot be stale.
+      orgId,
       email,
       name: draft.name.trim(),
       registeredAt,

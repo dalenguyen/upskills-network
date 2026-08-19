@@ -7,7 +7,7 @@ import {
   type H3Event,
 } from 'h3';
 import { toHttpError } from '../http-error';
-import { eventForbidden } from './dashboard-access';
+import { eventForbidden, readOrgId } from './dashboard-access';
 import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
@@ -44,7 +44,7 @@ export interface DashboardEventsDetailDeps {
     ...roles: OrgRole[]
   ): Promise<OrgContext>;
   /** `getEvent` from `@upskills/firestore`. */
-  getEvent(eventId: string): Promise<WorkshopEvent | null>;
+  getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
 }
 
 export function createDashboardEventsDetailHandler(
@@ -56,19 +56,26 @@ export function createDashboardEventsDetailHandler(
       // event from one that exists. See the module comment.
       await deps.requireAuth(event);
 
+      const orgId = readOrgId(event);
       const eventId = getRouterParam(event, 'eventId');
 
       if (eventId === undefined || eventId === '') {
         throw eventForbidden();
       }
 
-      const found = await deps.getEvent(eventId);
+      // The role check now runs *before* the read rather than after it, because
+      // the org comes from `?orgId=` instead of from the event document. That
+      // is strictly the better order — an unauthorized caller never reaches
+      // Firestore — and it costs nothing in safety: the event is read from
+      // `organizers/{orgId}/events/{eventId}`, so naming somebody else's event
+      // id under your own org simply addresses a path that does not exist.
+      await deps.requireOrgRole(event, orgId, 'admin', 'manager');
+
+      const found = await deps.getEvent(orgId, eventId);
 
       if (found === null) {
         throw eventForbidden();
       }
-
-      await deps.requireOrgRole(event, found.orgId, 'admin', 'manager');
 
       return {
         event: toDashboardEvent(found),

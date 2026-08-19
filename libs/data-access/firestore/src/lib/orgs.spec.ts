@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { T0, seedOrg, seedUser } from '../testing/seed';
-import { orgsCol, orgSlugRef, userRef } from './collections';
+import { T0, seedEvent, seedOrg, seedUser } from '../testing/seed';
+import { orgInvitesCol, orgsCol, orgSlugRef, userRef } from './collections';
+import { createOrgInvite } from './invites';
 import {
   LastOrgAdminError,
   OrgLimitExceededError,
+  OrgNotEmptyError,
   createOrg,
+  deleteOrg,
   removeOrgMember,
   setOrgMember,
 } from './orgs';
@@ -206,5 +209,54 @@ describe('last-admin guard', () => {
     expect(org?.members['uid-2']).toBeUndefined();
     expect(org?.members['uid-1']).toMatchObject({ role: 'admin' });
     expect(org?.memberUids).toEqual(['uid-1']);
+  });
+});
+
+describe('deleteOrg', () => {
+  it('removes the org, frees its slug, and lets the member start over', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: ['org-1'] });
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz', createdBy: 'uid-1' });
+
+    await deleteOrg('org-1');
+
+    await expect(getOrg('org-1')).resolves.toBeNull();
+    await expect(orgSlugRef('upskills-yyz').get()).resolves.toMatchObject({
+      exists: false,
+    });
+    // The `orgIds` entry is what `createOrg` reads to enforce one-org-per-user,
+    // so leaving it behind would lock the member out of ever creating another.
+    expect((await userRef('uid-1').get()).data()?.orgIds).toEqual([]);
+  });
+
+  it('refuses while the org still owns an event, of any status', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: ['org-1'] });
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz', createdBy: 'uid-1' });
+    await seedEvent({ eventId: 'evt-1', orgId: 'org-1', status: 'cancelled' });
+
+    await expect(deleteOrg('org-1')).rejects.toThrow(OrgNotEmptyError);
+
+    // Nothing was half-applied: the org and its slug are both still there.
+    await expect(getOrg('org-1')).resolves.toMatchObject({ orgId: 'org-1' });
+    await expect(orgSlugRef('upskills-yyz').get()).resolves.toMatchObject({
+      exists: true,
+    });
+  });
+
+  it('revokes pending invitations, which nothing else would clean up', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: ['org-1'] });
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz', createdBy: 'uid-1' });
+    await createOrgInvite({
+      orgId: 'org-1',
+      email: 'grace@example.com',
+      role: 'manager',
+      invitedBy: 'uid-1',
+    });
+
+    await deleteOrg('org-1');
+
+    // `orgInvites` is top-level, so these would otherwise outlive the org they
+    // name and keep appearing in every invite listing.
+    const left = await orgInvitesCol().where('orgId', '==', 'org-1').get();
+    expect(left.empty).toBe(true);
   });
 });

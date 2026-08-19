@@ -23,6 +23,7 @@ describe('toPublicEvent', () => {
         price: 2500,
         endsAt: fakeTimestamp(new Date('2026-09-01T20:00:00.000Z')),
       }),
+      'acme',
     );
 
     expect(view).toMatchObject({
@@ -46,6 +47,7 @@ describe('toPublicEvent', () => {
         pendingCount: 7,
         reminderSentAt: fakeTimestamp(FIXTURE_START),
       }),
+      'acme',
     );
 
     // Written as an exact key set rather than a handful of `not.toHaveProperty`
@@ -57,6 +59,7 @@ describe('toPublicEvent', () => {
       'eventId',
       'maxGuests',
       'orgId',
+      'orgSlug',
       'price',
       'slug',
       'soldOut',
@@ -72,6 +75,7 @@ describe('toPublicEvent', () => {
       fakeEvent({
         endsAt: fakeTimestamp(new Date('2026-09-01T20:30:00.000Z')),
       }),
+      'acme',
     );
 
     expect(view.startsAt).toBe('2026-09-01T18:00:00.000Z');
@@ -79,7 +83,7 @@ describe('toPublicEvent', () => {
   });
 
   it('omits the optional fields rather than sending null', () => {
-    const view = toPublicEvent(fakeEvent());
+    const view = toPublicEvent(fakeEvent(), 'acme');
 
     expect('endsAt' in view).toBe(false);
     expect('location' in view).toBe(false);
@@ -89,6 +93,7 @@ describe('toPublicEvent', () => {
     it('counts held spots against the remainder, not just confirmed ones', () => {
       const view = toPublicEvent(
         fakeEvent({ maxGuests: 10, confirmedCount: 6, heldCount: 3 }),
+        'acme',
       );
 
       // 1, not 4: the three mid-checkout spots are not available to offer.
@@ -99,6 +104,7 @@ describe('toPublicEvent', () => {
     it('is sold out at exactly zero remaining', () => {
       const view = toPublicEvent(
         fakeEvent({ maxGuests: 5, confirmedCount: 5, heldCount: 0 }),
+        'acme',
       );
 
       expect(view.spotsRemaining).toBe(0);
@@ -108,6 +114,7 @@ describe('toPublicEvent', () => {
     it('clamps an over-subscribed event at zero instead of going negative', () => {
       const view = toPublicEvent(
         fakeEvent({ maxGuests: 2, confirmedCount: 5, heldCount: 0 }),
+        'acme',
       );
 
       expect(view.spotsRemaining).toBe(0);
@@ -117,6 +124,7 @@ describe('toPublicEvent', () => {
     it('reports unlimited capacity as null and never sold out', () => {
       const view = toPublicEvent(
         fakeEvent({ maxGuests: 0, confirmedCount: 900 }),
+        'acme',
       );
 
       expect(view.spotsRemaining).toBeNull();
@@ -124,9 +132,13 @@ describe('toPublicEvent', () => {
     });
 
     it('ignores the waitlist depth', () => {
-      const open = toPublicEvent(fakeEvent({ maxGuests: 10, pendingCount: 0 }));
+      const open = toPublicEvent(
+        fakeEvent({ maxGuests: 10, pendingCount: 0 }),
+        'acme',
+      );
       const queued = toPublicEvent(
         fakeEvent({ maxGuests: 10, pendingCount: 50 }),
+        'acme',
       );
 
       expect(queued.spotsRemaining).toBe(open.spotsRemaining);

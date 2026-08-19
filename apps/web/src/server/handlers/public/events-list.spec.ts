@@ -11,6 +11,9 @@ function deps(overrides: Partial<EventsListDeps> = {}): EventsListDeps {
       events: [fakeEvent({ eventId: 'evt-1', slug: 'one' })],
       nextCursor: null,
     })),
+    // Every fixture event belongs to `fakeEvent`'s org, so one entry covers the
+    // whole page. Specs that care about the lookup override this.
+    getOrgSlugs: vi.fn(async () => ({ 'org-1': 'upskills-toronto' })),
     ...overrides,
   };
 }

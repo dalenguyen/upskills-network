@@ -84,17 +84,63 @@ export function dashboardEventCreateEndpoint(orgId: string): string {
 }
 
 /** `GET` — one event owned by one org. */
-export function dashboardEventDetailEndpoint(eventId: string): string {
-  return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
+export function dashboardEventDetailEndpoint(
+  orgId: string,
+  eventId: string,
+): string {
+  return `${dashboardEventPath(eventId)}?orgId=${encodeURIComponent(orgId)}`;
 }
 
 /** `PUT` — update one event owned by one org. */
-export function dashboardEventUpdateEndpoint(eventId: string): string {
-  return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
+export function dashboardEventUpdateEndpoint(
+  orgId: string,
+  eventId: string,
+): string {
+  return `${dashboardEventPath(eventId)}?orgId=${encodeURIComponent(orgId)}`;
 }
 
 /** `DELETE` — cancel one event owned by one org and notify confirmed guests. */
-export function dashboardEventCancelEndpoint(eventId: string): string {
+export function dashboardEventCancelEndpoint(
+  orgId: string,
+  eventId: string,
+): string {
+  return `${dashboardEventPath(eventId)}?orgId=${encodeURIComponent(orgId)}`;
+}
+
+/**
+ * `DELETE` — permanently remove a **draft** event with no registrations,
+ * freeing its slug.
+ *
+ * A different URL from {@link dashboardEventCancelEndpoint} on purpose: a plain
+ * `DELETE` on the event cancels it and emails the guests, and the destructive
+ * one has to be asked for by name. The server refuses anything that is not a
+ * guest-free draft with 409 `event-not-deletable`.
+ */
+export function dashboardEventDeleteEndpoint(
+  orgId: string,
+  eventId: string,
+): string {
+  return `${dashboardEventPath(eventId)}/permanent?orgId=${encodeURIComponent(orgId)}`;
+}
+
+/**
+ * `DELETE` — remove an organizer that owns no events, freeing its slug.
+ *
+ * Refused with 409 `org-not-empty` while any event still exists under it.
+ */
+export function dashboardOrgDeleteEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}`;
+}
+
+/**
+ * The shared prefix of the three per-event dashboard routes.
+ *
+ * Each of them additionally carries `?orgId=`: events are stored at
+ * `organizers/{orgId}/events/{eventId}`, so the event id alone does not address
+ * a document. The org also arrives early enough for the server to authorize the
+ * caller before it reads anything.
+ */
+function dashboardEventPath(eventId: string): string {
   return `/api/v1/dashboard/events/${encodeURIComponent(eventId)}`;
 }
 

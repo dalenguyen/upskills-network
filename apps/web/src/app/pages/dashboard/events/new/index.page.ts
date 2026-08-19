@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { RouteMeta } from '@analogjs/router';
 import { Router } from '@angular/router';
+import { nextSlugCandidate, slugify } from '@upskills/validation';
 import { firstValueFrom } from 'rxjs';
 
 import { authGuard } from '../../../../auth/auth-guard';
@@ -13,8 +14,18 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../dashboard/dashboard-api';
+import { apiErrorStatus } from '../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
+
+/**
+ * How many slugs to try before giving up and reporting the collision.
+ *
+ * Small on purpose. This exists to absorb "two events with the same obvious
+ * name", which is one or two retries in practice; a page that quietly tried
+ * fifty would be papering over a naming problem the organizer should see.
+ */
+const MAX_SLUG_ATTEMPTS = 5;
 
 /**
  * `/dashboard/events/new` — create an event for the caller's first org.
@@ -164,6 +175,7 @@ export function dollarsToCents(dollars: number): number {
                     required
                     maxlength="200"
                     [(ngModel)]="form.title"
+                    (ngModelChange)="onTitleChange()"
                     class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   />
                 </div>
@@ -182,10 +194,12 @@ export function dollarsToCents(dollars: number): number {
                     required
                     pattern="[a-z0-9-]+"
                     [(ngModel)]="form.slug"
+                    (ngModelChange)="slugTouched = true"
                     class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   />
                   <p class="mt-1 text-xs text-zinc-500">
-                    Lowercase letters, numbers, and hyphens only.
+                    Lowercase letters, numbers, and hyphens only. Filled in from
+                    the title until you edit it.
                   </p>
                 </div>
 
@@ -367,6 +381,14 @@ export default class DashboardEventsNewPageComponent implements OnInit {
 
   readonly timezones = CANADIAN_TIME_ZONES;
 
+  /**
+   * Whether the organizer has edited the slug field themselves.
+   *
+   * Plain field rather than a signal: nothing renders from it, it only gates
+   * {@link onTitleChange} and the retry loop.
+   */
+  protected slugTouched = false;
+
   readonly form: CreateEventForm = {
     title: '',
     slug: '',
@@ -426,19 +448,76 @@ export default class DashboardEventsNewPageComponent implements OnInit {
     this.submitError.set(null);
 
     try {
-      await firstValueFrom(
-        this.http.post<DashboardEventsCreateResponse>(
-          dashboardEventCreateEndpoint(state.org.orgId),
-          this.buildBody(status),
-          { withCredentials: true },
-        ),
-      );
-
+      await this.postWithFreeSlug(state.org.orgId, status);
       await this.router.navigateByUrl('/dashboard/events');
     } catch (error) {
       this.submitError.set(this.describeSubmitError(error));
     } finally {
       this.submitting.set(false);
+    }
+  }
+
+  /**
+   * Keep the slug in step with the title, until the organizer takes it over.
+   *
+   * Deriving it is the whole point — nobody wants to type `react-basics` after
+   * typing `React Basics` — but silently rewriting a slug somebody has chosen
+   * would be worse than not helping at all. {@link slugTouched} is the line
+   * between the two, and it is one-way: once they edit the field, the title
+   * stops driving it for the rest of the form's life.
+   */
+  protected onTitleChange(): void {
+    if (!this.slugTouched) {
+      this.form.slug = slugify(this.form.title);
+    }
+  }
+
+  /**
+   * POST the event, walking the slug forward while the server says it is taken.
+   *
+   * The server is the only authority on whether a slug is free — a check before
+   * the write is a guess that goes stale — so this asks, and asks again with
+   * `-2`, `-3` when the answer is 409. That turns the common case (two events
+   * with the same obvious name, in the same org) from an error the organizer has
+   * to resolve by hand into something they never see.
+   *
+   * The retries stop after {@link MAX_SLUG_ATTEMPTS}, and only ever on a 409:
+   * any other failure is rethrown immediately rather than retried into a
+   * different slug. The final 409 is rethrown too, so a genuinely stuck slug
+   * still reports honestly instead of failing silently.
+   *
+   * A slug the organizer typed themselves is **not** walked forward. They asked
+   * for that specific name; answering "taken" is the correct response, and
+   * quietly filing their event under a different URL is not.
+   */
+  private async postWithFreeSlug(
+    orgId: string,
+    status: 'draft' | 'published',
+  ): Promise<void> {
+    const base = this.form.slug.trim();
+    const attempts = this.slugTouched ? 1 : MAX_SLUG_ATTEMPTS;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const slug = nextSlugCandidate(base, attempt);
+
+      try {
+        await firstValueFrom(
+          this.http.post<DashboardEventsCreateResponse>(
+            dashboardEventCreateEndpoint(orgId),
+            { ...this.buildBody(status), slug },
+            { withCredentials: true },
+          ),
+        );
+
+        // Reflect what was actually taken, so a failure later in this session
+        // does not show the organizer a slug their event does not have.
+        this.form.slug = slug;
+        return;
+      } catch (error) {
+        if (attempt === attempts || apiErrorStatus(error) !== 409) {
+          throw error;
+        }
+      }
     }
   }
 

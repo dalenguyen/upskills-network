@@ -464,7 +464,7 @@ export default class DashboardEventsEditPageComponent implements OnInit {
 
       const response = await firstValueFrom(
         this.http.get<DashboardEventsDetailResponse>(
-          dashboardEventDetailEndpoint(eventId),
+          dashboardEventDetailEndpoint(org.orgId, eventId),
           { withCredentials: true },
         ),
       );
@@ -522,7 +522,10 @@ export default class DashboardEventsEditPageComponent implements OnInit {
     try {
       await firstValueFrom(
         this.http.put<DashboardEventsUpdateResponse>(
-          dashboardEventUpdateEndpoint(state.workshop.eventId),
+          dashboardEventUpdateEndpoint(
+            state.workshop.orgId,
+            state.workshop.eventId,
+          ),
           this.buildBody(status),
           { withCredentials: true },
         ),

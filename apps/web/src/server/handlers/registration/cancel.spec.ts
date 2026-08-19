@@ -59,18 +59,18 @@ function deps(overrides: Partial<CancelDeps> = {}): CancelDeps {
   };
 }
 
-function post(body: unknown, eventId = 'evt-1') {
+function post(body: unknown, eventId = 'evt-1', orgId = 'org-1') {
   return createTestEvent({
     method: 'POST',
-    url: `/api/v1/registration/${eventId}/cancel`,
-    params: { eventId },
+    url: `/api/v1/registration/${orgId}/${eventId}/cancel`,
+    params: { orgId, eventId },
     body,
   }).event;
 }
 
 const VALID = { email: 'ada@example.com', cancelToken: TOKEN };
 
-describe('POST /api/v1/registration/:eventId/cancel', () => {
+describe('POST /api/v1/registration/:orgId/:eventId/cancel', () => {
   describe('with the right token', () => {
     it('cancels the registration and confirms by email', async () => {
       const sendCancellationEmail = vi.fn(async () => ({
@@ -98,7 +98,11 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
         post(VALID, 'evt-other'),
       );
 
-      expect(cancelGuest).toHaveBeenCalledWith('evt-other', 'ada@example.com');
+      expect(cancelGuest).toHaveBeenCalledWith(
+        'org-1',
+        'evt-other',
+        'ada@example.com',
+      );
     });
 
     it('promotes the next waitlisted guest and tells them', async () => {
@@ -191,7 +195,7 @@ describe('POST /api/v1/registration/:eventId/cancel', () => {
         deps({ cancelGuest: vi.fn(async () => already), promoteNextPending }),
       )(post(VALID));
 
-      expect(promoteNextPending).toHaveBeenCalledWith('evt-1');
+      expect(promoteNextPending).toHaveBeenCalledWith('org-1', 'evt-1');
     });
   });
 

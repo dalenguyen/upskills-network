@@ -18,6 +18,7 @@ import { isStripeEventProcessed, withStripeEventGuard } from './stripe-events';
  */
 
 const EVENT_ID = 'evt-paid';
+const ORG_ID = 'org-1';
 const EMAIL = 'buyer@example.com';
 const STRIPE_EVENT_ID = 'evt_stripe_1';
 
@@ -42,10 +43,10 @@ describe('withStripeEventGuard', () => {
     const outcome = await deliverCheckoutCompleted();
 
     expect(outcome).toEqual({ applied: true, result: EMAIL });
-    expect(await getGuest(EVENT_ID, EMAIL)).toMatchObject({
+    expect(await getGuest(ORG_ID, EVENT_ID, EMAIL)).toMatchObject({
       status: 'confirmed',
     });
-    expect(await getEvent(EVENT_ID)).toMatchObject({
+    expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
       confirmedCount: 1,
       heldCount: 0,
     });
@@ -70,7 +71,7 @@ describe('withStripeEventGuard', () => {
     expect(replay).toEqual({ applied: false });
     // The counters are the tell: a second application would push
     // `confirmedCount` to 2 with only one guest to show for it.
-    expect(await getEvent(EVENT_ID)).toMatchObject({
+    expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
       confirmedCount: 1,
       heldCount: 0,
     });
@@ -83,7 +84,9 @@ describe('withStripeEventGuard', () => {
     }
 
     expect(receipts).toEqual([EMAIL]);
-    expect(await getEvent(EVENT_ID)).toMatchObject({ confirmedCount: 1 });
+    expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
+      confirmedCount: 1,
+    });
   });
 
   it('gates per event id, so a different event still applies', async () => {
@@ -107,8 +110,10 @@ describe('withStripeEventGuard', () => {
     // Neither half landed: no ledger entry...
     expect(await isStripeEventProcessed(STRIPE_EVENT_ID)).toBe(false);
     // ...and none of the writes the effect had already queued.
-    expect(await getGuest(EVENT_ID, EMAIL)).toMatchObject({ status: 'held' });
-    expect(await getEvent(EVENT_ID)).toMatchObject({
+    expect(await getGuest(ORG_ID, EVENT_ID, EMAIL)).toMatchObject({
+      status: 'held',
+    });
+    expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
       confirmedCount: 0,
       heldCount: 1,
     });
@@ -126,7 +131,9 @@ describe('withStripeEventGuard', () => {
 
     expect(retry).toEqual({ applied: true, result: EMAIL });
     expect(receipts).toEqual([EMAIL]);
-    expect(await getEvent(EVENT_ID)).toMatchObject({ confirmedCount: 1 });
+    expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
+      confirmedCount: 1,
+    });
   });
 
   it(
@@ -142,7 +149,7 @@ describe('withStripeEventGuard', () => {
 
       expect(settled.filter((outcome) => outcome.applied)).toHaveLength(1);
       expect(receipts).toEqual([EMAIL]);
-      expect(await getEvent(EVENT_ID)).toMatchObject({
+      expect(await getEvent(ORG_ID, EVENT_ID)).toMatchObject({
         confirmedCount: 1,
         heldCount: 0,
       });
@@ -196,8 +203,8 @@ async function deliverCheckoutCompleted(options: { fail?: boolean } = {}) {
     STRIPE_EVENT_ID,
     async (transaction: Transaction) => {
       const documents = {
-        event: eventRef(EVENT_ID),
-        guest: guestRef(EVENT_ID, EMAIL),
+        event: eventRef(ORG_ID, EVENT_ID),
+        guest: guestRef(ORG_ID, EVENT_ID, EMAIL),
       };
 
       // Reads first, inside the transaction, exactly as the real handler must.

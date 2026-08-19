@@ -56,11 +56,12 @@ export interface PaymentInfo {
  * cannot later reclaim a seat that has been paid for.
  */
 export async function confirmHeldGuest(
+  orgId: string,
   eventId: string,
   email: string,
   payment: PaymentInfo = {},
 ): Promise<TransitionResult> {
-  return transition(eventId, email, (existing) => {
+  return transition(orgId, eventId, email, (existing) => {
     if (existing.status === 'confirmed') {
       return { reason: 'already-applied' };
     }
@@ -90,10 +91,11 @@ export async function confirmHeldGuest(
  * Callers normally follow this with {@link promoteNextPending}.
  */
 export async function releaseHold(
+  orgId: string,
   eventId: string,
   email: string,
 ): Promise<TransitionResult> {
-  return transition(eventId, email, (existing) => {
+  return transition(orgId, eventId, email, (existing) => {
     if (existing.status === 'expired') {
       return { reason: 'already-applied' };
     }
@@ -124,10 +126,11 @@ export async function releaseHold(
  * Callers normally follow this with {@link promoteNextPending}.
  */
 export async function cancelGuest(
+  orgId: string,
   eventId: string,
   email: string,
 ): Promise<TransitionResult> {
-  return transition(eventId, email, (existing) => {
+  return transition(orgId, eventId, email, (existing) => {
     if (existing.status === 'cancelled') {
       return { reason: 'already-applied' };
     }
@@ -166,10 +169,11 @@ export async function cancelGuest(
  * oversell. Backed by the `guests (status ASC, registeredAt ASC)` index.
  */
 export async function promoteNextPending(
+  orgId: string,
   eventId: string,
 ): Promise<Guest | null> {
-  const documents = { event: eventRef(eventId) };
-  const oldestPending = guestsCol(eventId)
+  const documents = { event: eventRef(orgId, eventId) };
+  const oldestPending = guestsCol(orgId, eventId)
     .where('status', '==', 'pending')
     .orderBy('registeredAt', 'asc')
     .limit(1);
@@ -226,13 +230,14 @@ type Decision =
  * @throws EventNotFoundError if `eventId` names no event.
  */
 async function transition(
+  orgId: string,
   eventId: string,
   email: string,
   decide: (existing: Guest) => Decision,
 ): Promise<TransitionResult> {
   const documents = {
-    event: eventRef(eventId),
-    guest: guestRef(eventId, email),
+    event: eventRef(orgId, eventId),
+    guest: guestRef(orgId, eventId, email),
   };
 
   return runIdempotentTransaction(async (transaction) => {

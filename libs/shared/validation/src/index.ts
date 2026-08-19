@@ -10,10 +10,18 @@ export {
   IsoDateTimeSchema,
   MaxGuestsSchema,
   OrgRoleSchema,
+  OrgSlugSchema,
   PriceSchema,
   SlugSchema,
   TimezoneSchema,
 } from './lib/primitives';
+
+export {
+  RESERVED_SLUGS,
+  isReservedSlug,
+  nextSlugCandidate,
+  slugify,
+} from './lib/slugify';
 
 export { CreateEventSchema, UpdateEventSchema } from './lib/event.schema';
 export type { CreateEventInput, UpdateEventInput } from './lib/event.schema';

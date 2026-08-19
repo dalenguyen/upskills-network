@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
 import { eventSlugRef } from './collections';
-import { SlugTakenError, renameSlug, reserveSlug } from './slugs';
+import { SlugTakenError, eventSlugsOf, renameSlug, reserveSlug } from './slugs';
 
 /**
  * Issue #34 — the race the reservation document exists for.
@@ -47,7 +47,7 @@ describe('reserveSlug under concurrency', () => {
       // which is the only way to reach the lost-update window.
       const settled = await Promise.allSettled(
         owners.map((ownerId) =>
-          reserveSlug('eventSlugs', 'react-basics', ownerId),
+          reserveSlug(eventSlugsOf('org-1'), 'react-basics', ownerId),
         ),
       );
 
@@ -68,14 +68,16 @@ describe('reserveSlug under concurrency', () => {
       for (const loser of losers) {
         expect(loser.reason).toBeInstanceOf(SlugTakenError);
         expect(loser.reason).toMatchObject({
-          collection: 'eventSlugs',
+          target: { kind: 'event', orgId: 'org-1' },
           slug: 'react-basics',
           heldBy: winner,
         });
       }
 
       // ...and the database agrees with whoever was told yes.
-      const reservation = (await eventSlugRef('react-basics').get()).data();
+      const reservation = (
+        await eventSlugRef('org-1', 'react-basics').get()
+      ).data();
       expect(reservation).toEqual({ eventId: winner });
     },
     RACE_TIMEOUT_MS,
@@ -93,13 +95,15 @@ describe('reserveSlug under concurrency', () => {
 
       const slugs = await Promise.all(
         owners.map((ownerId) =>
-          reserveSlug('eventSlugs', `workshop-${ownerId}`, ownerId),
+          reserveSlug(eventSlugsOf('org-1'), `workshop-${ownerId}`, ownerId),
         ),
       );
 
       expect(new Set(slugs).size).toBe(RACERS);
       const stored = await Promise.all(
-        slugs.map(async (slug) => (await eventSlugRef(slug).get()).data()),
+        slugs.map(async (slug) =>
+          (await eventSlugRef('org-1', slug).get()).data(),
+        ),
       );
       expect(stored).toEqual(owners.map((eventId) => ({ eventId })));
     },
@@ -115,13 +119,13 @@ describe('reserveSlug under concurrency', () => {
       );
       await Promise.all(
         owners.map((ownerId) =>
-          reserveSlug('eventSlugs', `before-${ownerId}`, ownerId),
+          reserveSlug(eventSlugsOf('org-1'), `before-${ownerId}`, ownerId),
         ),
       );
 
       const settled = await Promise.allSettled(
         owners.map((ownerId) =>
-          renameSlug('eventSlugs', ownerId, {
+          renameSlug(eventSlugsOf('org-1'), ownerId, {
             from: `before-${ownerId}`,
             to: 'the-good-name',
           }),
@@ -141,7 +145,9 @@ describe('reserveSlug under concurrency', () => {
       }
 
       const winner = owners[winnerIndex];
-      expect((await eventSlugRef('the-good-name').get()).data()).toEqual({
+      expect(
+        (await eventSlugRef('org-1', 'the-good-name').get()).data(),
+      ).toEqual({
         eventId: winner,
       });
 
@@ -150,7 +156,8 @@ describe('reserveSlug under concurrency', () => {
       const remaining = await Promise.all(
         owners.map(async (ownerId) => ({
           ownerId,
-          exists: (await eventSlugRef(`before-${ownerId}`).get()).exists,
+          exists: (await eventSlugRef('org-1', `before-${ownerId}`).get())
+            .exists,
         })),
       );
       expect(remaining.filter((entry) => !entry.exists)).toEqual([

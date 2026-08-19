@@ -14,7 +14,11 @@ import { badRequest, notFound, toHttpError } from '../http-error';
 import { forbidden } from './registration-errors';
 
 /**
- * `POST /api/v1/registration/:eventId/cancel` — self-service cancellation.
+ * `POST /api/v1/registration/:orgId/:eventId/cancel` — self-service
+ * cancellation.
+ *
+ * The organizer segment addresses the event's subcollection path; see
+ * `register.ts` for why it is a path component and not a permission check.
  *
  * ## The token is the entire authorization
  *
@@ -65,13 +69,21 @@ export interface CancelResponse {
 
 export interface CancelDeps {
   /** `getGuest` from `@upskills/firestore`. */
-  getGuest(eventId: string, email: string): Promise<Guest | null>;
+  getGuest(
+    orgId: string,
+    eventId: string,
+    email: string,
+  ): Promise<Guest | null>;
   /** `getEvent` from `@upskills/firestore`. */
-  getEvent(eventId: string): Promise<WorkshopEvent | null>;
+  getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
   /** `cancelGuest` from `@upskills/firestore`. */
-  cancelGuest(eventId: string, email: string): Promise<TransitionResult>;
+  cancelGuest(
+    orgId: string,
+    eventId: string,
+    email: string,
+  ): Promise<TransitionResult>;
   /** `promoteNextPending` from `@upskills/firestore`. */
-  promoteNextPending(eventId: string): Promise<Guest | null>;
+  promoteNextPending(orgId: string, eventId: string): Promise<Guest | null>;
   /** `sendCancellationEmail` from `@upskills/email`. Never throws. */
   sendCancellationEmail(
     guest: Guest,
@@ -126,9 +138,10 @@ function refuse() {
 export function createCancelHandler(deps: CancelDeps): EventHandler {
   return defineEventHandler(async (event: H3Event) => {
     try {
+      const orgId = getRouterParam(event, 'orgId');
       const eventId = getRouterParam(event, 'eventId');
 
-      if (eventId === undefined || eventId === '') {
+      if (!orgId || !eventId) {
         throw refuse();
       }
 
@@ -142,13 +155,13 @@ export function createCancelHandler(deps: CancelDeps): EventHandler {
       }
 
       const { email, cancelToken } = parsed.data;
-      const guest = await deps.getGuest(eventId, email);
+      const guest = await deps.getGuest(orgId, eventId, email);
 
       if (!tokenMatches(cancelToken, guest?.cancelToken)) {
         throw refuse();
       }
 
-      const workshop = await deps.getEvent(eventId);
+      const workshop = await deps.getEvent(orgId, eventId);
 
       if (workshop === null) {
         // The guest document exists but its event does not. Nothing to cancel
@@ -157,8 +170,8 @@ export function createCancelHandler(deps: CancelDeps): EventHandler {
         throw notFound('event-not-found', 'No such event.');
       }
 
-      const result = await deps.cancelGuest(eventId, email);
-      const promoted = await deps.promoteNextPending(eventId);
+      const result = await deps.cancelGuest(orgId, eventId, email);
+      const promoted = await deps.promoteNextPending(orgId, eventId);
 
       return {
         cancelled: true,

@@ -73,7 +73,9 @@ export function createOrgDetailHandler(deps: OrgDetailDeps): EventHandler {
 
       return {
         org: toPublicOrg(org),
-        events: page.events.map(toPublicEvent),
+        events: page.events.map((published) =>
+          toPublicEvent(published, org.slug),
+        ),
         nextCursor: page.nextCursor,
       } satisfies OrgDetailResponse;
     } catch (error) {

@@ -13,7 +13,7 @@ import {
   type H3Event,
 } from 'h3';
 import { toHttpError } from '../http-error';
-import { eventForbidden } from './dashboard-access';
+import { eventForbidden, readOrgId } from './dashboard-access';
 import { toDashboardEvent, type DashboardEvent } from './events-list';
 
 /**
@@ -76,9 +76,9 @@ export interface DashboardEventsCancelDeps {
     ...roles: OrgRole[]
   ): Promise<OrgContext>;
   /** `getEvent` from `@upskills/firestore`. */
-  getEvent(eventId: string): Promise<WorkshopEvent | null>;
+  getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
   /** `cancelEvent` from `@upskills/firestore`. */
-  cancelEvent(eventId: string): Promise<CancelEventResult>;
+  cancelEvent(orgId: string, eventId: string): Promise<CancelEventResult>;
   /** `sendCancellationEmail` from `@upskills/email`. Never throws. */
   sendCancellationEmail(
     guest: Guest,
@@ -95,19 +95,22 @@ export function createDashboardEventsCancelHandler(
       // event from one that exists. See `events-detail.ts`.
       await deps.requireAuth(event);
 
+      const orgId = readOrgId(event);
       const eventId = getRouterParam(event, 'eventId');
 
       if (eventId === undefined || eventId === '') {
         throw eventForbidden();
       }
 
-      const found = await deps.getEvent(eventId);
+      // Authorize before reading — see `events-detail.ts` for why the org now
+      // comes from `?orgId=` rather than from the event document.
+      await deps.requireOrgRole(event, orgId, 'admin', 'manager');
+
+      const found = await deps.getEvent(orgId, eventId);
 
       if (found === null) {
         throw eventForbidden();
       }
-
-      await deps.requireOrgRole(event, found.orgId, 'admin', 'manager');
 
       // Already cancelled: answer with the event and notify nobody.
       //
@@ -124,7 +127,7 @@ export function createDashboardEventsCancelHandler(
         } satisfies DashboardEventsCancelResponse;
       }
 
-      const cancelled = await deps.cancelEvent(eventId);
+      const cancelled = await deps.cancelEvent(orgId, eventId);
 
       return {
         event: toDashboardEvent(cancelled.event),

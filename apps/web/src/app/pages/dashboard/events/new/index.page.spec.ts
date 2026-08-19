@@ -206,6 +206,7 @@ describe('DashboardEventsNewPageComponent', () => {
     request.flush({ event: workshop({ slug: 'rust-for-the-web' }) });
 
     await fixture.whenStable();
+    await fixture.whenStable();
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
     http.verify();
   });
@@ -230,6 +231,7 @@ describe('DashboardEventsNewPageComponent', () => {
     request.flush({ event: workshop({ slug: 'rust-for-the-web' }) });
 
     await fixture.whenStable();
+    await fixture.whenStable();
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
     http.verify();
   });
@@ -246,6 +248,7 @@ describe('DashboardEventsNewPageComponent', () => {
       .expectOne(dashboardEventCreateEndpoint('org_1'))
       .flush({}, { status: 400, statusText: 'Bad Request' });
 
+    await fixture.whenStable();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -275,12 +278,97 @@ describe('DashboardEventsNewPageComponent', () => {
       .flush({}, { status: 409, statusText: 'Conflict' });
 
     await fixture.whenStable();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('slug');
     expect(text).toContain('already taken');
     http.verify();
+  });
+
+  it('derives the slug from the title until the slug is edited by hand', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http);
+
+    setValue(fixture, '#title', 'Rust for the Web!');
+
+    // `ngModel` writes the derived value back to the input on a microtask, so
+    // the DOM is one tick behind the model here.
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector<HTMLInputElement>('#slug')?.value).toBe(
+      'rust-for-the-web',
+    );
+
+    // Once the organizer edits the slug themselves, the title stops driving it
+    // — silently rewriting a name somebody chose would be worse than no help.
+    setValue(fixture, '#slug', 'rustlang');
+    setValue(fixture, '#title', 'Something Else Entirely');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelector<HTMLInputElement>('#slug')?.value).toBe(
+      'rustlang',
+    );
+    http.verify();
+  });
+
+  it('retries a derived slug with -2 when the server says it is taken', async () => {
+    const { fixture, http, navigateByUrl } = await setup();
+    await loadPage(fixture, http);
+
+    // Everything except the slug, so it stays derived from the title.
+    setValue(fixture, '#title', 'Rust for the web');
+    setValue(fixture, '#description', 'A hands-on afternoon.');
+    setValue(fixture, '#startsAt', '2026-09-01T18:00');
+    setValue(fixture, '#price', '49.50');
+    setValue(fixture, '#maxGuests', '20');
+
+    buttonByText(fixture, 'Publish').click();
+    fixture.detectChanges();
+
+    const first = http.expectOne(dashboardEventCreateEndpoint('org_1'));
+    expect(first.request.body).toMatchObject({ slug: 'rust-for-the-web' });
+    first.flush({}, { status: 409, statusText: 'Conflict' });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const second = http.expectOne(dashboardEventCreateEndpoint('org_1'));
+    expect(second.request.body).toMatchObject({ slug: 'rust-for-the-web-2' });
+    second.flush({ event: workshop({ slug: 'rust-for-the-web-2' }) });
+
+    await fixture.whenStable();
+    await fixture.whenStable();
+
+    expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
+    http.verify();
+  });
+
+  it('does not walk a hand-typed slug forward — 409 is reported, not worked around', async () => {
+    const { fixture, http, navigateByUrl } = await setup();
+    await loadPage(fixture, http);
+    fillRequiredFields(fixture);
+
+    buttonByText(fixture, 'Publish').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(dashboardEventCreateEndpoint('org_1'))
+      .flush({}, { status: 409, statusText: 'Conflict' });
+
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // No second request: they asked for that specific name, so "taken" is the
+    // honest answer rather than filing their event under a different URL.
+    http.verify();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('already taken');
   });
 
   it('disables both submit buttons while a create request is in flight', async () => {

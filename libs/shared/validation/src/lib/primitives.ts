@@ -6,6 +6,7 @@ import type {
 } from '@upskills/models';
 import { z } from 'zod';
 import { normalizeEmail } from './normalize-email';
+import { isReservedSlug } from './slugify';
 
 /**
  * Email, normalized *then* validated.
@@ -36,6 +37,24 @@ export const SlugSchema = z
   .regex(/^[a-z0-9-]+$/, {
     message: 'Slug may only contain lowercase letters, numbers and hyphens',
   });
+
+/**
+ * An **organizer** slug: a legal slug that is also not a reserved word.
+ *
+ * Organizer slugs are top-level URL segments (`/{orgSlug}`,
+ * `/{orgSlug}/{eventSlug}`), so they share a namespace with every static route
+ * in the app. `RESERVED_SLUGS` in `slugify.ts` is where that list lives and why.
+ *
+ * Event slugs keep using the plain {@link SlugSchema}: they are only ever the
+ * second segment, under an organizer that has already been resolved, so there is
+ * no route for them to shadow.
+ */
+export const OrgSlugSchema = SlugSchema.refine(
+  (slug) => !isReservedSlug(slug),
+  {
+    message: 'That slug is reserved. Choose a different one.',
+  },
+);
 
 /** Price in **minor units** (cents). `0` is free; negatives are never valid. */
 export const PriceSchema = z

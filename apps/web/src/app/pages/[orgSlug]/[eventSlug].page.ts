@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   apiErrorStatus,
   eventDetailEndpoint,
+  eventPath,
   type EventDetailResponse,
   type PublicEvent,
 } from '../../events/event-api';
@@ -17,7 +18,19 @@ import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
 
 /**
- * `/events/:slug` — the page that converts.
+ * `/:orgSlug/:eventSlug` — the page that converts.
+ *
+ * ## Why the organizer is in the URL
+ *
+ * Event slugs are unique per organizer rather than globally, so `react-basics`
+ * on its own does not name an event — two organizers may each have one. The
+ * organizer segment is what disambiguates, and it makes the URL read like the
+ * thing it points at: `/acme/react-basics`.
+ *
+ * This route sits at the **root**, so an organizer slug occupies the same
+ * namespace as every static page in this directory. `RESERVED_SLUGS` in
+ * `@upskills/validation` is what stops an organizer claiming `login` or
+ * `dashboard`; this file is the reason that list has to exist.
  *
  * ## Why the fetch runs in `ngOnInit` rather than a route resolver
  *
@@ -125,16 +138,19 @@ export default class EventPageComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    const slug = this.route.snapshot.paramMap.get('slug');
+    const orgSlug = this.route.snapshot.paramMap.get('orgSlug');
+    const eventSlug = this.route.snapshot.paramMap.get('eventSlug');
 
-    if (slug === null || slug === '') {
+    if (!orgSlug || !eventSlug) {
       this.state.set({ status: 'not-found' });
       return;
     }
 
     try {
       const response = await firstValueFrom(
-        this.http.get<EventDetailResponse>(eventDetailEndpoint(slug)),
+        this.http.get<EventDetailResponse>(
+          eventDetailEndpoint(orgSlug, eventSlug),
+        ),
       );
 
       this.state.set({ status: 'ready', event: response.event });
@@ -158,7 +174,7 @@ export default class EventPageComponent implements OnInit {
    */
   private applyEventMeta(event: PublicEvent): void {
     const title = `${event.title} · Upskills`;
-    const url = `https://upskillsnetwork.com/events/${event.slug}`;
+    const url = `https://upskillsnetwork.com${eventPath(event)}`;
 
     this.title.setTitle(title);
     this.meta.updateTag({ name: 'description', content: event.description });

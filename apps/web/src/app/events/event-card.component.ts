@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { Badge, Card, Icon } from '@upskills/ui';
 
 import { formatEventWhen, formatPrice, formatSpots } from './event-format';
-import type { PublicEvent } from './event-api';
+import { eventPath, type PublicEvent } from './event-api';
 
 /**
  * One event on the public browse page.
@@ -17,10 +17,7 @@ import type { PublicEvent } from './event-api';
   imports: [Badge, Card, Icon],
   template: `
     <ui-card>
-      <a
-        [href]="'/events/' + event().slug"
-        class="flex h-full flex-col gap-5 p-6"
-      >
+      <a [href]="eventPath(event())" class="flex h-full flex-col gap-5 p-6">
         <div class="flex items-center justify-between gap-3">
           <ui-badge>{{ price() }}</ui-badge>
 
@@ -73,6 +70,13 @@ import type { PublicEvent } from './event-api';
 })
 export class EventCardComponent {
   readonly event = input.required<PublicEvent>();
+
+  /**
+   * `/{orgSlug}/{eventSlug}` — built here rather than concatenated in the
+   * template, so the two segments are escaped exactly once and the browse
+   * listing cannot produce a link that disagrees with the router.
+   */
+  protected readonly eventPath = eventPath;
 
   readonly price = computed(() =>
     formatPrice(this.event().price, this.event().currency),

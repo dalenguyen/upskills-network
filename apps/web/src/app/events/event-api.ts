@@ -1,5 +1,8 @@
 import type { RegisterResponse } from '../../server/handlers/registration/register';
-import type { PublicEvent } from '../../server/handlers/public/public-view';
+import type {
+  PublicEvent,
+  PublicOrg,
+} from '../../server/handlers/public/public-view';
 
 /**
  * The public event API, as the browser sees it.
@@ -13,11 +16,27 @@ import type { PublicEvent } from '../../server/handlers/public/public-view';
  * adding a case to `RegisterResponse.status`, breaks the type-check here
  * instead of producing an `undefined` on a rendered page.
  */
-export type { PublicEvent, RegisterResponse };
+export type { PublicEvent, PublicOrg, RegisterResponse };
 
-/** `GET` — one published event by slug. 404 for anything else. */
-export function eventDetailEndpoint(slug: string): string {
-  return `/api/v1/events/${encodeURIComponent(slug)}`;
+/**
+ * `GET` — one published event, named the way its URL names it. 404 for anything
+ * else.
+ *
+ * Both segments, because event slugs are unique per organizer rather than
+ * globally: `react-basics` alone does not identify an event.
+ */
+export function eventDetailEndpoint(
+  orgSlug: string,
+  eventSlug: string,
+): string {
+  return `/api/v1/orgs/${encodeURIComponent(orgSlug)}/events/${encodeURIComponent(eventSlug)}`;
+}
+
+/** The public page an event lives on: `/{orgSlug}/{eventSlug}`. */
+export function eventPath(
+  event: Pick<PublicEvent, 'orgSlug' | 'slug'>,
+): string {
+  return `/${encodeURIComponent(event.orgSlug)}/${encodeURIComponent(event.slug)}`;
 }
 
 /**
@@ -33,14 +52,21 @@ export function eventsEndpoint(cursor?: string): string {
     : `${base}?cursor=${encodeURIComponent(cursor)}`;
 }
 
-/** `POST` — the free registration path for one event. */
-export function registerEndpoint(eventId: string): string {
-  return `/api/v1/registration/${encodeURIComponent(eventId)}/register`;
+/**
+ * `POST` — the free registration path for one event.
+ *
+ * Takes the org id as well as the event id: events are stored at
+ * `organizers/{orgId}/events/{eventId}`, so an event id alone does not address
+ * a document. Both come off the `PublicEvent` the page already holds.
+ */
+export function registerEndpoint(orgId: string, eventId: string): string {
+  return `/api/v1/registration/${encodeURIComponent(orgId)}/${encodeURIComponent(eventId)}/register`;
 }
 
-/** What `GET /api/v1/events/:slug` answers with. */
+/** What `GET /api/v1/orgs/:orgSlug/events/:eventSlug` answers with. */
 export interface EventDetailResponse {
   event: PublicEvent;
+  org: PublicOrg;
 }
 
 /** What `GET /api/v1/events` answers with. */

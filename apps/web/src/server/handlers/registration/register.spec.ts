@@ -57,18 +57,18 @@ function deps(overrides: Partial<RegisterDeps> = {}): RegisterDeps {
   };
 }
 
-function post(body: unknown, eventId = 'evt-1') {
+function post(body: unknown, eventId = 'evt-1', orgId = 'org-1') {
   return createTestEvent({
     method: 'POST',
-    url: `/api/v1/registration/${eventId}/register`,
-    params: { eventId },
+    url: `/api/v1/registration/${orgId}/${eventId}/register`,
+    params: { orgId, eventId },
     body,
   }).event;
 }
 
 const VALID = { email: 'Ada@Example.com', name: 'Ada' };
 
-describe('POST /api/v1/registration/:eventId/register', () => {
+describe('POST /api/v1/registration/:orgId/:eventId/register', () => {
   describe('under capacity', () => {
     it('confirms the guest and sends the welcome email', async () => {
       const sendWelcomeEmail = vi.fn(async () => ({
@@ -98,7 +98,7 @@ describe('POST /api/v1/registration/:eventId/register', () => {
       // The email arrives normalized: `EmailSchema` lowercases and trims on
       // parse, so the guest doc id is settled before the transaction opens and
       // "Ada@Example.com" cannot register a second time as "ada@example.com".
-      expect(reserveSpot).toHaveBeenCalledWith('evt-other', {
+      expect(reserveSpot).toHaveBeenCalledWith('org-1', 'evt-other', {
         email: 'ada@example.com',
         name: 'Ada',
       });
@@ -382,7 +382,7 @@ describe('POST /api/v1/registration/:eventId/register', () => {
     it('answers 404 when the router matched no event id', async () => {
       const event = createTestEvent({
         method: 'POST',
-        url: '/api/v1/registration//register',
+        url: '/api/v1/registration///register',
         body: VALID,
       }).event;
 
