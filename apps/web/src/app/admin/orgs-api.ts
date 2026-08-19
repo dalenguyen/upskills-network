@@ -9,6 +9,8 @@ import type { OrgMembersSetResponse } from '../../server/handlers/admin/org-memb
 import type { OrgsCreateResponse } from '../../server/handlers/admin/orgs-create';
 import type { OrgsDetailResponse } from '../../server/handlers/admin/orgs-detail';
 import type { OrgsListResponse } from '../../server/handlers/admin/orgs-list';
+import type { OrgInviteView } from '../../server/handlers/invites/invite-view';
+import type { OrgInvitesResponse } from '../../server/handlers/invites/org-invites';
 
 /**
  * The platform-admin org API, as the browser sees it.
@@ -32,6 +34,10 @@ export type { OrgMembersSetResponse };
 export type { OrgsCreateResponse };
 export type { OrgsDetailResponse };
 export type { OrgsListResponse };
+export type { OrgInviteView };
+
+/** What every admin invite write answers: the roster and its invitations. */
+export type AdminOrgInvitesResponse = OrgInvitesResponse<AdminOrg>;
 
 /** `GET` — every organizer, oldest first. */
 export function adminOrgsEndpoint(): string {
@@ -56,4 +62,17 @@ export function adminOrgDetailEndpoint(orgId: string): string {
  */
 export function adminOrgMembersEndpoint(orgId: string): string {
   return `/api/v1/admin/orgs/${encodeURIComponent(orgId)}/members`;
+}
+
+/**
+ * `POST` — invite an email address to an org, or resend an outstanding
+ * invitation. `DELETE` — withdraw one, named by `inviteId` in the body.
+ */
+export function adminOrgInvitesEndpoint(orgId: string): string {
+  return `/api/v1/admin/orgs/${encodeURIComponent(orgId)}/invites`;
+}
+
+/** `POST` — accept an invitation on the invitee's behalf. */
+export function adminOrgInviteConfirmEndpoint(orgId: string): string {
+  return `/api/v1/admin/orgs/${encodeURIComponent(orgId)}/invites/confirm`;
 }

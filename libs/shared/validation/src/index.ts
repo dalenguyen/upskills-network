@@ -32,13 +32,17 @@ export type {
 } from './lib/guest.schema';
 
 export {
+  CreateOrgInviteSchema,
   CreateOrgSchema,
+  OrgInviteRefSchema,
   OrgMemberByEmailSchema,
   OrgMemberSchema,
   SetOrgMemberSchema,
 } from './lib/org.schema';
 export type {
   CreateOrgInput,
+  CreateOrgInviteInput,
+  OrgInviteRefInput,
   OrgMemberByEmailInput,
   OrgMemberInput,
   SetOrgMemberInput,

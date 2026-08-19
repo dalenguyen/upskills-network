@@ -80,3 +80,29 @@ export function fakeOrgLimitExceededError(uid: string): Error {
     { name: 'OrgLimitExceededError' },
   );
 }
+
+/** An error indistinguishable from `InviteNotFoundError` to a route. */
+export function fakeInviteNotFoundError(inviteId: string): Error {
+  return Object.assign(new Error(`Invitation "${inviteId}" does not exist.`), {
+    name: 'InviteNotFoundError',
+  });
+}
+
+/** An error indistinguishable from `InviteNotPendingError` to a route. */
+export function fakeInviteNotPendingError(
+  inviteId: string,
+  status: string,
+): Error {
+  return Object.assign(new Error(`Invitation "${inviteId}" is ${status}.`), {
+    name: 'InviteNotPendingError',
+    status,
+  });
+}
+
+/** An error indistinguishable from `InviteEmailMismatchError` to a route. */
+export function fakeInviteEmailMismatchError(inviteId: string): Error {
+  return Object.assign(
+    new Error(`Invitation "${inviteId}" was not sent to this account.`),
+    { name: 'InviteEmailMismatchError' },
+  );
+}

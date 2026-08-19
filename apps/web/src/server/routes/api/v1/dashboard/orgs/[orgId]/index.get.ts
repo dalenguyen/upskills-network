@@ -1,5 +1,9 @@
 import { requireOrgRole } from '@upskills/auth';
-import { getUserEmails } from '@upskills/firestore';
+import {
+  getUserEmails,
+  listOrgInvites,
+  orgInviteStatus,
+} from '@upskills/firestore';
 import { createDashboardOrgsDetailHandler } from '../../../../../../handlers/dashboard/orgs-detail';
 
 /**
@@ -11,4 +15,6 @@ import { createDashboardOrgsDetailHandler } from '../../../../../../handlers/das
 export default createDashboardOrgsDetailHandler({
   requireOrgRole,
   getUserEmails,
+  listOrgInvites,
+  orgInviteStatus,
 });

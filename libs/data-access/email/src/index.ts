@@ -19,7 +19,9 @@ export type { EmailMessage, SendFailureReason, SendResult } from './lib/send';
 
 export {
   CANCEL_PATH,
+  INVITE_PATH,
   cancelUrl,
+  inviteUrl,
   eventUrl,
   formatEventDay,
   formatEventWhen,
@@ -61,6 +63,12 @@ export {
   renderEventReminder,
   sendEventReminder,
 } from './lib/templates/reminder';
+
+export {
+  renderOrgInviteEmail,
+  sendOrgInviteEmail,
+} from './lib/templates/invite';
+export type { OrgInviteEmailDetails } from './lib/templates/invite';
 
 export {
   renderOrganizerNotification,

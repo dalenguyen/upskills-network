@@ -2,17 +2,20 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { RouteMeta } from '@analogjs/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 
 import { authGuard } from '../../auth/auth-guard';
 import {
   dashboardEventsEndpoint,
   dashboardOrgCreateEndpoint,
   dashboardOrgDetailEndpoint,
+  dashboardOrgInviteConfirmEndpoint,
+  dashboardOrgInvitesEndpoint,
   dashboardOrgMembersEndpoint,
   meEndpoint,
   type DashboardEventsListResponse,
   type DashboardOrg,
+  type DashboardOrgInvitesResponse,
   type DashboardOrgMembership,
   type DashboardOrgMembersRemoveResponse,
   type DashboardOrgMembersSetResponse,
@@ -21,6 +24,7 @@ import {
   type MeGetResponse,
   type MeOrg,
   type MeUser,
+  type OrgInviteView,
   type DashboardEvent,
 } from '../../dashboard/dashboard-api';
 import { apiErrorCode, apiErrorStatus } from '../../events/event-api';
@@ -49,6 +53,8 @@ type PageState =
       user: MeUser;
       org: MeOrg;
       dashboardOrg: DashboardOrg;
+      /** Outstanding invitations — pending and expired rows on the roster. */
+      invites: OrgInviteView[];
       events: DashboardEvent[];
     };
 
@@ -254,6 +260,12 @@ export const routeMeta: RouteMeta = {
                           >
                             Role
                           </th>
+                          <th
+                            scope="col"
+                            class="px-4 py-3 text-sm font-semibold text-zinc-900"
+                          >
+                            Status
+                          </th>
                           @if (isAdmin()) {
                             <th
                               scope="col"
@@ -288,6 +300,13 @@ export const routeMeta: RouteMeta = {
                                 }}</span>
                               }
                             </td>
+                            <td class="px-4 py-3">
+                              <span
+                                class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-200"
+                              >
+                                Active
+                              </span>
+                            </td>
                             @if (isAdmin()) {
                               <td class="px-4 py-3">
                                 <button
@@ -299,6 +318,73 @@ export const routeMeta: RouteMeta = {
                                 >
                                   Remove
                                 </button>
+                              </td>
+                            }
+                          </tr>
+                        }
+
+                        @for (invite of invites(); track invite.inviteId) {
+                          <tr class="bg-amber-50/40">
+                            <td class="px-4 py-3 text-zinc-900">
+                              {{ invite.email }}
+                            </td>
+                            <td class="px-4 py-3 capitalize text-zinc-700">
+                              {{ invite.role }}
+                            </td>
+                            <td class="px-4 py-3">
+                              @if (invite.status === 'expired') {
+                                <span
+                                  class="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200"
+                                >
+                                  Expired
+                                </span>
+                              } @else {
+                                <span
+                                  class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200"
+                                >
+                                  Pending
+                                </span>
+                              }
+                            </td>
+                            @if (isAdmin()) {
+                              <td class="px-4 py-3">
+                                <div class="flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    [attr.aria-label]="
+                                      'Resend invitation to ' + invite.email
+                                    "
+                                    [disabled]="submittingMember()"
+                                    (click)="resendInvite(invite)"
+                                    class="text-sm font-medium text-indigo-600 transition hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Resend
+                                  </button>
+                                  @if (invite.status === 'pending') {
+                                    <button
+                                      type="button"
+                                      [attr.aria-label]="
+                                        'Mark ' + invite.email + ' as accepted'
+                                      "
+                                      [disabled]="submittingMember()"
+                                      (click)="confirmInvite(invite)"
+                                      class="text-sm font-medium text-green-700 transition hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      Mark accepted
+                                    </button>
+                                  }
+                                  <button
+                                    type="button"
+                                    [attr.aria-label]="
+                                      'Revoke invitation for ' + invite.email
+                                    "
+                                    [disabled]="submittingMember()"
+                                    (click)="revokeInvite(invite)"
+                                    class="text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Revoke
+                                  </button>
+                                </div>
                               </td>
                             }
                           </tr>
@@ -316,7 +402,7 @@ export const routeMeta: RouteMeta = {
                           for="member-email"
                           class="block text-sm font-medium leading-6 text-zinc-900"
                         >
-                          Member email
+                          Invite by email
                         </label>
                         <input
                           id="member-email"
@@ -355,7 +441,7 @@ export const routeMeta: RouteMeta = {
                           (click)="addMember()"
                           class="inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Add member
+                          Send invitation
                         </button>
                       </div>
                     </div>
@@ -502,6 +588,7 @@ export default class DashboardOverviewPageComponent implements OnInit {
         user: me.user,
         org,
         dashboardOrg: orgDetail.org,
+        invites: orgDetail.invites,
         events: events.events,
       });
     } catch {
@@ -538,6 +625,13 @@ export default class DashboardOverviewPageComponent implements OnInit {
     await this.load();
   }
 
+  /**
+   * Invite the address in the form.
+   *
+   * Nobody is added here: the response carries the invitation, and the person
+   * stays `pending` on the roster until they accept from their email — or until
+   * an admin confirms them with `confirmInvite`.
+   */
   async addMember(): Promise<void> {
     if (this.submittingMember()) {
       return;
@@ -554,8 +648,8 @@ export default class DashboardOverviewPageComponent implements OnInit {
 
     try {
       await firstValueFrom(
-        this.http.post<DashboardOrgMembersSetResponse>(
-          dashboardOrgMembersEndpoint(state.org.orgId),
+        this.http.post<DashboardOrgInvitesResponse>(
+          dashboardOrgInvitesEndpoint(state.org.orgId),
           {
             email: this.memberForm.email.trim(),
             role: this.memberForm.role,
@@ -572,7 +666,93 @@ export default class DashboardOverviewPageComponent implements OnInit {
 
     this.memberForm.email = '';
     await this.load();
-    this.memberNotice.set('Member added.');
+    this.memberNotice.set(
+      'Invitation sent. They appear as pending until they accept.',
+    );
+  }
+
+  /** Issue a fresh invitation for the same address, invalidating the old link. */
+  async resendInvite(invite: OrgInviteView): Promise<void> {
+    await this.inviteWrite(
+      (orgId) =>
+        this.http.post<DashboardOrgInvitesResponse>(
+          dashboardOrgInvitesEndpoint(orgId),
+          { email: invite.email, role: invite.role },
+          { withCredentials: true },
+        ),
+      'Invitation sent again.',
+    );
+  }
+
+  /** Withdraw an invitation. The emailed link stops working immediately. */
+  async revokeInvite(invite: OrgInviteView): Promise<void> {
+    if (!window.confirm(`Revoke the invitation for ${invite.email}?`)) {
+      return;
+    }
+
+    await this.inviteWrite(
+      (orgId) =>
+        this.http.delete<DashboardOrgInvitesResponse>(
+          dashboardOrgInvitesEndpoint(orgId),
+          { body: { inviteId: invite.inviteId }, withCredentials: true },
+        ),
+      'Invitation revoked.',
+    );
+  }
+
+  /**
+   * Accept on the invitee's behalf — the "they are standing right here" path.
+   *
+   * Only possible once that address has an account, because a membership is
+   * keyed by uid; the route answers `invitee-has-no-account` otherwise and the
+   * invitation stays pending.
+   */
+  async confirmInvite(invite: OrgInviteView): Promise<void> {
+    await this.inviteWrite(
+      (orgId) =>
+        this.http.post<DashboardOrgInvitesResponse>(
+          dashboardOrgInviteConfirmEndpoint(orgId),
+          { inviteId: invite.inviteId },
+          { withCredentials: true },
+        ),
+      'Member added.',
+    );
+  }
+
+  /** The shared shape of every invite write: submit, reload, then report. */
+  private async inviteWrite(
+    request: (orgId: string) => Observable<DashboardOrgInvitesResponse>,
+    notice: string,
+  ): Promise<void> {
+    if (this.submittingMember()) {
+      return;
+    }
+
+    const state = this.state();
+    if (state.status !== 'ready') {
+      return;
+    }
+
+    this.submittingMember.set(true);
+    this.memberError.set(null);
+    this.memberNotice.set(null);
+
+    try {
+      await firstValueFrom(request(state.org.orgId));
+    } catch (error) {
+      this.memberError.set(this.describeMemberError(error));
+      return;
+    } finally {
+      this.submittingMember.set(false);
+    }
+
+    await this.load();
+    this.memberNotice.set(notice);
+  }
+
+  invites(): OrgInviteView[] {
+    const state = this.state();
+    return state.status === 'ready' ? state.invites : [];
   }
 
   async changeRole(uid: string, role: string): Promise<void> {
@@ -734,6 +914,22 @@ export default class DashboardOverviewPageComponent implements OnInit {
 
     if (code === 'org-not-found') {
       return 'That organizer no longer exists.';
+    }
+
+    if (code === 'already-a-member') {
+      return 'That person is already on this organizer. Change their role from the roster instead.';
+    }
+
+    if (code === 'invitee-has-no-account') {
+      return 'They have not signed in to Upskills yet, so there is no account to add. Their invitation link still works.';
+    }
+
+    if (code === 'invite-not-pending') {
+      return 'That invitation is no longer outstanding. Refresh to see the current roster.';
+    }
+
+    if (code === 'invite-not-found') {
+      return 'That invitation no longer exists. Refresh to see the current roster.';
     }
 
     if (code === 'user-not-found') {

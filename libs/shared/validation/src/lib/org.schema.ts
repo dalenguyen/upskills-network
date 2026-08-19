@@ -44,7 +44,21 @@ export const SetOrgMemberSchema = z.union([
   OrgMemberByEmailSchema,
 ]);
 
+/**
+ * Invite one email address to an organizer. The same shape as naming a member
+ * by email, under the name the invite routes use — an invitation offers a role,
+ * it does not grant one.
+ */
+export const CreateOrgInviteSchema = OrgMemberByEmailSchema;
+
+/** Name one existing invitation, for revoking or confirming it. */
+export const OrgInviteRefSchema = z.object({
+  inviteId: IdSchema,
+});
+
 export type CreateOrgInput = z.infer<typeof CreateOrgSchema>;
 export type OrgMemberInput = z.infer<typeof OrgMemberSchema>;
 export type OrgMemberByEmailInput = z.infer<typeof OrgMemberByEmailSchema>;
 export type SetOrgMemberInput = z.infer<typeof SetOrgMemberSchema>;
+export type CreateOrgInviteInput = z.infer<typeof CreateOrgInviteSchema>;
+export type OrgInviteRefInput = z.infer<typeof OrgInviteRefSchema>;

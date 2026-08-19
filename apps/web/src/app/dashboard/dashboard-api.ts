@@ -19,6 +19,12 @@ import type {
   DashboardOrg,
   DashboardOrgMembership,
 } from '../../server/handlers/dashboard/org-view';
+import type {
+  InviteAcceptResponse,
+  InviteDetailResponse,
+} from '../../server/handlers/invites/invite-accept';
+import type { OrgInviteView } from '../../server/handlers/invites/invite-view';
+import type { OrgInvitesResponse } from '../../server/handlers/invites/org-invites';
 
 /**
  * The organizer dashboard API, as the browser sees it.
@@ -50,6 +56,11 @@ export type { DashboardOrgsDetailResponse };
 export type { DashboardOrgMembersSetResponse };
 export type { DashboardOrgMembersRemoveResponse };
 export type { DashboardOrg, DashboardOrgMembership };
+export type { OrgInviteView };
+export type { InviteAcceptResponse, InviteDetailResponse };
+
+/** What every dashboard invite write answers: the roster and its invitations. */
+export type DashboardOrgInvitesResponse = OrgInvitesResponse<DashboardOrg>;
 
 /** `GET` — the signed-in user and the organizers they belong to. */
 export function meEndpoint(): string {
@@ -110,4 +121,32 @@ export function dashboardOrgDetailEndpoint(orgId: string): string {
  */
 export function dashboardOrgMembersEndpoint(orgId: string): string {
   return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}/members`;
+}
+
+/**
+ * `POST` — invite an email address to the org, or resend an outstanding
+ * invitation. `DELETE` — withdraw one, named by `inviteId` in the body.
+ */
+export function dashboardOrgInvitesEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}/invites`;
+}
+
+/** `POST` — accept an invitation on the invitee's behalf. */
+export function dashboardOrgInviteConfirmEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}/invites/confirm`;
+}
+
+/**
+ * `GET` — what one invitation offers, by its emailed token.
+ *
+ * The token is a credential, so it is path-encoded like every other id here:
+ * it must not be able to smuggle a `/` into the request.
+ */
+export function inviteDetailEndpoint(token: string): string {
+  return `/api/v1/invites/${encodeURIComponent(token)}`;
+}
+
+/** `POST` — accept the invitation this token names. Requires a session. */
+export function inviteAcceptEndpoint(token: string): string {
+  return `/api/v1/invites/${encodeURIComponent(token)}/accept`;
 }

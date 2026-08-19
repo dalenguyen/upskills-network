@@ -1,4 +1,9 @@
-import type { Organizer, User, WorkshopEvent } from '@upskills/models';
+import type {
+  OrgInvite,
+  Organizer,
+  User,
+  WorkshopEvent,
+} from '@upskills/models';
 import { fakeTimestamp } from './fakes';
 
 /**
@@ -76,3 +81,20 @@ export function fakeUser(overrides: Partial<User> = {}): User {
 export const FIXTURE_EMAILS: Record<string, string> = {
   'uid-1': 'ada@example.com',
 };
+
+/** One outstanding invitation, expiring a week after the fixture clock. */
+export function fakeInvite(overrides: Partial<OrgInvite> = {}): OrgInvite {
+  return {
+    inviteId: 'inv-1',
+    orgId: 'org-1',
+    email: 'grace@example.com',
+    role: 'manager',
+    token: 'tok-1',
+    invitedBy: 'uid-1',
+    createdAt: fakeTimestamp(FIXTURE_START),
+    expiresAt: fakeTimestamp(
+      new Date(FIXTURE_START.getTime() + 7 * 24 * 60 * 60 * 1000),
+    ),
+    ...overrides,
+  };
+}

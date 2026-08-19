@@ -54,7 +54,17 @@ const firestore = vi.hoisted(() => ({
     created: false,
   })),
   getUser: vi.fn(async () => null),
-  getOrg: vi.fn(async () => null),
+  // A real organizer, not `null`: the invite routes read the org before they
+  // write, so a null here would stop the wiring under test at the first await.
+  getOrg: vi.fn(async () => ({
+    orgId: 'org-1',
+    name: 'Upskills Toronto',
+    slug: 'upskills-toronto',
+    createdBy: 'uid-1',
+    members: {},
+    memberUids: [],
+    createdAt: { toDate: () => new Date(0), toMillis: () => 0 },
+  })),
   listOrgs: vi.fn(async () => []),
   createOrg: vi.fn(async () => ({})),
   createEvent: vi.fn(async () => ({})),
@@ -64,6 +74,22 @@ const firestore = vi.hoisted(() => ({
   removeOrgMember: vi.fn(async () => ({})),
   findUserByEmail: vi.fn(async () => null),
   getUserEmails: vi.fn(async () => ({})),
+  createOrgInvite: vi.fn(async () => ({
+    inviteId: 'inv-1',
+    orgId: 'org-1',
+    email: 'grace@example.com',
+    role: 'manager',
+    token: 'tok-1',
+    invitedBy: 'uid-1',
+    createdAt: { toDate: () => new Date(0), toMillis: () => 0 },
+    expiresAt: { toDate: () => new Date(0), toMillis: () => 0 },
+  })),
+  getOrgInvite: vi.fn(async () => null),
+  findOrgInviteByToken: vi.fn(async () => null),
+  listOrgInvites: vi.fn(async () => []),
+  revokeOrgInvite: vi.fn(async () => ({})),
+  acceptOrgInvite: vi.fn(async () => ({ org: {}, invite: {} })),
+  orgInviteStatus: vi.fn(() => 'pending'),
 }));
 
 const email = vi.hoisted(() => ({
@@ -72,6 +98,7 @@ const email = vi.hoisted(() => ({
   sendCancellationEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
   sendSpotOpenedEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
   sendWaitlistConfirmationEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
+  sendOrgInviteEmail: vi.fn(async () => ({ sent: true, id: 'em' })),
 }));
 
 const auth = vi.hoisted(() => ({
@@ -98,7 +125,15 @@ const auth = vi.hoisted(() => ({
     orgId: 'org-1',
     orgRole: 'admin',
     viaPlatformAdmin: false,
-    org: { orgId: 'org-1' },
+    org: {
+      orgId: 'org-1',
+      name: 'Upskills Toronto',
+      slug: 'upskills-toronto',
+      createdBy: 'uid-1',
+      members: {},
+      memberUids: [],
+      createdAt: { toDate: () => new Date(0), toMillis: () => 0 },
+    },
   })),
 }));
 
@@ -136,6 +171,15 @@ import dashboardOrgDetailRoute from './routes/api/v1/dashboard/orgs/[orgId]/inde
 import dashboardOrgMembersPostRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.post';
 import dashboardOrgMembersPutRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.put';
 import dashboardOrgMembersDeleteRoute from './routes/api/v1/dashboard/orgs/[orgId]/members.delete';
+
+import adminOrgInvitesCreateRoute from './routes/api/v1/admin/orgs/[orgId]/invites/index.post';
+import adminOrgInvitesRevokeRoute from './routes/api/v1/admin/orgs/[orgId]/invites/index.delete';
+import adminOrgInvitesConfirmRoute from './routes/api/v1/admin/orgs/[orgId]/invites/confirm.post';
+import dashboardOrgInvitesCreateRoute from './routes/api/v1/dashboard/orgs/[orgId]/invites/index.post';
+import dashboardOrgInvitesRevokeRoute from './routes/api/v1/dashboard/orgs/[orgId]/invites/index.delete';
+import dashboardOrgInvitesConfirmRoute from './routes/api/v1/dashboard/orgs/[orgId]/invites/confirm.post';
+import inviteDetailRoute from './routes/api/v1/invites/[token]/index.get';
+import inviteAcceptRoute from './routes/api/v1/invites/[token]/accept.post';
 
 /** Run a route, ignoring whatever it throws — only the wiring is under test. */
 async function run(
@@ -577,5 +621,116 @@ describe('dashboard org route wiring', () => {
       'admin',
     );
     expect(firestore.removeOrgMember).toHaveBeenCalledWith('org-1', 'uid-2');
+  });
+});
+
+describe('invite route wiring', () => {
+  it('POST /admin/orgs/:orgId/invites requires an admin and creates the invite', async () => {
+    await run(adminOrgInvitesCreateRoute, {
+      method: 'POST',
+      url: '/api/v1/admin/orgs/org-1/invites',
+      params: { orgId: 'org-1' },
+      body: { email: 'grace@example.com', role: 'manager' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.createOrgInvite).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1', email: 'grace@example.com' }),
+    );
+    expect(email.sendOrgInviteEmail).toHaveBeenCalled();
+  });
+
+  it('DELETE /admin/orgs/:orgId/invites requires an admin', async () => {
+    await run(adminOrgInvitesRevokeRoute, {
+      method: 'DELETE',
+      url: '/api/v1/admin/orgs/org-1/invites',
+      params: { orgId: 'org-1' },
+      body: { inviteId: 'inv-1' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+    expect(firestore.getOrgInvite).toHaveBeenCalledWith('inv-1');
+  });
+
+  it('POST /admin/orgs/:orgId/invites/confirm requires an admin', async () => {
+    await run(adminOrgInvitesConfirmRoute, {
+      method: 'POST',
+      url: '/api/v1/admin/orgs/org-1/invites/confirm',
+      params: { orgId: 'org-1' },
+      body: { inviteId: 'inv-1' },
+    });
+
+    expect(auth.requireAdmin).toHaveBeenCalled();
+  });
+
+  it('POST /dashboard/orgs/:orgId/invites requires the org admin role', async () => {
+    await run(dashboardOrgInvitesCreateRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/orgs/org-1/invites',
+      params: { orgId: 'org-1' },
+      body: { email: 'grace@example.com', role: 'manager' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+    expect(firestore.createOrgInvite).toHaveBeenCalled();
+  });
+
+  it('DELETE /dashboard/orgs/:orgId/invites requires the org admin role', async () => {
+    await run(dashboardOrgInvitesRevokeRoute, {
+      method: 'DELETE',
+      url: '/api/v1/dashboard/orgs/org-1/invites',
+      params: { orgId: 'org-1' },
+      body: { inviteId: 'inv-1' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+  });
+
+  it('POST /dashboard/orgs/:orgId/invites/confirm requires the org admin role', async () => {
+    await run(dashboardOrgInvitesConfirmRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/orgs/org-1/invites/confirm',
+      params: { orgId: 'org-1' },
+      body: { inviteId: 'inv-1' },
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+    );
+  });
+
+  it('GET /invites/:token reads the invite without requiring a session', async () => {
+    // Counted rather than asserted absent: these specs share one module-level
+    // mock, and earlier routes in this file legitimately call `requireAuth`.
+    const before = auth.requireAuth.mock.calls.length;
+
+    await run(inviteDetailRoute, {
+      method: 'GET',
+      url: '/api/v1/invites/tok-1',
+      params: { token: 'tok-1' },
+    });
+
+    expect(firestore.findOrgInviteByToken).toHaveBeenCalledWith('tok-1');
+    expect(auth.requireAuth.mock.calls.length).toBe(before);
+  });
+
+  it('POST /invites/:token/accept requires a session', async () => {
+    await run(inviteAcceptRoute, {
+      method: 'POST',
+      url: '/api/v1/invites/tok-1/accept',
+      params: { token: 'tok-1' },
+    });
+
+    expect(auth.requireAuth).toHaveBeenCalled();
   });
 });

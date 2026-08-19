@@ -1,4 +1,9 @@
-import type { Currency, Guest, Timestamp, WorkshopEvent } from '@upskills/models';
+import type {
+  Currency,
+  Guest,
+  Timestamp,
+  WorkshopEvent,
+} from '@upskills/models';
 import { siteUrl } from './config';
 
 /**
@@ -133,6 +138,22 @@ export function cancelUrl(guest: Guest): string {
   return `${siteUrl()}${CANCEL_PATH}?${query.toString()}`;
 }
 
+/** Where an invitation link lands. */
+export const INVITE_PATH = '/invites';
+
+/**
+ * The invitee's personal acceptance link.
+ *
+ * The token is the whole credential — it is what proves the person opening the
+ * link is the one the invitation was mailed to — so it is random, per-invite,
+ * and never appears in a roster response. The page it lands on still requires a
+ * sign-in before it will write a membership; the token says *which* invitation,
+ * the session says *who* is accepting.
+ */
+export function inviteUrl(token: string): string {
+  return `${siteUrl()}${INVITE_PATH}/${encodeURIComponent(token)}`;
+}
+
 /** The public event page. */
 export function eventUrl(event: WorkshopEvent): string {
   return `${siteUrl()}/events/${encodeURIComponent(event.slug)}`;
@@ -172,8 +193,10 @@ function format(
   const date = at.toDate();
 
   try {
-    return new Intl.DateTimeFormat(LOCALE, { ...options, timeZone: timezone })
-      .format(date);
+    return new Intl.DateTimeFormat(LOCALE, {
+      ...options,
+      timeZone: timezone,
+    }).format(date);
   } catch {
     return new Intl.DateTimeFormat(LOCALE, {
       ...options,

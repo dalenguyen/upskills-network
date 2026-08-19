@@ -3,16 +3,19 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   dashboardEventsEndpoint,
   dashboardOrgDetailEndpoint,
-  dashboardOrgMembersEndpoint,
+  dashboardOrgInviteConfirmEndpoint,
+  dashboardOrgInvitesEndpoint,
   meEndpoint,
   type MeGetResponse,
   type DashboardEvent,
+  type OrgInviteView,
 } from '../../dashboard/dashboard-api';
 import {
   dashboardOrg,
@@ -20,6 +23,85 @@ import {
   workshop,
 } from '../../dashboard/testing/dashboard-fixtures';
 import DashboardOverviewPageComponent from './index.page';
+
+/** One outstanding invitation, as the org detail route serializes it. */
+function pendingInvite(overrides: Partial<OrgInviteView> = {}): OrgInviteView {
+  return {
+    inviteId: 'inv_1',
+    email: 'grace@example.com',
+    role: 'manager',
+    status: 'pending',
+    invitedAt: '2026-01-01T00:00:00.000Z',
+    expiresAt: '2026-01-08T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function sendInvitationButton(root: HTMLElement): HTMLButtonElement {
+  const button = Array.from(root.querySelectorAll('button')).find(
+    (candidate) => candidate.textContent?.trim() === 'Send invitation',
+  );
+
+  if (button === undefined) {
+    throw new Error('No send-invitation button');
+  }
+
+  return button;
+}
+
+/**
+ * Load the page with one pending invitation on the roster, and hand back the
+ * rendered root. Every invite-management test starts from this state.
+ */
+async function loadWithInvite(
+  fixture: ComponentFixture<DashboardOverviewPageComponent>,
+  http: HttpTestingController,
+): Promise<HTMLElement> {
+  http.expectOne(meEndpoint()).flush(meResponse);
+  await fixture.whenStable();
+
+  http
+    .expectOne(dashboardOrgDetailEndpoint('org_1'))
+    .flush({ org: dashboardOrg(), invites: [pendingInvite()] });
+  http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+
+  return fixture.nativeElement as HTMLElement;
+}
+
+/** Answer the three requests the page re-issues after every invite write. */
+async function reload(
+  fixture: ComponentFixture<DashboardOverviewPageComponent>,
+  http: HttpTestingController,
+  invites: OrgInviteView[],
+): Promise<void> {
+  await fixture.whenStable();
+
+  http.expectOne(meEndpoint()).flush(meResponse);
+  await fixture.whenStable();
+
+  http
+    .expectOne(dashboardOrgDetailEndpoint('org_1'))
+    .flush({ org: dashboardOrg(), invites });
+  http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  fixture.detectChanges();
+}
+
+function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
+  const button = root.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
+
+  if (button === null) {
+    throw new Error(`No button with label ${label}`);
+  }
+
+  return button;
+}
 
 describe('DashboardOverviewPageComponent', () => {
   beforeEach(() => {
@@ -64,7 +146,7 @@ describe('DashboardOverviewPageComponent', () => {
 
     http
       .expectOne(dashboardOrgDetailEndpoint('org_1'))
-      .flush({ org: dashboardOrg() });
+      .flush({ org: dashboardOrg(), invites: [] });
 
     const eventsRequest = http.expectOne(dashboardEventsEndpoint('org_1'));
     expect(eventsRequest.request.withCredentials).toBe(true);
@@ -116,7 +198,7 @@ describe('DashboardOverviewPageComponent', () => {
 
     http
       .expectOne(dashboardOrgDetailEndpoint('org_1'))
-      .flush({ org: dashboardOrg() });
+      .flush({ org: dashboardOrg(), invites: [] });
 
     http
       .expectOne(dashboardEventsEndpoint('org_1'))
@@ -135,7 +217,7 @@ describe('DashboardOverviewPageComponent', () => {
     ).toBeNull();
   });
 
-  it('names roster members by email and adds a member by email', async () => {
+  it('names roster members by email and invites by email', async () => {
     const { fixture, http } = await setup();
 
     http.expectOne(meEndpoint()).flush(meResponse);
@@ -143,7 +225,7 @@ describe('DashboardOverviewPageComponent', () => {
 
     http
       .expectOne(dashboardOrgDetailEndpoint('org_1'))
-      .flush({ org: dashboardOrg() });
+      .flush({ org: dashboardOrg(), invites: [] });
     http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -164,43 +246,43 @@ describe('DashboardOverviewPageComponent', () => {
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    const add = Array.from(root.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === 'Add member',
-    );
-    if (add === undefined) {
-      throw new Error('No add-member button');
-    }
+    const add = sendInvitationButton(root);
 
     add.click();
     fixture.detectChanges();
 
-    const post = http.expectOne(dashboardOrgMembersEndpoint('org_1'));
+    const post = http.expectOne(dashboardOrgInvitesEndpoint('org_1'));
     expect(post.request.method).toBe('POST');
     expect(post.request.withCredentials).toBe(true);
     expect(post.request.body).toEqual({
       email: 'grace@example.com',
       role: 'manager',
     });
-    post.flush({ org: dashboardOrg() });
+    post.flush({ org: dashboardOrg(), invites: [pendingInvite()] });
 
     await fixture.whenStable();
 
-    // The page reloads itself from the API after a member write.
+    // The page reloads itself from the API after an invite write.
     http.expectOne(meEndpoint()).flush(meResponse);
     await fixture.whenStable();
     http
       .expectOne(dashboardOrgDetailEndpoint('org_1'))
-      .flush({ org: dashboardOrg() });
+      .flush({ org: dashboardOrg(), invites: [pendingInvite()] });
     http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Member added.');
+    expect(root.textContent).toContain('Invitation sent');
+
+    // Nobody became a member: the invitee sits on the roster as pending.
+    const rosterAfter = root.querySelector('tbody');
+    expect(rosterAfter?.textContent).toContain('grace@example.com');
+    expect(rosterAfter?.textContent).toContain('Pending');
     http.verify();
   });
 
-  it('names an email that belongs to no account', async () => {
+  it('refuses to invite somebody already on the roster', async () => {
     const { fixture, http } = await setup();
 
     http.expectOne(meEndpoint()).flush(meResponse);
@@ -208,7 +290,7 @@ describe('DashboardOverviewPageComponent', () => {
 
     http
       .expectOne(dashboardOrgDetailEndpoint('org_1'))
-      .flush({ org: dashboardOrg() });
+      .flush({ org: dashboardOrg(), invites: [] });
     http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -220,31 +302,137 @@ describe('DashboardOverviewPageComponent', () => {
       throw new Error('No member email field');
     }
 
-    input.value = 'nobody@example.com';
+    input.value = 'ada@example.com';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    const add = Array.from(root.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === 'Add member',
-    );
-    if (add === undefined) {
-      throw new Error('No add-member button');
-    }
+    const add = sendInvitationButton(root);
 
     add.click();
     fixture.detectChanges();
 
     http
-      .expectOne(dashboardOrgMembersEndpoint('org_1'))
+      .expectOne(dashboardOrgInvitesEndpoint('org_1'))
       .flush(
-        { data: { error: 'user-not-found' } },
-        { status: 404, statusText: 'Not Found' },
+        { data: { error: 'already-a-member' } },
+        { status: 409, statusText: 'Conflict' },
       );
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('No account with that email address');
+    expect(root.textContent).toContain('already on this organizer');
+    http.verify();
+  });
+
+  it('revokes a pending invitation', async () => {
+    const { fixture, http } = await setup();
+    const root = await loadWithInvite(fixture, http);
+
+    const revoke = buttonByLabel(
+      root,
+      'Revoke invitation for grace@example.com',
+    );
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    revoke.click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(dashboardOrgInvitesEndpoint('org_1'));
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ inviteId: 'inv_1' });
+    request.flush({ org: dashboardOrg(), invites: [] });
+
+    await reload(fixture, http, []);
+
+    expect(root.textContent).toContain('Invitation revoked.');
+    expect(root.querySelector('tbody')?.textContent).not.toContain(
+      'grace@example.com',
+    );
+    http.verify();
+  });
+
+  it('resends a pending invitation as a fresh invite for the same address', async () => {
+    const { fixture, http } = await setup();
+    const root = await loadWithInvite(fixture, http);
+
+    buttonByLabel(root, 'Resend invitation to grace@example.com').click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(dashboardOrgInvitesEndpoint('org_1'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      email: 'grace@example.com',
+      role: 'manager',
+    });
+    request.flush({ org: dashboardOrg(), invites: [pendingInvite()] });
+
+    await reload(fixture, http, [pendingInvite()]);
+
+    expect(root.textContent).toContain('Invitation sent again.');
+    http.verify();
+  });
+
+  it('marks a pending invitation accepted on the invitee behalf', async () => {
+    const { fixture, http } = await setup();
+    const root = await loadWithInvite(fixture, http);
+
+    buttonByLabel(root, 'Mark grace@example.com as accepted').click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(dashboardOrgInviteConfirmEndpoint('org_1'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ inviteId: 'inv_1' });
+    request.flush({ org: dashboardOrg(), invites: [] });
+
+    await reload(fixture, http, []);
+
+    expect(root.textContent).toContain('Member added.');
+    http.verify();
+  });
+
+  it('explains an invitee who has never signed in', async () => {
+    const { fixture, http } = await setup();
+    const root = await loadWithInvite(fixture, http);
+
+    buttonByLabel(root, 'Mark grace@example.com as accepted').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(dashboardOrgInviteConfirmEndpoint('org_1'))
+      .flush(
+        { data: { error: 'invitee-has-no-account' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('have not signed in to Upskills yet');
+    http.verify();
+  });
+
+  it('offers no resend or revoke to a non-admin member', async () => {
+    const { fixture, http } = await setup();
+
+    http.expectOne(meEndpoint()).flush({
+      ...meResponse,
+      orgs: [{ ...meResponse.orgs[0], role: 'volunteer' }],
+    });
+    await fixture.whenStable();
+    http
+      .expectOne(dashboardOrgDetailEndpoint('org_1'))
+      .flush({ org: dashboardOrg(), invites: [pendingInvite()] });
+    http.expectOne(dashboardEventsEndpoint('org_1')).flush({ events: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(
+      root.querySelector('button[aria-label^="Revoke invitation"]'),
+    ).toBeNull();
+    expect(root.querySelector('#member-email')).toBeNull();
     http.verify();
   });
 });
