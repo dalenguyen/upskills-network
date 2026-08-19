@@ -53,6 +53,10 @@ describe('POST /api/v1/admin/orgs', () => {
       name: 'Upskills Ottawa',
       slug: 'upskills-ottawa',
       createdBy: 'uid-admin',
+      // The admin route waives the one-org-per-user rule. Asserted as part of
+      // the exact call so it cannot be dropped silently — without it, the
+      // person running the platform can never create a second organizer.
+      allowMultiple: true,
     });
     expect(result).toEqual({
       org: expect.objectContaining({

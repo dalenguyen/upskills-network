@@ -76,6 +76,44 @@ describe('createOrg', () => {
     expect((await orgsCol().get()).docs).toHaveLength(0);
   });
 
+  it('allows a second org when allowMultiple waives the limit, appending to orgIds', async () => {
+    // The platform-admin path. The rule is a self-service guard, and the person
+    // running the site joins their own org on day one — without the waiver they
+    // could never create the curated org that community listings belong under.
+    await seedUser({ uid: 'uid-1', orgIds: ['org-existing'] });
+
+    const org = await createOrg({
+      name: 'Community',
+      slug: 'community',
+      createdBy: 'uid-1',
+      allowMultiple: true,
+    });
+
+    expect(await getOrg(org.orgId)).toMatchObject({
+      slug: 'community',
+      members: { 'uid-1': { role: 'admin' } },
+    });
+
+    // Appended, not replaced: the first org must survive.
+    expect((await userRef('uid-1').get()).data()?.orgIds).toEqual([
+      'org-existing',
+      org.orgId,
+    ]);
+  });
+
+  it('still enforces the limit when allowMultiple is absent or false', async () => {
+    await seedUser({ uid: 'uid-1', orgIds: ['org-existing'] });
+
+    await expect(
+      createOrg({
+        name: 'Another',
+        slug: 'another',
+        createdBy: 'uid-1',
+        allowMultiple: false,
+      }),
+    ).rejects.toBeInstanceOf(OrgLimitExceededError);
+  });
+
   it('throws SlugTakenError for a taken slug and leaves no organizer behind', async () => {
     await seedOrg({ orgId: 'org-existing', slug: 'taken' });
 
