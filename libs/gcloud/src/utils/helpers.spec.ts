@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { objectToArray } from './helpers';
+import { objectToArray, shellQuote } from './helpers';
 
 describe('objectToArray', () => {
   it('converts an object to a KEY=VALUE array', () => {
@@ -12,5 +12,21 @@ describe('objectToArray', () => {
 
   it('returns an empty array for an empty object', () => {
     expect(objectToArray({})).toEqual([]);
+  });
+});
+
+describe('shellQuote', () => {
+  it('wraps a value in single quotes', () => {
+    expect(shellQuote('production')).toBe("'production'");
+  });
+
+  it('protects spaces and angle brackets', () => {
+    expect(shellQuote('Upskills Network <dale@example.com>')).toBe(
+      "'Upskills Network <dale@example.com>'",
+    );
+  });
+
+  it("escapes an embedded single quote with the '\\'' idiom", () => {
+    expect(shellQuote("don't")).toBe("'don'\\''t'");
   });
 });

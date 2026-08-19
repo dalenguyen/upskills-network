@@ -1,6 +1,11 @@
 import { logger } from '@nx/devkit';
 
-import { buildCommand, execCommand, objectToArray } from '../../utils';
+import {
+  buildCommand,
+  execCommand,
+  objectToArray,
+  shellQuote,
+} from '../../utils';
 import { CloudRunExecutorSchema } from './executor-options.model';
 import type { CloudRunExecutorOptions } from './schema';
 
@@ -58,7 +63,7 @@ export function generateDeployCommand(
     options.concurrency !== undefined && `--concurrency=${options.concurrency}`,
     options.timeout !== undefined && `--timeout=${options.timeout}`,
 
-    envVarArray.length > 0 && `--set-env-vars=${setEnvVars}`,
+    envVarArray.length > 0 && `--set-env-vars=${shellQuote(setEnvVars)}`,
     secrets.length > 0 && `--set-secrets=${secrets}`,
 
     options.serviceAccount && `--service-account=${options.serviceAccount}`,

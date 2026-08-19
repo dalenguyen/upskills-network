@@ -108,7 +108,23 @@ describe('runExecutor', () => {
       envVars: { NODE_ENV: 'production', GCP_PROJECT_ID: 'upskills-network' },
     });
     expect(lastCommand()).toContain(
-      '--set-env-vars=^++^NODE_ENV=production++GCP_PROJECT_ID=upskills-network',
+      "--set-env-vars='^++^NODE_ENV=production++GCP_PROJECT_ID=upskills-network'",
+    );
+  });
+
+  // A value like `EMAIL_FROM=Upskills Network <dale@…>` carries spaces and
+  // angle brackets, all of which `/bin/sh` would otherwise read as word splits
+  // and a redirect. The whole `--set-env-vars` value must arrive as one quoted
+  // argument.
+  it('shell-quotes --set-env-vars values with spaces and angle brackets', async () => {
+    await runExecutor({
+      ...baseOptions,
+      envVars: {
+        EMAIL_FROM: 'Upskills Network <dale@updates.upskillsnetwork.com>',
+      },
+    });
+    expect(lastCommand()).toContain(
+      "--set-env-vars='^++^EMAIL_FROM=Upskills Network <dale@updates.upskillsnetwork.com>'",
     );
   });
 
