@@ -360,6 +360,8 @@ describe('admin org route wiring', () => {
       name: 'Upskills Ottawa',
       slug: 'upskills-ottawa',
       createdBy: 'uid-1',
+      // Admin route only — the self-service route below must not send this.
+      allowMultiple: true,
     });
   });
 

@@ -111,6 +111,26 @@ export interface CreateOrgDraft {
   slug: string;
   /** uid of the creator, from the authenticated session rather than the body. */
   createdBy: string;
+  /**
+   * Waive the one-org-per-user rule. **Platform admins only.**
+   *
+   * The limit is a self-service guard: it stops anyone who signs up from
+   * spawning organizers, which is the product model for ordinary users. It was
+   * never a data-integrity rule — nothing downstream assumes a uid maps to one
+   * org, and `users/{uid}.orgIds` is already an array.
+   *
+   * Applied to the platform-admin route it does the wrong thing. The operator
+   * of the site is a member of their own organizer from day one, so they are
+   * permanently unable to create a second one — including the curated
+   * organizer that community events listed from other sites belong under. The
+   * admin route is already gated by `requireAdmin`, so the self-service guard
+   * underneath it is redundant as well as harmful.
+   *
+   * Deliberately **not** exposed through any request body: it is set by the
+   * route, from the fact that the route is the admin one, exactly like
+   * `createdBy` comes from the session rather than the payload.
+   */
+  allowMultiple?: boolean;
 }
 
 /**
@@ -123,12 +143,14 @@ export interface CreateOrgDraft {
  * @returns the created organizer, with its generated `orgId`.
  * @throws InvalidSlugError when `slug` is not a legal slug.
  * @throws SlugTakenError when another org already holds the slug.
- * @throws OrgLimitExceededError when `createdBy` already belongs to an org.
+ * @throws OrgLimitExceededError when `createdBy` already belongs to an org,
+ *   unless {@link CreateOrgDraft.allowMultiple} waives it.
  */
 export async function createOrg({
   name,
   slug,
   createdBy,
+  allowMultiple = false,
 }: CreateOrgDraft): Promise<Organizer> {
   const doc = orgsCol().doc();
   const createdAt = Timestamp.now();
@@ -144,10 +166,14 @@ export async function createOrg({
     // contend on `users/{uid}`, and the loser re-reads a populated `orgIds` and
     // throws. Sign-in creates the user document before an org can exist, so it
     // is present by the time this runs.
+    //
+    // The read is unconditional even when the limit is waived: it is also what
+    // serializes concurrent creates for one uid, and `orgIds` is appended to
+    // below either way. Only the refusal is skipped.
     const userDoc = userRef(createdBy);
     const user = (await transaction.get(userDoc)).data();
 
-    if (user && user.orgIds.length > 0) {
+    if (!allowMultiple && user && user.orgIds.length > 0) {
       throw new OrgLimitExceededError(createdBy);
     }
 
