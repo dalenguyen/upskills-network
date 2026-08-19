@@ -1,5 +1,10 @@
 import { requireAdmin } from '@upskills/auth';
-import { getOrg } from '@upskills/firestore';
+import {
+  getOrg,
+  getUserEmails,
+  listOrgInvites,
+  orgInviteStatus,
+} from '@upskills/firestore';
 import { createOrgsDetailHandler } from '../../../../../../handlers/admin/orgs-detail';
 
 /**
@@ -11,4 +16,7 @@ import { createOrgsDetailHandler } from '../../../../../../handlers/admin/orgs-d
 export default createOrgsDetailHandler({
   requireAdmin,
   getOrg,
+  getUserEmails,
+  listOrgInvites,
+  orgInviteStatus,
 });

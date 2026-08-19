@@ -1,5 +1,5 @@
 import type { AuthContext } from '@upskills/auth';
-import type { Organizer } from '@upskills/models';
+import type { OrgInvite, OrgInviteStatus, Organizer } from '@upskills/models';
 import {
   defineEventHandler,
   getRouterParam,
@@ -7,6 +7,7 @@ import {
   type H3Event,
 } from 'h3';
 import { notFound, toHttpError } from '../http-error';
+import { toOrgInviteView, type OrgInviteView } from '../invites/invite-view';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
@@ -19,6 +20,8 @@ import { toAdminOrg, type AdminOrg } from './admin-view';
 
 export interface OrgsDetailResponse {
   org: AdminOrg;
+  /** Outstanding invitations, shown on the roster beside the members. */
+  invites: OrgInviteView[];
 }
 
 export interface OrgsDetailDeps {
@@ -26,6 +29,12 @@ export interface OrgsDetailDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `getOrg` from `@upskills/firestore`. */
   getOrg(orgId: string): Promise<Organizer | null>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
+  /** `listOrgInvites` from `@upskills/firestore`. */
+  listOrgInvites(orgId: string): Promise<OrgInvite[]>;
+  /** `orgInviteStatus` from `@upskills/firestore`. */
+  orgInviteStatus(invite: OrgInvite, now?: Date): OrgInviteStatus;
 }
 
 export function createOrgsDetailHandler(deps: OrgsDetailDeps): EventHandler {
@@ -45,7 +54,17 @@ export function createOrgsDetailHandler(deps: OrgsDetailDeps): EventHandler {
         throw notFound('org-not-found', 'No such organizer.');
       }
 
-      return { org: toAdminOrg(org) } satisfies OrgsDetailResponse;
+      const [emails, invites] = await Promise.all([
+        deps.getUserEmails(Object.keys(org.members)),
+        deps.listOrgInvites(orgId),
+      ]);
+
+      return {
+        org: toAdminOrg(org, emails),
+        invites: invites.map((invite) =>
+          toOrgInviteView(invite, deps.orgInviteStatus(invite)),
+        ),
+      } satisfies OrgsDetailResponse;
     } catch (error) {
       throw toHttpError(error);
     }

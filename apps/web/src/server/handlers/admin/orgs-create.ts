@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
@@ -29,6 +30,8 @@ export interface OrgsCreateDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `createOrg` from `@upskills/firestore`. */
   createOrg(draft: CreateOrgDraft): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createOrgsCreateHandler(deps: OrgsCreateDeps): EventHandler {
@@ -50,7 +53,12 @@ export function createOrgsCreateHandler(deps: OrgsCreateDeps): EventHandler {
         createdBy: uid,
       });
 
-      return { org: toAdminOrg(org) } satisfies OrgsCreateResponse;
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
+
+      return { org: toAdminOrg(org, emails) } satisfies OrgsCreateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

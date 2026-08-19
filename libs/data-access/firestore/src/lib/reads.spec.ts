@@ -4,13 +4,16 @@ import { clearFirestore } from '../testing/emulator';
 import { at, seedEvent, seedGuest, seedOrg, seedUser } from '../testing/seed';
 import { eventSlugRef, guestRef, orgSlugRef } from './collections';
 import {
+  AmbiguousUserEmailError,
   findRegistrationsByEmail,
+  findUserByEmail,
   getEvent,
   getEventBySlug,
   getGuest,
   getOrg,
   getOrgBySlug,
   getUser,
+  getUserEmails,
   listEventGuests,
   listOrgEvents,
   listOrgs,
@@ -37,6 +40,59 @@ describe('getUser', () => {
 
   it('returns null for a missing user instead of throwing', async () => {
     await expect(getUser('nobody')).resolves.toBeNull();
+  });
+});
+
+describe('findUserByEmail', () => {
+  it('finds the user behind an email, normalizing what it was asked for', async () => {
+    await seedUser({ uid: 'uid-42', email: 'ada@example.com' });
+
+    // `users/{uid}.email` is written normalized, so a mixed-case address must
+    // still find it — otherwise adding a member by email would depend on how
+    // the person typed it.
+    const user = await findUserByEmail('  Ada@Example.COM ');
+
+    expect(user).toMatchObject({ uid: 'uid-42', email: 'ada@example.com' });
+  });
+
+  it('returns null when no account has that email', async () => {
+    await expect(findUserByEmail('nobody@example.com')).resolves.toBeNull();
+  });
+
+  it('refuses to guess when two accounts share the address', async () => {
+    // Nothing enforces uniqueness here, and picking one would hand a role to
+    // whichever document happened to sort first.
+    await seedUser({ uid: 'uid-1', email: 'ada@example.com' });
+    await seedUser({ uid: 'uid-2', email: 'ada@example.com' });
+
+    await expect(findUserByEmail('ada@example.com')).rejects.toBeInstanceOf(
+      AmbiguousUserEmailError,
+    );
+  });
+});
+
+describe('getUserEmails', () => {
+  it('answers the email of each uid it was given', async () => {
+    await seedUser({ uid: 'uid-1', email: 'ada@example.com' });
+    await seedUser({ uid: 'uid-2', email: 'grace@example.com' });
+
+    expect(await getUserEmails(['uid-1', 'uid-2'])).toEqual({
+      'uid-1': 'ada@example.com',
+      'uid-2': 'grace@example.com',
+    });
+  });
+
+  it('omits a uid with no user document rather than failing the batch', async () => {
+    await seedUser({ uid: 'uid-1', email: 'ada@example.com' });
+
+    // A membership can outlive the account it names; the roster still renders.
+    expect(await getUserEmails(['uid-1', 'uid-gone'])).toEqual({
+      'uid-1': 'ada@example.com',
+    });
+  });
+
+  it('reads nothing for an empty uid list', async () => {
+    expect(await getUserEmails([])).toEqual({});
   });
 });
 

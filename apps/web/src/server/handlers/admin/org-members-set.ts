@@ -1,6 +1,6 @@
 import type { AuthContext } from '@upskills/auth';
-import type { Organizer, OrgRole } from '@upskills/models';
-import { OrgMemberSchema } from '@upskills/validation';
+import type { Organizer, OrgRole, User } from '@upskills/models';
+import { SetOrgMemberSchema } from '@upskills/validation';
 import {
   defineEventHandler,
   getRouterParam,
@@ -9,6 +9,8 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
+import { resolveMemberUid } from '../member-uid';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
@@ -20,6 +22,12 @@ import { toAdminOrg, type AdminOrg } from './admin-view';
  * the Firestore transaction. The two methods exist so the HTTP surface reads
  * like the distinction it is making in the UI, not because the handler treats
  * them differently.
+ *
+ * The body may name the member by `uid` or by `email`. An email is resolved to
+ * a uid here, against `users/{uid}` — the membership is still stored under the
+ * uid, because that is the key the security rules and `memberUids` are built
+ * on. An email nobody has signed in with is a 404 rather than a silent no-op:
+ * this cannot invite someone who does not have an account yet.
  */
 
 export interface OrgMembersSetResponse {
@@ -31,6 +39,10 @@ export interface OrgMembersSetDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `setOrgMember` from `@upskills/firestore`. */
   setOrgMember(orgId: string, uid: string, role: OrgRole): Promise<Organizer>;
+  /** `findUserByEmail` from `@upskills/firestore`. */
+  findUserByEmail(email: string): Promise<User | null>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createOrgMembersSetHandler(
@@ -46,22 +58,26 @@ export function createOrgMembersSetHandler(
         throw notFound('org-not-found', 'No such organizer.');
       }
 
-      const parsed = OrgMemberSchema.safeParse(await readBody<unknown>(event));
+      const parsed = SetOrgMemberSchema.safeParse(
+        await readBody<unknown>(event),
+      );
 
       if (!parsed.success) {
         throw badRequest(
           'invalid-member',
-          'Expected a JSON body of the form { "uid": "…", "role": "…" }.',
+          'Expected a JSON body of the form { "email": "…", "role": "…" } or { "uid": "…", "role": "…" }.',
         );
       }
 
-      const org = await deps.setOrgMember(
-        orgId,
-        parsed.data.uid,
-        parsed.data.role,
+      const uid = await resolveMemberUid(deps, parsed.data);
+
+      const org = await deps.setOrgMember(orgId, uid, parsed.data.role);
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
       );
 
-      return { org: toAdminOrg(org) } satisfies OrgMembersSetResponse;
+      return { org: toAdminOrg(org, emails) } satisfies OrgMembersSetResponse;
     } catch (error) {
       throw toHttpError(error);
     }

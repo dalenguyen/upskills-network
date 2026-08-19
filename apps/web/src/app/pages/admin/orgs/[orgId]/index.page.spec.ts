@@ -14,8 +14,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   adminOrgDetailEndpoint,
+  adminOrgInviteConfirmEndpoint,
+  adminOrgInvitesEndpoint,
   adminOrgMembersEndpoint,
   type AdminOrg,
+  type OrgInviteView,
   type OrgRole,
 } from '../../../../admin/orgs-api';
 import AdminOrgDetailPageComponent from './index.page';
@@ -31,10 +34,12 @@ function adminOrg(overrides: Partial<AdminOrg> = {}): AdminOrg {
       'uid-admin': {
         role: 'admin',
         addedAt: '2026-01-01T00:00:00.000Z',
+        email: 'ada@example.com',
       },
       'uid-member': {
         role: 'manager',
         addedAt: '2026-01-02T00:00:00.000Z',
+        email: 'grace@example.com',
       },
     },
     memberUids: ['uid-admin', 'uid-member'],
@@ -44,14 +49,19 @@ function adminOrg(overrides: Partial<AdminOrg> = {}): AdminOrg {
 }
 
 /** One member write, then a roster update, as the member routes answer it. */
-function withMember(org: AdminOrg, uid: string, role: OrgRole): AdminOrg {
+function withMember(
+  org: AdminOrg,
+  uid: string,
+  role: OrgRole,
+  email: string | null = null,
+): AdminOrg {
   const addedAt = '2026-02-01T00:00:00.000Z';
 
   return {
     ...org,
     members: {
       ...org.members,
-      [uid]: { role, addedAt },
+      [uid]: { role, addedAt, email: email ?? org.members[uid]?.email ?? null },
     },
     memberUids: Array.from(new Set([...org.memberUids, uid])),
   };
@@ -65,6 +75,19 @@ function withoutMember(org: AdminOrg, uid: string): AdminOrg {
     ...org,
     members,
     memberUids: org.memberUids.filter((candidate) => candidate !== uid),
+  };
+}
+
+/** One outstanding invitation, as the org detail route serializes it. */
+function pendingInvite(overrides: Partial<OrgInviteView> = {}): OrgInviteView {
+  return {
+    inviteId: 'inv_1',
+    email: 'hopper@example.com',
+    role: 'manager',
+    status: 'pending',
+    invitedAt: '2026-01-01T00:00:00.000Z',
+    expiresAt: '2026-01-08T00:00:00.000Z',
+    ...overrides,
   };
 }
 
@@ -102,11 +125,12 @@ describe('AdminOrgDetailPageComponent', () => {
     fixture: ComponentFixture<AdminOrgDetailPageComponent>,
     http: HttpTestingController,
     org: AdminOrg = adminOrg(),
+    invites: OrgInviteView[] = [],
   ): Promise<void> {
     const request = http.expectOne(adminOrgDetailEndpoint('org_1'));
     expect(request.request.method).toBe('GET');
     expect(request.request.withCredentials).toBe(true);
-    request.flush({ org });
+    request.flush({ org, invites });
 
     await fixture.whenStable();
     fixture.detectChanges();
@@ -172,7 +196,7 @@ describe('AdminOrgDetailPageComponent', () => {
     return root.querySelectorAll<HTMLTableRowElement>('tbody tr');
   }
 
-  it('shows name, slug, createdAt, and the member roster with uid and role', async () => {
+  it('shows name, slug, createdAt, and the member roster by email and role', async () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
@@ -183,32 +207,48 @@ describe('AdminOrgDetailPageComponent', () => {
 
     const rows = memberRows(fixture);
     expect(rows).toHaveLength(2);
-    expect(rows[0].textContent).toContain('uid-admin');
+    expect(rows[0].textContent).toContain('ada@example.com');
     expect(rows[0].textContent).toContain('admin');
-    expect(rows[1].textContent).toContain('uid-member');
+    expect(rows[1].textContent).toContain('grace@example.com');
     expect(rows[1].textContent).toContain('manager');
+    expect(root.textContent).not.toContain('uid-admin');
     http.verify();
   });
 
-  it('adds a member with a POST and refreshes the roster from the response', async () => {
+  it('falls back to the uid for a member whose account is gone', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(
+      fixture,
+      http,
+      withMember(adminOrg(), 'uid-orphan', 'volunteer'),
+    );
+
+    const rows = memberRows(fixture);
+    expect(rows).toHaveLength(3);
+    expect(rows[2].textContent).toContain('uid-orphan');
+    http.verify();
+  });
+
+  it('invites with a POST and shows the invitee as pending', async () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
-    setValue(fixture, '#uid', 'uid-new');
+    setValue(fixture, '#email', 'new@example.com');
     setValue(fixture, '#role', 'volunteer');
 
-    buttonByText(fixture, 'Add member').click();
+    buttonByText(fixture, 'Send invitation').click();
     fixture.detectChanges();
 
-    const addRequest = http.expectOne(adminOrgMembersEndpoint('org_1'));
+    const addRequest = http.expectOne(adminOrgInvitesEndpoint('org_1'));
     expect(addRequest.request.method).toBe('POST');
     expect(addRequest.request.withCredentials).toBe(true);
     expect(addRequest.request.body).toEqual({
-      uid: 'uid-new',
+      email: 'new@example.com',
       role: 'volunteer',
     });
     addRequest.flush({
-      org: withMember(adminOrg(), 'uid-new', 'volunteer'),
+      org: adminOrg(),
+      invites: [pendingInvite({ email: 'new@example.com', role: 'volunteer' })],
     });
 
     await fixture.whenStable();
@@ -216,10 +256,11 @@ describe('AdminOrgDetailPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     const rows = memberRows(fixture);
+    // Two members, then the invitation — nobody was added to the roster.
     expect(rows).toHaveLength(3);
-    expect(rows[2].textContent).toContain('uid-new');
-    expect(rows[2].textContent).toContain('volunteer');
-    expect(root.querySelector<HTMLInputElement>('#uid')?.value).toBe('');
+    expect(rows[2].textContent).toContain('new@example.com');
+    expect(rows[2].textContent).toContain('Pending');
+    expect(root.querySelector<HTMLInputElement>('#email')?.value).toBe('');
     expect(root.querySelector<HTMLSelectElement>('#role')?.value).toBe(
       'volunteer',
     );
@@ -231,7 +272,7 @@ describe('AdminOrgDetailPageComponent', () => {
     await loadPage(fixture, http);
 
     setValue(fixture, '#role-uid-member', 'volunteer');
-    buttonByLabel(fixture, 'Change role for uid-member').click();
+    buttonByLabel(fixture, 'Change role for grace@example.com').click();
     fixture.detectChanges();
 
     const changeRequest = http.expectOne(adminOrgMembersEndpoint('org_1'));
@@ -260,7 +301,7 @@ describe('AdminOrgDetailPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
 
-    buttonByLabel(fixture, 'Remove uid-member').click();
+    buttonByLabel(fixture, 'Remove grace@example.com').click();
     fixture.detectChanges();
 
     const removeRequest = http.expectOne(adminOrgMembersEndpoint('org_1'));
@@ -276,8 +317,8 @@ describe('AdminOrgDetailPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(memberRows(fixture)).toHaveLength(1);
-    expect(root.textContent).toContain('uid-admin');
-    expect(root.textContent).not.toContain('uid-member');
+    expect(root.textContent).toContain('ada@example.com');
+    expect(root.textContent).not.toContain('grace@example.com');
     http.verify();
   });
 
@@ -286,7 +327,7 @@ describe('AdminOrgDetailPageComponent', () => {
     await loadPage(fixture, http, withoutMember(adminOrg(), 'uid-member'));
 
     setValue(fixture, '#role-uid-admin', 'manager');
-    buttonByLabel(fixture, 'Change role for uid-admin').click();
+    buttonByLabel(fixture, 'Change role for ada@example.com').click();
     fixture.detectChanges();
 
     http
@@ -314,7 +355,7 @@ describe('AdminOrgDetailPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http, withoutMember(adminOrg(), 'uid-member'));
 
-    buttonByLabel(fixture, 'Remove uid-admin').click();
+    buttonByLabel(fixture, 'Remove ada@example.com').click();
     fixture.detectChanges();
 
     http
@@ -332,6 +373,124 @@ describe('AdminOrgDetailPageComponent', () => {
     expect(text).not.toContain(
       'Something went wrong while updating the member',
     );
+    http.verify();
+  });
+
+  it('refuses to invite somebody already on the roster', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http);
+
+    setValue(fixture, '#email', 'ada@example.com');
+    buttonByText(fixture, 'Send invitation').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(adminOrgInvitesEndpoint('org_1'))
+      .flush(
+        { data: { error: 'already-a-member' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'already on this organizer',
+    );
+    http.verify();
+  });
+
+  it('revokes an invitation with a DELETE carrying the inviteId', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [pendingInvite()]);
+
+    buttonByLabel(fixture, 'Revoke invitation for hopper@example.com').click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(adminOrgInvitesEndpoint('org_1'));
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ inviteId: 'inv_1' });
+    request.flush({ org: adminOrg(), invites: [] });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Invitation revoked.');
+    expect(root.querySelector('tbody')?.textContent).not.toContain(
+      'hopper@example.com',
+    );
+    http.verify();
+  });
+
+  it('marks an invitation accepted on the invitee behalf', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [pendingInvite()]);
+
+    buttonByLabel(fixture, 'Mark hopper@example.com as accepted').click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(adminOrgInviteConfirmEndpoint('org_1'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ inviteId: 'inv_1' });
+    request.flush({
+      org: withMember(
+        adminOrg(),
+        'uid-hopper',
+        'manager',
+        'hopper@example.com',
+      ),
+      invites: [],
+    });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Member added.');
+    expect(root.querySelector('tbody')?.textContent).toContain('Active');
+    http.verify();
+  });
+
+  it('explains an invitee who has never signed in', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [pendingInvite()]);
+
+    buttonByLabel(fixture, 'Mark hopper@example.com as accepted').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(adminOrgInviteConfirmEndpoint('org_1'))
+      .flush(
+        { data: { error: 'invitee-has-no-account' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'have not signed in to Upskills yet',
+    );
+    http.verify();
+  });
+
+  it('offers no mark-accepted on an expired invitation, only a resend', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [
+      pendingInvite({ status: 'expired' }),
+    ]);
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Expired');
+    expect(
+      root.querySelector('button[aria-label^="Mark hopper@example.com"]'),
+    ).toBeNull();
+    expect(
+      root.querySelector(
+        'button[aria-label="Resend invitation to hopper@example.com"]',
+      ),
+    ).not.toBeNull();
     http.verify();
   });
 
@@ -401,6 +560,42 @@ describe('AdminOrgDetailPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain(
       "couldn't find that organizer",
     );
+    http.verify();
+  });
+
+  it('clears the success notice when a later write fails', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [pendingInvite()]);
+
+    buttonByLabel(fixture, 'Revoke invitation for hopper@example.com').click();
+    fixture.detectChanges();
+    http
+      .expectOne(adminOrgInvitesEndpoint('org_1'))
+      .flush({ org: adminOrg(), invites: [] });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Invitation revoked.');
+
+    // A failure right after must not render beside the stale green notice.
+    setValue(fixture, '#role-uid-member', 'volunteer');
+    buttonByLabel(fixture, 'Change role for grace@example.com').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(adminOrgMembersEndpoint('org_1'))
+      .flush(
+        { data: { error: 'last-org-admin' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('must keep at least one admin');
+    expect(root.textContent).not.toContain('Invitation revoked.');
     http.verify();
   });
 });

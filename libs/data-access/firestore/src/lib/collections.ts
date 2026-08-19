@@ -1,5 +1,6 @@
 import type {
   Guest,
+  OrgInvite,
   Organizer,
   Timestamp,
   User,
@@ -24,6 +25,7 @@ import { getDb } from './db';
  * ```
  * users/{uid}
  * organizers/{orgId}
+ * orgInvites/{inviteId}          # pending staff invitations
  * events/{eventId}
  *   └─ guests/{guestId}          # guestId = normalizeEmail(email)
  * orgSlugs/{slug}      → { orgId }
@@ -35,6 +37,7 @@ import { getDb } from './db';
 export const COLLECTIONS = {
   users: 'users',
   organizers: 'organizers',
+  orgInvites: 'orgInvites',
   events: 'events',
   /** Subcollection of `events/{eventId}`. */
   guests: 'guests',
@@ -89,6 +92,7 @@ function typedConverter<T>(): FirestoreDataConverter<T> {
 
 const userConverter = typedConverter<User>();
 const orgConverter = typedConverter<Organizer>();
+const orgInviteConverter = typedConverter<OrgInvite>();
 const eventConverter = typedConverter<WorkshopEvent>();
 const guestConverter = typedConverter<Guest>();
 const orgSlugConverter = typedConverter<OrgSlugReservation>();
@@ -110,6 +114,16 @@ export function orgsCol(): CollectionReference<Organizer> {
 
 export function orgRef(orgId: string): DocumentReference<Organizer> {
   return orgsCol().doc(orgId);
+}
+
+export function orgInvitesCol(): CollectionReference<OrgInvite> {
+  return getDb()
+    .collection(COLLECTIONS.orgInvites)
+    .withConverter(orgInviteConverter);
+}
+
+export function orgInviteRef(inviteId: string): DocumentReference<OrgInvite> {
+  return orgInvitesCol().doc(inviteId);
 }
 
 export function eventsCol(): CollectionReference<WorkshopEvent> {

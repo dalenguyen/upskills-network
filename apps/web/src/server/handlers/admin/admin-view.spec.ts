@@ -39,10 +39,12 @@ describe('toAdminOrg', () => {
       'uid-1': {
         role: 'admin',
         addedAt: '2026-09-01T18:00:00.000Z',
+        email: null,
       },
       'uid-2': {
         role: 'manager',
         addedAt: '2026-09-02T12:00:00.000Z',
+        email: null,
       },
     });
   });
@@ -73,5 +75,21 @@ describe('toAdminOrg', () => {
         'uid-2': { role: 'manager' },
       },
     });
+  });
+
+  it('carries the email of each member it was given one for', () => {
+    const view = toAdminOrg(
+      fakeOrg({
+        members: {
+          'uid-1': { role: 'admin', addedAt: fakeTimestamp(FIXTURE_START) },
+          'uid-2': { role: 'manager', addedAt: fakeTimestamp(FIXTURE_START) },
+        },
+      }),
+      { 'uid-1': 'ada@example.com' },
+    );
+
+    expect(view.members['uid-1'].email).toBe('ada@example.com');
+    // No user document behind uid-2 — the roster still renders, keyed by uid.
+    expect(view.members['uid-2'].email).toBeNull();
   });
 });

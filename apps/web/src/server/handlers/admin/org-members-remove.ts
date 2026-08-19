@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
@@ -31,6 +32,8 @@ export interface OrgMembersRemoveDeps {
   requireAdmin(event: H3Event): Promise<AuthContext>;
   /** `removeOrgMember` from `@upskills/firestore`. */
   removeOrgMember(orgId: string, uid: string): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createOrgMembersRemoveHandler(
@@ -58,8 +61,14 @@ export function createOrgMembersRemoveHandler(
       }
 
       const org = await deps.removeOrgMember(orgId, parsed.data.uid);
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
 
-      return { org: toAdminOrg(org) } satisfies OrgMembersRemoveResponse;
+      return {
+        org: toAdminOrg(org, emails),
+      } satisfies OrgMembersRemoveResponse;
     } catch (error) {
       throw toHttpError(error);
     }

@@ -19,6 +19,13 @@ import type { Organizer, OrgMembership } from '@upskills/models';
 export interface AdminOrgMembership extends Omit<OrgMembership, 'addedAt'> {
   /** ISO-8601 — see the module comment. */
   addedAt: string;
+  /**
+   * The member's email, from `users/{uid}`, or `null` when the caller did not
+   * resolve one — a membership can name a uid whose user document is gone, and
+   * routes that never look emails up (the org list) leave every row `null`. The
+   * console falls back to the uid, so a roster still renders either way.
+   */
+  email: string | null;
 }
 
 /** An organizer as the platform-admin console sees it. */
@@ -28,8 +35,16 @@ export interface AdminOrg extends Omit<Organizer, 'createdAt' | 'members'> {
   members: Record<string, AdminOrgMembership>;
 }
 
-/** Serialize one organizer for the admin console, timestamps included. */
-export function toAdminOrg(org: Organizer): AdminOrg {
+/**
+ * Serialize one organizer for the admin console, timestamps included.
+ *
+ * @param emails uid → email, from `getUserEmails`. Optional because the org
+ *   list answers many orgs and does not fan out to `users/{uid}` for each one.
+ */
+export function toAdminOrg(
+  org: Organizer,
+  emails: Record<string, string> = {},
+): AdminOrg {
   const { createdAt, members, ...rest } = org;
 
   return {
@@ -42,6 +57,7 @@ export function toAdminOrg(org: Organizer): AdminOrg {
           {
             role: membership.role,
             addedAt: membership.addedAt.toDate().toISOString(),
+            email: emails[uid] ?? null,
           },
         ],
       ),

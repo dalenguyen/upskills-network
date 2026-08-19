@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toDashboardOrg, type DashboardOrg } from './org-view';
 
 /**
@@ -29,6 +30,8 @@ export interface DashboardOrgsCreateDeps {
   requireAuth(event: H3Event): Promise<AuthContext>;
   /** `createOrg` from `@upskills/firestore`. */
   createOrg(draft: CreateOrgDraft): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createDashboardOrgsCreateHandler(
@@ -52,7 +55,14 @@ export function createDashboardOrgsCreateHandler(
         createdBy: uid,
       });
 
-      return { org: toDashboardOrg(org) } satisfies DashboardOrgsCreateResponse;
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
+
+      return {
+        org: toDashboardOrg(org, emails),
+      } satisfies DashboardOrgsCreateResponse;
     } catch (error) {
       throw toHttpError(error);
     }

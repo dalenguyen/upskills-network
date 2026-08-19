@@ -1,5 +1,5 @@
 import type { OrgContext } from '@upskills/auth';
-import type { OrgRole } from '@upskills/models';
+import type { OrgInvite, OrgInviteStatus, OrgRole } from '@upskills/models';
 import {
   defineEventHandler,
   getRouterParam,
@@ -7,6 +7,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { toOrgInviteView, type OrgInviteView } from '../invites/invite-view';
 import { toDashboardOrg, type DashboardOrg } from './org-view';
 
 /**
@@ -18,10 +19,20 @@ import { toDashboardOrg, type DashboardOrg } from './org-view';
  * with the wrong role are all the same 403 from the guard, so probing org ids
  * cannot learn which ones exist. Any member role may read the org; the roster
  * is only ever answered to someone already in it.
+ *
+ * ## Why invitations are admin-only, while the roster is not
+ *
+ * A member's email is a colleague's address — everyone on the staff already
+ * works with them. An *invitation* names somebody who is not on the staff and
+ * may never accept, and only an org admin can create, resend, revoke, or
+ * confirm one. Answering that list to a volunteer would hand them addresses of
+ * non-members they cannot act on, so this narrows it to the role that can.
  */
 
 export interface DashboardOrgsDetailResponse {
   org: DashboardOrg;
+  /** Outstanding invitations, shown on the roster beside the members. */
+  invites: OrgInviteView[];
 }
 
 export interface DashboardOrgsDetailDeps {
@@ -31,6 +42,12 @@ export interface DashboardOrgsDetailDeps {
     orgId: string,
     ...roles: OrgRole[]
   ): Promise<OrgContext>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
+  /** `listOrgInvites` from `@upskills/firestore`. */
+  listOrgInvites(orgId: string): Promise<OrgInvite[]>;
+  /** `orgInviteStatus` from `@upskills/firestore`. */
+  orgInviteStatus(invite: OrgInvite, now?: Date): OrgInviteStatus;
 }
 
 export function createDashboardOrgsDetailHandler(
@@ -56,8 +73,18 @@ export function createDashboardOrgsDetailHandler(
         'volunteer',
       );
 
+      const managesMembers = context.orgRole === 'admin';
+
+      const [emails, invites] = await Promise.all([
+        deps.getUserEmails(Object.keys(context.org.members)),
+        managesMembers ? deps.listOrgInvites(orgId) : Promise.resolve([]),
+      ]);
+
       return {
-        org: toDashboardOrg(context.org),
+        org: toDashboardOrg(context.org, emails),
+        invites: invites.map((invite) =>
+          toOrgInviteView(invite, deps.orgInviteStatus(invite)),
+        ),
       } satisfies DashboardOrgsDetailResponse;
     } catch (error) {
       throw toHttpError(error);

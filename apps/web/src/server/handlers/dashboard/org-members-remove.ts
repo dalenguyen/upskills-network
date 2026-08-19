@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toDashboardOrg, type DashboardOrg } from './org-view';
 
 /**
@@ -35,6 +36,8 @@ export interface DashboardOrgMembersRemoveDeps {
   ): Promise<OrgContext>;
   /** `removeOrgMember` from `@upskills/firestore`. */
   removeOrgMember(orgId: string, uid: string): Promise<Organizer>;
+  /** `getUserEmails` from `@upskills/firestore`. */
+  getUserEmails(uids: string[]): Promise<Record<string, string>>;
 }
 
 export function createDashboardOrgMembersRemoveHandler(
@@ -67,9 +70,13 @@ export function createDashboardOrgMembersRemoveHandler(
       }
 
       const org = await deps.removeOrgMember(orgId, parsed.data.uid);
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
 
       return {
-        org: toDashboardOrg(org),
+        org: toDashboardOrg(org, emails),
       } satisfies DashboardOrgMembersRemoveResponse;
     } catch (error) {
       throw toHttpError(error);

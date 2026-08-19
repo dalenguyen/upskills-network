@@ -1,4 +1,9 @@
-import type { Organizer, WorkshopEvent } from '@upskills/models';
+import type {
+  OrgInvite,
+  Organizer,
+  User,
+  WorkshopEvent,
+} from '@upskills/models';
 import { fakeTimestamp } from './fakes';
 
 /**
@@ -52,6 +57,44 @@ export function fakeOrg(overrides: Partial<Organizer> = {}): Organizer {
     },
     memberUids: ['uid-1'],
     createdAt: fakeTimestamp(FIXTURE_START),
+    ...overrides,
+  };
+}
+
+/**
+ * One `users/{uid}` document — what `findUserByEmail` answers when a member is
+ * named by email. `uid-1` is the same member `fakeOrg` puts on the roster, so a
+ * spec can add "the user behind the fixture org's admin" without restating it.
+ */
+export function fakeUser(overrides: Partial<User> = {}): User {
+  return {
+    uid: 'uid-1',
+    email: 'ada@example.com',
+    role: 'user',
+    orgIds: ['org-1'],
+    createdAt: fakeTimestamp(FIXTURE_START),
+    ...overrides,
+  };
+}
+
+/** uid → email for the `fakeOrg` roster, as `getUserEmails` answers it. */
+export const FIXTURE_EMAILS: Record<string, string> = {
+  'uid-1': 'ada@example.com',
+};
+
+/** One outstanding invitation, expiring a week after the fixture clock. */
+export function fakeInvite(overrides: Partial<OrgInvite> = {}): OrgInvite {
+  return {
+    inviteId: 'inv-1',
+    orgId: 'org-1',
+    email: 'grace@example.com',
+    role: 'manager',
+    token: 'tok-1',
+    invitedBy: 'uid-1',
+    createdAt: fakeTimestamp(FIXTURE_START),
+    expiresAt: fakeTimestamp(
+      new Date(FIXTURE_START.getTime() + 7 * 24 * 60 * 60 * 1000),
+    ),
     ...overrides,
   };
 }

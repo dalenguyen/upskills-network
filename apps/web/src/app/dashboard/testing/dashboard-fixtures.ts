@@ -82,7 +82,11 @@ export function dashboardOrg(
     slug: 'upskills-toronto',
     createdBy: 'user_1',
     members: {
-      user_1: { role: 'admin', addedAt: '2026-01-01T00:00:00.000Z' },
+      user_1: {
+        role: 'admin',
+        addedAt: '2026-01-01T00:00:00.000Z',
+        email: 'ada@example.com',
+      },
     },
     memberUids: ['user_1'],
     createdAt: '2026-01-01T00:00:00.000Z',

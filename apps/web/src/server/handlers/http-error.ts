@@ -74,7 +74,10 @@ function errorName(error: unknown): string | null {
  *   memberships they cannot see.
  * - `InvalidSlugError` → 400.
  * - `SlugTakenError`, `LastOrgAdminError`, and `OrgLimitExceededError` → 409.
- * - `OrgNotFoundError` → 404.
+ * - `OrgNotFoundError` and `InviteNotFoundError` → 404.
+ * - `AmbiguousUserEmailError` → 409.
+ * - `InviteNotPendingError` → 409.
+ * - `InviteEmailMismatchError` → 403, detail withheld.
  * - Anything else is returned as-is, so it surfaces as a 500.
  */
 export function toHttpError(error: unknown): unknown {
@@ -120,6 +123,32 @@ export function toHttpError(error: unknown): unknown {
 
     case 'OrgNotFoundError':
       return notFound('org-not-found', 'No such organizer.');
+
+    case 'AmbiguousUserEmailError':
+      return conflict(
+        'ambiguous-email',
+        'More than one account uses that email address. Name the member by uid instead.',
+      );
+
+    case 'InviteNotFoundError':
+      return notFound('invite-not-found', 'No such invitation.');
+
+    case 'InviteNotPendingError':
+      return conflict(
+        'invite-not-pending',
+        'This invitation can no longer be used.',
+      );
+
+    // A 403 with no detail, for the same reason `ForbiddenError` gets one: the
+    // message names the invited address, and echoing it would tell whoever
+    // forwarded themselves the link which mailbox it was meant for.
+    case 'InviteEmailMismatchError':
+      return createError({
+        statusCode: 403,
+        statusMessage: 'Forbidden',
+        message: 'This invitation was sent to a different email address.',
+        data: { error: 'invite-email-mismatch' } satisfies ApiErrorData,
+      });
 
     default:
       return error;

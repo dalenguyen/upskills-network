@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CreateOrgSchema, OrgMemberSchema } from './org.schema';
+import {
+  CreateOrgSchema,
+  OrgMemberSchema,
+  SetOrgMemberSchema,
+} from './org.schema';
 
 describe('CreateOrgSchema', () => {
   it('accepts a name and slug', () => {
@@ -62,5 +66,38 @@ describe('OrgMemberSchema', () => {
 
   it('rejects a missing role', () => {
     expect(OrgMemberSchema.safeParse({ uid: 'uid-1' }).success).toBe(false);
+  });
+});
+
+describe('SetOrgMemberSchema', () => {
+  it('accepts a member named by uid', () => {
+    expect(SetOrgMemberSchema.parse({ uid: 'uid-1', role: 'manager' })).toEqual(
+      {
+        uid: 'uid-1',
+        role: 'manager',
+      },
+    );
+  });
+
+  it('accepts a member named by email, normalized', () => {
+    expect(
+      SetOrgMemberSchema.parse({ email: '  Ada@Example.COM ', role: 'admin' }),
+    ).toEqual({ email: 'ada@example.com', role: 'admin' });
+  });
+
+  it('rejects an email that is not an address', () => {
+    expect(
+      SetOrgMemberSchema.safeParse({ email: 'ada', role: 'admin' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a body that names neither a uid nor an email', () => {
+    expect(SetOrgMemberSchema.safeParse({ role: 'admin' }).success).toBe(false);
+  });
+
+  it('rejects a body with no role', () => {
+    expect(
+      SetOrgMemberSchema.safeParse({ email: 'ada@example.com' }).success,
+    ).toBe(false);
   });
 });

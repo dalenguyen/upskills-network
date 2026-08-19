@@ -22,7 +22,11 @@ function adminOrg(overrides: Partial<AdminOrg> = {}): AdminOrg {
     slug: 'upskills-toronto',
     createdBy: 'uid-admin',
     members: {
-      'uid-admin': { role: 'admin', addedAt: '2026-01-01T00:00:00.000Z' },
+      'uid-admin': {
+        role: 'admin',
+        addedAt: '2026-01-01T00:00:00.000Z',
+        email: null,
+      },
     },
     memberUids: ['uid-admin'],
     createdAt: '2026-01-01T00:00:00.000Z',

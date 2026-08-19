@@ -8,7 +8,12 @@ import {
   fakeOrgNotFoundError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_EMAILS,
+  FIXTURE_START,
+  fakeOrg,
+  fakeUser,
+} from '../../testing/public-fixtures';
 import {
   createDashboardOrgMembersSetHandler,
   type DashboardOrgMembersSetDeps,
@@ -32,6 +37,8 @@ function deps(
   return {
     requireOrgRole: vi.fn(async () => ORG),
     setOrgMember: vi.fn(async () => fakeOrg()),
+    findUserByEmail: vi.fn(async () => fakeUser()),
+    getUserEmails: vi.fn(async () => FIXTURE_EMAILS),
     ...overrides,
   };
 }
@@ -70,6 +77,46 @@ describe('POST /api/v1/dashboard/orgs/:orgId/members', () => {
           }),
         }),
       }),
+    });
+  });
+
+  it('resolves an email to the uid the membership is keyed by', async () => {
+    const d = deps({
+      findUserByEmail: vi.fn(async () => fakeUser({ uid: 'uid-2' })),
+    });
+
+    await createDashboardOrgMembersSetHandler(d)(
+      request({ email: 'Ada@Example.com', role: 'manager' }),
+    );
+
+    expect(d.findUserByEmail).toHaveBeenCalledWith('ada@example.com');
+    expect(d.setOrgMember).toHaveBeenCalledWith('org-1', 'uid-2', 'manager');
+  });
+
+  it('answers 404 for an email that belongs to no account', async () => {
+    const d = deps({ findUserByEmail: vi.fn(async () => null) });
+
+    await expect(
+      createDashboardOrgMembersSetHandler(d)(
+        request({ email: 'nobody@example.com', role: 'manager' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      data: { error: 'user-not-found' },
+    });
+    expect(d.setOrgMember).not.toHaveBeenCalled();
+  });
+
+  it('answers the roster with each member email resolved', async () => {
+    const d = deps();
+
+    const result = await createDashboardOrgMembersSetHandler(d)(
+      request({ uid: 'uid-1', role: 'admin' }),
+    );
+
+    expect(d.getUserEmails).toHaveBeenCalledWith(['uid-1']);
+    expect(result).toMatchObject({
+      org: { members: { 'uid-1': { email: 'ada@example.com' } } },
     });
   });
 

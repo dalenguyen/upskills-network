@@ -22,6 +22,12 @@ import type { Organizer, OrgMembership } from '@upskills/models';
 export interface DashboardOrgMembership extends Omit<OrgMembership, 'addedAt'> {
   /** ISO-8601 — see the module comment. */
   addedAt: string;
+  /**
+   * The member's email, from `users/{uid}`, or `null` when none was resolved —
+   * a membership can name a uid whose user document is gone. The dashboard
+   * falls back to the uid, so a roster still renders either way.
+   */
+  email: string | null;
 }
 
 /** An organizer as its own members see it. */
@@ -31,8 +37,15 @@ export interface DashboardOrg extends Omit<Organizer, 'createdAt' | 'members'> {
   members: Record<string, DashboardOrgMembership>;
 }
 
-/** Serialize one organizer for its own dashboard, timestamps included. */
-export function toDashboardOrg(org: Organizer): DashboardOrg {
+/**
+ * Serialize one organizer for its own dashboard, timestamps included.
+ *
+ * @param emails uid → email, from `getUserEmails`.
+ */
+export function toDashboardOrg(
+  org: Organizer,
+  emails: Record<string, string> = {},
+): DashboardOrg {
   const { createdAt, members, ...rest } = org;
 
   return {
@@ -45,6 +58,7 @@ export function toDashboardOrg(org: Organizer): DashboardOrg {
           {
             role: membership.role,
             addedAt: membership.addedAt.toDate().toISOString(),
+            email: emails[uid] ?? null,
           },
         ],
       ),

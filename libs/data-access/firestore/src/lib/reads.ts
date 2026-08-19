@@ -24,8 +24,10 @@ import {
   orgSlugRef,
   orgsCol,
   userRef,
+  usersCol,
 } from './collections';
 import { decodeEventCursor, encodeEventCursor } from './cursor';
+import { getDb } from './db';
 
 /**
  * Non-mutating reads. Every helper returns `null` (or an empty array) for a
@@ -93,6 +95,81 @@ function guestFrom(snapshot: DocumentSnapshot<Guest>): Guest | null {
 /** `users/{uid}` */
 export async function getUser(uid: string): Promise<User | null> {
   return userFrom(await userRef(uid).get());
+}
+
+/**
+ * Raised when one email address maps to more than one account.
+ *
+ * Nothing enforces uniqueness of `users/{uid}.email` — two providers can hand
+ * the same address to two accounts — and this lookup is what turns "add
+ * grace@example.com as a manager" into a uid that gets the role. Picking one of
+ * the matches would silently grant access to whichever document sorted first,
+ * so an ambiguous address is refused and the caller is told to disambiguate by
+ * uid instead.
+ */
+export class AmbiguousUserEmailError extends Error {
+  constructor(readonly email: string) {
+    super(`More than one account uses the email "${email}".`);
+    this.name = 'AmbiguousUserEmailError';
+  }
+}
+
+/**
+ * The one user with this email, or `null`.
+ *
+ * `users/{uid}.email` is written normalized (`user-upsert.ts`), so the lookup
+ * normalizes too — otherwise `Ada@Example.com` would miss the document it
+ * created. Backed by the automatic single-field index on `email`; no composite
+ * index is required.
+ *
+ * Reads two documents to answer a question about one: the second is there only
+ * to notice a duplicate. See {@link AmbiguousUserEmailError} for why a duplicate
+ * is refused rather than resolved.
+ *
+ * @throws AmbiguousUserEmailError when two accounts share the address.
+ */
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const normalized = normalizeEmail(email);
+  const snapshot = await usersCol()
+    .where('email', '==', normalized)
+    .limit(2)
+    .get();
+
+  if (snapshot.size > 1) {
+    throw new AmbiguousUserEmailError(normalized);
+  }
+
+  const doc = snapshot.docs[0];
+
+  return doc ? { ...doc.data(), uid: doc.id } : null;
+}
+
+/**
+ * Email for each of `uids`, keyed by uid — the roster's "who is this?" lookup.
+ *
+ * One `getAll` rather than N gets, and uids with no `users/{uid}` document are
+ * simply absent from the result: a membership can outlive the account it names,
+ * and the caller renders what it has.
+ */
+export async function getUserEmails(
+  uids: string[],
+): Promise<Record<string, string>> {
+  if (uids.length === 0) {
+    return {};
+  }
+
+  const snapshots = await getDb().getAll(...uids.map((uid) => userRef(uid)));
+  const emails: Record<string, string> = {};
+
+  for (const snapshot of snapshots) {
+    const email = (snapshot.data() as User | undefined)?.email;
+
+    if (email !== undefined && email !== '') {
+      emails[snapshot.id] = email;
+    }
+  }
+
+  return emails;
 }
 
 /** `organizers/{orgId}` */

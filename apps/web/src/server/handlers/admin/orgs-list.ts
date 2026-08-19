@@ -29,7 +29,11 @@ export function createOrgsListHandler(deps: OrgsListDeps): EventHandler {
       await deps.requireAdmin(event);
 
       return {
-        orgs: (await deps.listOrgs()).map(toAdminOrg),
+        // Wrapped rather than point-free: `map` would hand `toAdminOrg` the
+        // index as its `emails` argument. The list has no emails to show
+        // anyway — it renders names and member counts, and resolving a roster
+        // per org would be a fan-out per row.
+        orgs: (await deps.listOrgs()).map((org) => toAdminOrg(org)),
       } satisfies OrgsListResponse;
     } catch (error) {
       throw toHttpError(error);

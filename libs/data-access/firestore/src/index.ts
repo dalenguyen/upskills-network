@@ -8,6 +8,8 @@ export {
   guestRef,
   guestsCol,
   guestsGroup,
+  orgInviteRef,
+  orgInvitesCol,
   orgRef,
   orgSlugRef,
   orgsCol,
@@ -27,15 +29,18 @@ export { decodeEventCursor, encodeEventCursor } from './lib/cursor';
 export type { EventCursor } from './lib/cursor';
 
 export {
+  AmbiguousUserEmailError,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   findRegistrationsByEmail,
+  findUserByEmail,
   getEvent,
   getEventBySlug,
   getGuest,
   getOrg,
   getOrgBySlug,
   getUser,
+  getUserEmails,
   listEventGuests,
   listOrgEvents,
   listOrgs,
@@ -72,6 +77,25 @@ export {
   setOrgMember,
 } from './lib/orgs';
 export type { CreateOrgDraft } from './lib/orgs';
+
+export {
+  INVITE_TTL_DAYS,
+  InviteEmailMismatchError,
+  InviteNotFoundError,
+  InviteNotPendingError,
+  acceptOrgInvite,
+  createOrgInvite,
+  findOrgInviteByToken,
+  getOrgInvite,
+  listOrgInvites,
+  orgInviteStatus,
+  revokeOrgInvite,
+} from './lib/invites';
+export type {
+  AcceptOrgInviteOptions,
+  AcceptOrgInviteResult,
+  CreateOrgInviteDraft,
+} from './lib/invites';
 
 export { reserveSpot } from './lib/reserve-spot';
 export type {

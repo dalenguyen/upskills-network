@@ -5,7 +5,12 @@ import {
   fakeInvalidSessionError,
 } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeOrg } from '../../testing/public-fixtures';
+import {
+  FIXTURE_EMAILS,
+  FIXTURE_START,
+  fakeInvite,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import { createOrgsDetailHandler, type OrgsDetailDeps } from './orgs-detail';
 
 /** `GET /api/v1/admin/orgs/:orgId` — the platform-admin org detail. */
@@ -20,6 +25,9 @@ function deps(overrides: Partial<OrgsDetailDeps> = {}): OrgsDetailDeps {
   return {
     requireAdmin: vi.fn(async () => ADMIN),
     getOrg: vi.fn(async () => fakeOrg()),
+    getUserEmails: vi.fn(async () => FIXTURE_EMAILS),
+    listOrgInvites: vi.fn(async () => []),
+    orgInviteStatus: vi.fn(() => 'pending' as const),
     ...overrides,
   };
 }
@@ -51,6 +59,7 @@ describe('GET /api/v1/admin/orgs/:orgId', () => {
           }),
         }),
       }),
+      invites: [],
     });
   });
 
@@ -104,5 +113,34 @@ describe('GET /api/v1/admin/orgs/:orgId', () => {
         }),
       )(request()),
     ).rejects.toBe(bug);
+  });
+
+  it('answers each member with the email behind their uid', async () => {
+    const d = deps();
+
+    const result = await createOrgsDetailHandler(d)(request());
+
+    expect(d.getUserEmails).toHaveBeenCalledWith(['uid-1']);
+    expect(result).toMatchObject({
+      org: { members: { 'uid-1': { email: 'ada@example.com' } } },
+    });
+  });
+
+  it('answers the outstanding invitations beside the roster', async () => {
+    const d = deps({
+      listOrgInvites: vi.fn(async () => [fakeInvite()]),
+      orgInviteStatus: vi.fn(() => 'pending' as const),
+    });
+
+    const result = await createOrgsDetailHandler(d)(request());
+
+    expect(d.listOrgInvites).toHaveBeenCalledWith('org-1');
+    expect(result).toMatchObject({
+      invites: [
+        { inviteId: 'inv-1', email: 'grace@example.com', status: 'pending' },
+      ],
+    });
+    // The acceptance token is not a roster field.
+    expect(JSON.stringify(result)).not.toContain('tok-1');
   });
 });
