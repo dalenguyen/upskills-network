@@ -53,6 +53,7 @@ function deps(overrides: Partial<RegisterDeps> = {}): RegisterDeps {
     reserveSpot: vi.fn(async () => reserved()),
     sendWelcomeEmail: vi.fn(async () => ({ sent: true as const, id: 'em_1' })),
     sendWaitlistEmail: vi.fn(async () => ({ sent: true as const, id: 'em_2' })),
+    notifyOrganizers: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -156,6 +157,63 @@ describe('POST /api/v1/registration/:orgId/:eventId/register', () => {
         4,
       );
       expect(sendWelcomeEmail).not.toHaveBeenCalled();
+    });
+
+    it('tells the organizer it was a waitlist join, not a registration', async () => {
+      const notifyOrganizers = vi.fn(async () => undefined);
+
+      await createRegisterHandler(
+        deps({ reserveSpot: vi.fn(async () => waitlisted), notifyOrganizers }),
+      )(post(VALID));
+
+      expect(notifyOrganizers).toHaveBeenCalledWith(
+        'org-1',
+        expect.objectContaining({ eventId: 'evt-1' }),
+        'waitlist_joined',
+        { guest: expect.objectContaining({ status: 'pending' }) },
+      );
+    });
+  });
+
+  describe('notifying the organizer', () => {
+    it('names the guest so the notice is actionable', async () => {
+      const notifyOrganizers = vi.fn(async () => undefined);
+
+      await createRegisterHandler(deps({ notifyOrganizers }))(post(VALID));
+
+      expect(notifyOrganizers).toHaveBeenCalledWith(
+        'org-1',
+        expect.objectContaining({ eventId: 'evt-1' }),
+        'registration',
+        { guest: expect.objectContaining({ email: 'ada@example.com' }) },
+      );
+    });
+
+    it('confirms the guest even when the organizer notice throws', async () => {
+      // The real notifier swallows its own failures; this asserts the handler
+      // does not depend on that. A seat is already taken by this point.
+      const notifyOrganizers = vi.fn(async () => {
+        throw new Error('org lookup exploded');
+      });
+
+      const result = await createRegisterHandler(deps({ notifyOrganizers }))(
+        post(VALID),
+      );
+
+      expect(result).toMatchObject({ status: 'confirmed', emailSent: true });
+    });
+
+    it('stays quiet on a repeat registration', async () => {
+      const notifyOrganizers = vi.fn(async () => undefined);
+
+      await createRegisterHandler(
+        deps({
+          reserveSpot: vi.fn(async () => reserved({ alreadyRegistered: true })),
+          notifyOrganizers,
+        }),
+      )(post(VALID));
+
+      expect(notifyOrganizers).not.toHaveBeenCalled();
     });
   });
 

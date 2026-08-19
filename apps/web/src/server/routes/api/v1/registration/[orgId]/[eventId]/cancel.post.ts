@@ -1,10 +1,17 @@
-import { sendCancellationEmail, sendSpotOpenedEmail } from '@upskills/email';
+import {
+  sendCancellationEmail,
+  sendOrganizerNotification,
+  sendSpotOpenedEmail,
+} from '@upskills/email';
 import {
   cancelGuest,
   getEvent,
   getGuest,
+  getOrg,
+  getUserEmails,
   promoteNextPending,
 } from '@upskills/firestore';
+import { createOrganizerNotifier } from '../../../../../../handlers/organizer-notify';
 import { createCancelHandler } from '../../../../../../handlers/registration/cancel';
 
 /**
@@ -19,4 +26,10 @@ export default createCancelHandler({
   promoteNextPending: (orgId, eventId) => promoteNextPending(orgId, eventId),
   sendCancellationEmail: (guest, event) => sendCancellationEmail(guest, event),
   sendSpotOpenedEmail: (guest, event) => sendSpotOpenedEmail(guest, event),
+  notifyOrganizers: createOrganizerNotifier({
+    getOrg: (orgId) => getOrg(orgId),
+    getUserEmails: (uids) => getUserEmails(uids),
+    sendOrganizerNotification: (recipients, event, type, details) =>
+      sendOrganizerNotification(recipients, event, type, details),
+  }),
 });

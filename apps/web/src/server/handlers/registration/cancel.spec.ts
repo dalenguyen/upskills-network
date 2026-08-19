@@ -55,6 +55,7 @@ function deps(overrides: Partial<CancelDeps> = {}): CancelDeps {
       sent: true as const,
       id: 'em_2',
     })),
+    notifyOrganizers: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -196,6 +197,64 @@ describe('POST /api/v1/registration/:orgId/:eventId/cancel', () => {
       )(post(VALID));
 
       expect(promoteNextPending).toHaveBeenCalledWith('org-1', 'evt-1');
+    });
+
+    it('does not tell the organizer a second time', async () => {
+      const notifyOrganizers = vi.fn(async () => undefined);
+
+      await createCancelHandler(
+        deps({ cancelGuest: vi.fn(async () => already), notifyOrganizers }),
+      )(post(VALID));
+
+      expect(notifyOrganizers).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('notifying the organizer', () => {
+    it('names the guest who left', async () => {
+      const notifyOrganizers = vi.fn(async () => undefined);
+
+      await createCancelHandler(deps({ notifyOrganizers }))(post(VALID));
+
+      expect(notifyOrganizers).toHaveBeenCalledWith(
+        'org-1',
+        expect.objectContaining({ eventId: 'evt-1' }),
+        'cancellation',
+        { guest: expect.objectContaining({ email: 'ada@example.com' }) },
+      );
+    });
+
+    it('emails the guest before notifying the organizer', async () => {
+      // The leaver's copy is the one the caller is waiting on; the organizer's
+      // notice follows it, matching `register.ts`.
+      const order: string[] = [];
+      const sendCancellationEmail = vi.fn(async () => {
+        order.push('guest');
+        return { sent: true as const, id: 'em_1' };
+      });
+      const notifyOrganizers = vi.fn(async () => {
+        order.push('organizer');
+        return undefined;
+      });
+
+      await createCancelHandler(
+        deps({ sendCancellationEmail, notifyOrganizers }),
+      )(post(VALID));
+
+      expect(order).toEqual(['guest', 'organizer']);
+    });
+
+    it('still answers 2xx when the notice throws', async () => {
+      // The cancellation is already committed at this point.
+      const notifyOrganizers = vi.fn(async () => {
+        throw new Error('org lookup exploded');
+      });
+
+      const result = await createCancelHandler(deps({ notifyOrganizers }))(
+        post(VALID),
+      );
+
+      expect(result).toMatchObject({ cancelled: true, emailSent: true });
     });
   });
 

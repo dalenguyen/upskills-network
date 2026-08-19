@@ -1,5 +1,15 @@
-import { getEvent, reserveSpot } from '@upskills/firestore';
-import { sendWaitlistEmail, sendWelcomeEmail } from '@upskills/email';
+import {
+  getEvent,
+  getOrg,
+  getUserEmails,
+  reserveSpot,
+} from '@upskills/firestore';
+import {
+  sendOrganizerNotification,
+  sendWaitlistEmail,
+  sendWelcomeEmail,
+} from '@upskills/email';
+import { createOrganizerNotifier } from '../../../../../../handlers/organizer-notify';
 import { createRegisterHandler } from '../../../../../../handlers/registration/register';
 
 /**
@@ -14,4 +24,10 @@ export default createRegisterHandler({
   sendWelcomeEmail: (guest, event) => sendWelcomeEmail(guest, event),
   sendWaitlistEmail: (guest, event, position) =>
     sendWaitlistEmail(guest, event, position),
+  notifyOrganizers: createOrganizerNotifier({
+    getOrg: (orgId) => getOrg(orgId),
+    getUserEmails: (uids) => getUserEmails(uids),
+    sendOrganizerNotification: (recipients, event, type, details) =>
+      sendOrganizerNotification(recipients, event, type, details),
+  }),
 });

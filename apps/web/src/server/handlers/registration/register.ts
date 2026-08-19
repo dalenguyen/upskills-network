@@ -10,6 +10,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import type { NotifyOrganizers } from '../organizer-notify';
 import { conflict } from './registration-errors';
 
 /**
@@ -99,6 +100,11 @@ export interface RegisterDeps {
     event: WorkshopEvent,
     position: number,
   ): Promise<SendResult>;
+  /**
+   * Tell the org's staff someone signed up. See `handlers/organizer-notify.ts`
+   * — it swallows its own failures, and nothing in the response depends on it.
+   */
+  notifyOrganizers: NotifyOrganizers;
 }
 
 /** The one 404 this route produces — for a missing *or* draft event. */
@@ -208,11 +214,18 @@ function outcomeOf(
 }
 
 /**
- * Send the one email this registration warrants, and report whether it left.
+ * Send the one email this registration warrants, tell the organizer, and report
+ * whether the guest's copy left.
  *
  * A repeat registration sends nothing — the guest already has the original,
  * carrying the same still-valid cancel token — and reports `true`, because from
- * the guest's side the mail they need is already in their inbox.
+ * the guest's side the mail they need is already in their inbox. The organizer
+ * is not told either: they heard about this registration the first time, and a
+ * second notice would read as a second signup.
+ *
+ * Only the guest's send decides the return value. The organizer notification is
+ * awaited so it cannot outlive the request on a serverless instance, but its
+ * outcome is deliberately not consulted — see `handlers/organizer-notify.ts`.
  */
 async function notify(
   result: ReserveSpotResult,
@@ -223,14 +236,28 @@ async function notify(
     return true;
   }
 
-  const sent =
-    result.outcome === 'waitlisted'
-      ? await deps.sendWaitlistEmail(
-          result.guest,
-          workshop,
-          result.guest.waitlistPosition ?? 0,
-        )
-      : await deps.sendWelcomeEmail(result.guest, workshop);
+  const waitlisted = result.outcome === 'waitlisted';
+
+  const sent = waitlisted
+    ? await deps.sendWaitlistEmail(
+        result.guest,
+        workshop,
+        result.guest.waitlistPosition ?? 0,
+      )
+    : await deps.sendWelcomeEmail(result.guest, workshop);
+
+  // Guarded here as well as inside the notifier. A committed registration
+  // answering 200 is this handler's own guarantee, and borrowing it from the
+  // error handling of an injected dependency is exactly the kind of promise
+  // that survives until someone wires the dep differently.
+  await deps
+    .notifyOrganizers(
+      workshop.orgId,
+      workshop,
+      waitlisted ? 'waitlist_joined' : 'registration',
+      { guest: result.guest },
+    )
+    .catch(() => undefined);
 
   return sent.sent;
 }
