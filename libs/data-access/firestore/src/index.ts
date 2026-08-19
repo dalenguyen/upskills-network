@@ -29,6 +29,7 @@ export { decodeEventCursor, encodeEventCursor } from './lib/cursor';
 export type { EventCursor } from './lib/cursor';
 
 export {
+  AmbiguousUserEmailError,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   findRegistrationsByEmail,

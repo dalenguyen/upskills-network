@@ -17,6 +17,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, conflict, notFound, toHttpError } from '../http-error';
+import { emailsAfterWrite, listAfterWrite } from '../member-emails';
 import { toOrgInviteView, type OrgInviteView } from './invite-view';
 
 /**
@@ -323,9 +324,12 @@ async function answer<TOrg>(
   deps: OrgInvitesBaseDeps<TOrg>,
   org: Organizer,
 ): Promise<OrgInvitesResponse<TOrg>> {
+  // Both reads run after a durable write, so neither may fail the request —
+  // see `member-emails.ts`. A degraded answer names uids or omits the invite
+  // list; it never reports a committed invitation as a failure.
   const [emails, invites] = await Promise.all([
-    deps.getUserEmails(Object.keys(org.members)),
-    deps.listOrgInvites(org.orgId),
+    emailsAfterWrite(deps.getUserEmails, Object.keys(org.members)),
+    listAfterWrite(deps.listOrgInvites, org.orgId),
   ]);
 
   return {

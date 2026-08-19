@@ -4,6 +4,7 @@ import { clearFirestore } from '../testing/emulator';
 import { at, seedEvent, seedGuest, seedOrg, seedUser } from '../testing/seed';
 import { eventSlugRef, guestRef, orgSlugRef } from './collections';
 import {
+  AmbiguousUserEmailError,
   findRegistrationsByEmail,
   findUserByEmail,
   getEvent,
@@ -56,6 +57,17 @@ describe('findUserByEmail', () => {
 
   it('returns null when no account has that email', async () => {
     await expect(findUserByEmail('nobody@example.com')).resolves.toBeNull();
+  });
+
+  it('refuses to guess when two accounts share the address', async () => {
+    // Nothing enforces uniqueness here, and picking one would hand a role to
+    // whichever document happened to sort first.
+    await seedUser({ uid: 'uid-1', email: 'ada@example.com' });
+    await seedUser({ uid: 'uid-2', email: 'ada@example.com' });
+
+    await expect(findUserByEmail('ada@example.com')).rejects.toBeInstanceOf(
+      AmbiguousUserEmailError,
+    );
   });
 });
 

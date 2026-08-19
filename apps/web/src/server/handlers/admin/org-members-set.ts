@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, notFound, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { resolveMemberUid } from '../member-uid';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
@@ -71,7 +72,10 @@ export function createOrgMembersSetHandler(
       const uid = await resolveMemberUid(deps, parsed.data);
 
       const org = await deps.setOrgMember(orgId, uid, parsed.data.role);
-      const emails = await deps.getUserEmails(Object.keys(org.members));
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
 
       return { org: toAdminOrg(org, emails) } satisfies OrgMembersSetResponse;
     } catch (error) {

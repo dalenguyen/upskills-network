@@ -98,22 +98,46 @@ export async function getUser(uid: string): Promise<User | null> {
 }
 
 /**
+ * Raised when one email address maps to more than one account.
+ *
+ * Nothing enforces uniqueness of `users/{uid}.email` — two providers can hand
+ * the same address to two accounts — and this lookup is what turns "add
+ * grace@example.com as a manager" into a uid that gets the role. Picking one of
+ * the matches would silently grant access to whichever document sorted first,
+ * so an ambiguous address is refused and the caller is told to disambiguate by
+ * uid instead.
+ */
+export class AmbiguousUserEmailError extends Error {
+  constructor(readonly email: string) {
+    super(`More than one account uses the email "${email}".`);
+    this.name = 'AmbiguousUserEmailError';
+  }
+}
+
+/**
  * The one user with this email, or `null`.
  *
  * `users/{uid}.email` is written normalized (`user-upsert.ts`), so the lookup
  * normalizes too — otherwise `Ada@Example.com` would miss the document it
  * created. Backed by the automatic single-field index on `email`; no composite
- * index is needed.
+ * index is required.
  *
- * Nothing enforces email uniqueness across uids — two providers can hand the
- * same address to two accounts — so this answers the first match rather than
- * pretending the query is a key lookup.
+ * Reads two documents to answer a question about one: the second is there only
+ * to notice a duplicate. See {@link AmbiguousUserEmailError} for why a duplicate
+ * is refused rather than resolved.
+ *
+ * @throws AmbiguousUserEmailError when two accounts share the address.
  */
 export async function findUserByEmail(email: string): Promise<User | null> {
+  const normalized = normalizeEmail(email);
   const snapshot = await usersCol()
-    .where('email', '==', normalizeEmail(email))
-    .limit(1)
+    .where('email', '==', normalized)
+    .limit(2)
     .get();
+
+  if (snapshot.size > 1) {
+    throw new AmbiguousUserEmailError(normalized);
+  }
 
   const doc = snapshot.docs[0];
 

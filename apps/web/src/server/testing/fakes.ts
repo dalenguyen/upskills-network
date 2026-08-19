@@ -106,3 +106,11 @@ export function fakeInviteEmailMismatchError(inviteId: string): Error {
     { name: 'InviteEmailMismatchError' },
   );
 }
+
+/** An error indistinguishable from `AmbiguousUserEmailError` to a route. */
+export function fakeAmbiguousUserEmailError(email: string): Error {
+  return Object.assign(
+    new Error(`More than one account uses the email "${email}".`),
+    { name: 'AmbiguousUserEmailError' },
+  );
+}

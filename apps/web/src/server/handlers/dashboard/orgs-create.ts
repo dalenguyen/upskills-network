@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toDashboardOrg, type DashboardOrg } from './org-view';
 
 /**
@@ -54,7 +55,10 @@ export function createDashboardOrgsCreateHandler(
         createdBy: uid,
       });
 
-      const emails = await deps.getUserEmails(Object.keys(org.members));
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
 
       return {
         org: toDashboardOrg(org, emails),

@@ -9,6 +9,7 @@ import {
   type H3Event,
 } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
+import { emailsAfterWrite } from '../member-emails';
 import { toAdminOrg, type AdminOrg } from './admin-view';
 
 /**
@@ -52,7 +53,10 @@ export function createOrgsCreateHandler(deps: OrgsCreateDeps): EventHandler {
         createdBy: uid,
       });
 
-      const emails = await deps.getUserEmails(Object.keys(org.members));
+      const emails = await emailsAfterWrite(
+        deps.getUserEmails,
+        Object.keys(org.members),
+      );
 
       return { org: toAdminOrg(org, emails) } satisfies OrgsCreateResponse;
     } catch (error) {

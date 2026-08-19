@@ -916,6 +916,10 @@ export default class DashboardOverviewPageComponent implements OnInit {
       return 'That organizer no longer exists.';
     }
 
+    if (code === 'ambiguous-email') {
+      return 'More than one account uses that email address. Ask an operator to sort it out before adding them.';
+    }
+
     if (code === 'already-a-member') {
       return 'That person is already on this organizer. Change their role from the roster instead.';
     }

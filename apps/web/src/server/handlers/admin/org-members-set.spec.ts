@@ -2,6 +2,7 @@ import type { AuthContext } from '@upskills/auth';
 import type { Organizer } from '@upskills/models';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  fakeAmbiguousUserEmailError,
   fakeForbiddenError,
   fakeInvalidSessionError,
   fakeLastOrgAdminError,
@@ -212,5 +213,41 @@ describe('POST /api/v1/admin/orgs/:orgId/members', () => {
         }),
       )(request({ uid: 'uid-2', role: 'manager' })),
     ).rejects.toBe(bug);
+  });
+
+  it('answers 409 when the email matches more than one account', async () => {
+    const d = deps({
+      findUserByEmail: vi.fn(async () => {
+        throw fakeAmbiguousUserEmailError('ada@example.com');
+      }),
+    });
+
+    await expect(
+      createOrgMembersSetHandler(d)(
+        request({ email: 'ada@example.com', role: 'manager' }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      data: { error: 'ambiguous-email' },
+    });
+    expect(d.setOrgMember).not.toHaveBeenCalled();
+  });
+
+  it('still answers success when the post-write email lookup fails', async () => {
+    // The role change already committed; a failed enrichment read must not
+    // report it as a failure the operator would retry.
+    const d = deps({
+      getUserEmails: vi.fn(async () => {
+        throw new Error('firestore unavailable');
+      }),
+    });
+
+    const result = await createOrgMembersSetHandler(d)(
+      request({ uid: 'uid-1', role: 'admin' }),
+    );
+
+    expect(result).toMatchObject({
+      org: { members: { 'uid-1': { email: null } } },
+    });
   });
 });
