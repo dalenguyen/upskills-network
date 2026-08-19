@@ -57,6 +57,7 @@ export type {
 } from './lib/reads';
 
 export {
+  EventIsExternalError,
   EventNotFoundError,
   EventNotRegisterableError,
   MAX_RESTARTS,

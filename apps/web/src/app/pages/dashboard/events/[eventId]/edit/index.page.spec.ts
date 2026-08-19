@@ -345,6 +345,10 @@ describe('DashboardEventsEditPageComponent', () => {
       description: 'A hands-on afternoon.',
       startsAt: '2026-09-01T18:00:00-04:00',
       timezone: 'America/Toronto',
+      // Sent even when empty, unlike `endsAt` and `location`: an absent field
+      // means "leave it alone", so an empty string is the only way this form
+      // can express "remove the image".
+      imageUrl: '',
       price: 4950,
       currency: 'cad',
       maxGuests: 20,

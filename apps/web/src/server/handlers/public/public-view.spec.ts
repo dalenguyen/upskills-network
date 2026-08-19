@@ -87,6 +87,29 @@ describe('toPublicEvent', () => {
 
     expect('endsAt' in view).toBe(false);
     expect('location' in view).toBe(false);
+    expect('externalUrl' in view).toBe(false);
+    expect('sourceName' in view).toBe(false);
+    expect('imageUrl' in view).toBe(false);
+  });
+
+  it('publishes the fields a seeded community event needs to be clickable', () => {
+    // Deliberately public, unlike the counters above: the page cannot send a
+    // visitor to the source without the URL, and it must name whose listing it
+    // is before the click rather than after.
+    const view = toPublicEvent(
+      fakeEvent({
+        externalUrl: 'https://example.com/events/toronto-ai',
+        sourceName: 'Meetup',
+        imageUrl: 'https://example.com/poster.jpg',
+      }),
+      'acme',
+    );
+
+    expect(view).toMatchObject({
+      externalUrl: 'https://example.com/events/toronto-ai',
+      sourceName: 'Meetup',
+      imageUrl: 'https://example.com/poster.jpg',
+    });
   });
 
   describe('availability', () => {

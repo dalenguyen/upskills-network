@@ -77,6 +77,34 @@ describe('createEvent', () => {
     });
   });
 
+  it('stores the community-listing fields, trimmed', async () => {
+    const listed = await createEvent('org-1', {
+      ...draft,
+      slug: 'toronto-ai-meetup',
+      externalUrl: '  https://example.com/events/toronto-ai  ',
+      sourceName: '  Meetup  ',
+      imageUrl: '  https://example.com/poster.jpg  ',
+    });
+
+    expect(await getEvent('org-1', listed.eventId)).toMatchObject({
+      externalUrl: 'https://example.com/events/toronto-ai',
+      sourceName: 'Meetup',
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+  });
+
+  it('omits the community-listing fields entirely when they are not given', async () => {
+    // Absent, not empty. `externalUrl`'s mere presence is what refuses a
+    // registration, so a stored `''` would be a different question than the one
+    // every reader asks.
+    const created = await createEvent('org-1', { ...draft, slug: 'plain' });
+    const stored = await getEvent('org-1', created.eventId);
+
+    expect(stored && 'externalUrl' in stored).toBe(false);
+    expect(stored && 'sourceName' in stored).toBe(false);
+    expect(stored && 'imageUrl' in stored).toBe(false);
+  });
+
   it('throws SlugTakenError for a taken slug and leaves no event behind', async () => {
     await seedEvent({ eventId: 'evt-existing', slug: 'taken' });
 
@@ -159,6 +187,42 @@ describe('updateEvent', () => {
     });
     expect((await eventSlugRef('org-1', 'two').get()).data()).toEqual({
       eventId: 'evt-2',
+    });
+  });
+
+  it('sets an image, and removes it again when passed an empty string', async () => {
+    await seedEvent({ eventId: 'evt-1', slug: 'react-basics' });
+
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+    expect(await getEvent('org-1', 'evt-1')).toMatchObject({
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+
+    // The key is deleted rather than set to `''` — an organizer who pasted the
+    // wrong URL has to be able to get back to having no image at all.
+    await updateEvent('org-1', 'evt-1', { imageUrl: '' });
+    const cleared = await getEvent('org-1', 'evt-1');
+    expect(cleared && 'imageUrl' in cleared).toBe(false);
+  });
+
+  it('leaves the listing fields alone when the patch does not mention them', async () => {
+    // This is what makes a seeded event survive an edit through the dashboard,
+    // whose form has no input for either field.
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      externalUrl: 'https://example.com/events/toronto-ai',
+      sourceName: 'Meetup',
+    });
+
+    await updateEvent('org-1', 'evt-1', { title: 'Renamed' });
+
+    expect(await getEvent('org-1', 'evt-1')).toMatchObject({
+      title: 'Renamed',
+      externalUrl: 'https://example.com/events/toronto-ai',
+      sourceName: 'Meetup',
     });
   });
 

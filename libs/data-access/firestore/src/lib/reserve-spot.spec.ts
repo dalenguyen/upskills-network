@@ -5,6 +5,7 @@ import { at, seedEvent, seedGuest } from '../testing/seed';
 import { getEvent, getGuest, listEventGuests } from './reads';
 import { reserveSpot } from './reserve-spot';
 import {
+  EventIsExternalError,
   EventNotFoundError,
   EventNotRegisterableError,
   PaymentRequiredError,
@@ -376,6 +377,47 @@ describe('reserveSpot — bad input', () => {
     await expect(
       reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
     ).rejects.toMatchObject({ eventId: 'evt-1', status: 'cancelled' });
+  });
+
+  it('refuses to reserve against an event that is only listed here', async () => {
+    // A seeded community event. Taking a seat would mint a guest, a cancel
+    // token and a confirmation email for a place the real organizer has never
+    // heard of — the guest would arrive and not be on the list.
+    await event({ externalUrl: 'https://example.com/events/toronto-ai' });
+
+    await expect(
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+    ).rejects.toBeInstanceOf(EventIsExternalError);
+
+    expect(await listEventGuests('org-7', 'evt-1')).toEqual([]);
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 0,
+    });
+  });
+
+  it('carries the destination URL on the refusal, for the route to render', async () => {
+    await event({ externalUrl: 'https://example.com/events/toronto-ai' });
+
+    await expect(
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+    ).rejects.toMatchObject({
+      eventId: 'evt-1',
+      externalUrl: 'https://example.com/events/toronto-ai',
+    });
+  });
+
+  it('reports a draft listing as unpublished, not as external', async () => {
+    // Same argument as the priced-draft case above: an unannounced event must
+    // answer identically whatever else is true of it, or the difference
+    // confirms it exists.
+    await event({
+      status: 'draft',
+      externalUrl: 'https://example.com/events/toronto-ai',
+    });
+
+    await expect(
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+    ).rejects.toBeInstanceOf(EventNotRegisterableError);
   });
 
   it('refuses to confirm a free seat on a priced event', async () => {

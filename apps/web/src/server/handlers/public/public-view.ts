@@ -59,6 +59,16 @@ export interface PublicEvent {
   /** IANA zone name, so the client can render the organizer's local time. */
   timezone: string;
   location?: string;
+  /**
+   * Set when Upskills only *lists* this event and the real registration lives
+   * elsewhere. Published deliberately: the page cannot send anyone to the
+   * source without it, and it is the same URL the card already advertises.
+   */
+  externalUrl?: string;
+  /** Whose listing that is, e.g. `'Meetup'` — rendered as "via Meetup". */
+  sourceName?: string;
+  /** Hero image, absolute https URL. */
+  imageUrl?: string;
   /** Minor units (cents). `0` is free. */
   price: number;
   currency: Currency;
@@ -111,6 +121,11 @@ export function toPublicEvent(
       : { endsAt: event.endsAt.toDate().toISOString() }),
     timezone: event.timezone,
     ...(event.location === undefined ? {} : { location: event.location }),
+    ...(event.externalUrl === undefined
+      ? {}
+      : { externalUrl: event.externalUrl }),
+    ...(event.sourceName === undefined ? {} : { sourceName: event.sourceName }),
+    ...(event.imageUrl === undefined ? {} : { imageUrl: event.imageUrl }),
     price: event.price,
     currency: event.currency,
     maxGuests: event.maxGuests,

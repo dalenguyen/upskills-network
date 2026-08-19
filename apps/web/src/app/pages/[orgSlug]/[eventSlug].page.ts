@@ -13,6 +13,7 @@ import {
   type PublicEvent,
 } from '../../events/event-api';
 import { EventDetailComponent } from '../../events/event-detail.component';
+import { ExternalCtaComponent } from '../../events/external-cta.component';
 import { RegistrationFormComponent } from '../../events/registration-form.component';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
@@ -60,6 +61,7 @@ type PageState =
   selector: 'app-event-page',
   imports: [
     EventDetailComponent,
+    ExternalCtaComponent,
     RegistrationFormComponent,
     LandingHeaderComponent,
     LandingFooterComponent,
@@ -82,7 +84,15 @@ type PageState =
 
               <div class="lg:col-span-2">
                 <div class="lg:sticky lg:top-24">
-                  <app-registration-form [event]="event()!" />
+                  <!-- An externalUrl means this event is listed here and run
+                       elsewhere, so there is nothing for a form to submit to.
+                       Cosmetic only: the register endpoint refuses these on its
+                       own, which is what makes the swap safe to get wrong. -->
+                  @if (event()!.externalUrl) {
+                    <app-external-cta [event]="event()!" />
+                  } @else {
+                    <app-registration-form [event]="event()!" />
+                  }
                 </div>
               </div>
             </div>

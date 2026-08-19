@@ -54,6 +54,8 @@ interface CreateEventForm {
   endsAt: string;
   timezone: string;
   location: string;
+  /** Absolute https URL of a hero image. Empty means the event has none. */
+  imageUrl: string;
   /** Entered in dollars, e.g. `49.50`. Converted to cents before posting. */
   price: string;
   maxGuests: string;
@@ -292,6 +294,28 @@ export function dollarsToCents(dollars: number): number {
 
                 <div>
                   <label
+                    for="imageUrl"
+                    class="block text-sm font-medium leading-6 text-zinc-900"
+                  >
+                    Image URL
+                  </label>
+                  <input
+                    id="imageUrl"
+                    name="imageUrl"
+                    type="url"
+                    maxlength="2000"
+                    placeholder="https://example.com/poster.jpg"
+                    [(ngModel)]="form.imageUrl"
+                    class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  />
+                  <p class="mt-2 text-xs text-zinc-500">
+                    Optional. Must start with https://. Link an image you host —
+                    if it stops loading, the event simply shows without one.
+                  </p>
+                </div>
+
+                <div>
+                  <label
                     for="price"
                     class="block text-sm font-medium leading-6 text-zinc-900"
                   >
@@ -397,6 +421,7 @@ export default class DashboardEventsNewPageComponent implements OnInit {
     endsAt: '',
     timezone: 'America/Toronto',
     location: '',
+    imageUrl: '',
     price: '0',
     maxGuests: '0',
   };
@@ -524,6 +549,7 @@ export default class DashboardEventsNewPageComponent implements OnInit {
   private buildBody(status: 'draft' | 'published'): Record<string, unknown> {
     const endsAt = this.form.endsAt.trim();
     const location = this.form.location.trim();
+    const imageUrl = this.form.imageUrl.trim();
 
     return {
       title: this.form.title.trim(),
@@ -535,6 +561,7 @@ export default class DashboardEventsNewPageComponent implements OnInit {
         : { endsAt: toIsoWithOffset(endsAt, this.form.timezone) }),
       timezone: this.form.timezone,
       ...(location === '' ? {} : { location }),
+      ...(imageUrl === '' ? {} : { imageUrl }),
       price: dollarsToCents(Number(this.form.price)),
       currency: 'cad',
       maxGuests: Number(this.form.maxGuests),

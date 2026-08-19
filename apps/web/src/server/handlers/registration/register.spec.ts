@@ -366,6 +366,28 @@ describe('POST /api/v1/registration/:orgId/:eventId/register', () => {
       });
     });
 
+    it('refuses an event Upskills only lists, and names where to register', async () => {
+      await expect(
+        createRegisterHandler(
+          deps({
+            reserveSpot: vi.fn(async () => {
+              throw reserveError('EventIsExternalError', {
+                externalUrl: 'https://example.com/events/toronto-ai',
+              });
+            }),
+          }),
+        )(post(VALID)),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        data: { error: 'event-external' },
+        // The caller has already seen this event's page, so there is nothing
+        // left to conceal — and the URL is the only actionable part.
+        message: expect.stringContaining(
+          'https://example.com/events/toronto-ai',
+        ),
+      });
+    });
+
     it('does not gate on price itself — the transaction decides', async () => {
       // The route reads the event for the email it will send, not to authorize
       // the write. Gating here was a check-then-act race: a free event can

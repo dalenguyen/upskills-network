@@ -52,6 +52,34 @@ export interface WorkshopEvent {
    */
   timezone: string;
   location?: string;
+  /**
+   * Where the event actually happens, when Upskills is only *listing* it.
+   *
+   * Set on curated community events seeded from Meetup, Eventbrite and the
+   * like: the organizer is not on this platform, and registration belongs on
+   * their page. Its presence is the whole definition of an external event —
+   * there is deliberately no separate `isExternal` flag for the two to
+   * disagree about, the same argument that keeps `orgId` in the document path.
+   *
+   * When it is set, `reserveSpot` refuses to take a registration at all. The
+   * hidden form on the detail page is a courtesy; that refusal is the rule.
+   */
+  externalUrl?: string;
+  /**
+   * Human name of the source, e.g. `'Meetup'`. Rendered as "via Meetup" next
+   * to the event, so a visitor knows whose listing they are about to open
+   * before they click. Only meaningful alongside {@link externalUrl}.
+   */
+  sourceName?: string;
+  /**
+   * Hero image, as an absolute `https:` URL.
+   *
+   * Applies to every event, not only seeded ones. Stored as a URL rather than
+   * an upload because there is no Cloud Storage bucket in this project yet;
+   * seeded events point at the source's own CDN, and an organizer pastes a
+   * link. Never rendered without a fallback — a remote image can rot.
+   */
+  imageUrl?: string;
   /** Price in **minor units** (cents). `0` means free. */
   price: number;
   currency: Currency;

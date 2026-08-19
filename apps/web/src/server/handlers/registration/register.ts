@@ -136,6 +136,23 @@ function asRegistrationError(error: unknown): unknown {
       : eventNotFound();
   }
 
+  if (error.name === 'EventIsExternalError') {
+    // A listed-only event: Upskills shows it, someone else runs it. The
+    // detail page hides the form for these, so reaching here means a stale
+    // tab, a scripted post, or a listing that acquired its `externalUrl`
+    // between the page loading and the form being submitted. Naming the
+    // destination is what makes the refusal actionable — the caller already
+    // saw the event, so there is nothing left to conceal.
+    const externalUrl = (error as { externalUrl?: unknown }).externalUrl;
+
+    return conflict(
+      'event-external',
+      typeof externalUrl === 'string'
+        ? `Registration for this event is handled at ${externalUrl}.`
+        : 'Registration for this event is handled on the organizer’s own site.',
+    );
+  }
+
   if (error.name === 'PaymentRequiredError') {
     // The paid path — hold the seat, then hand back a Stripe Checkout URL — is
     // issue #47 and is deliberately outside the MVP. Refusing loudly is the

@@ -6,6 +6,7 @@ export {
   EmailSchema,
   EventStatusSchema,
   GuestStatusSchema,
+  HttpsUrlSchema,
   IdSchema,
   IsoDateTimeSchema,
   MaxGuestsSchema,
@@ -25,6 +26,13 @@ export {
 
 export { CreateEventSchema, UpdateEventSchema } from './lib/event.schema';
 export type { CreateEventInput, UpdateEventInput } from './lib/event.schema';
+
+export {
+  CommunityEventSeedFileSchema,
+  CommunityEventSeedRowSchema,
+  CommunityEventSeedSchema,
+} from './lib/community-event.schema';
+export type { CommunityEventSeed } from './lib/community-event.schema';
 
 export {
   CancelGuestSchema,

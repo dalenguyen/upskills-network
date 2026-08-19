@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   CurrencySchema,
   EventStatusSchema,
+  HttpsUrlSchema,
   IsoDateTimeSchema,
   MaxGuestsSchema,
   PriceSchema,
@@ -25,6 +26,17 @@ const eventFields = {
   endsAt: IsoDateTimeSchema.optional(),
   timezone: TimezoneSchema,
   location: z.string().trim().max(300).optional(),
+  /**
+   * Hero image URL. Present here, and so editable from the dashboard, because
+   * an image is something every organizer wants for their own events.
+   *
+   * `externalUrl` and `sourceName` are deliberately **not** in this object.
+   * Marking an event as "listed elsewhere, register over there" is a curation
+   * decision, and the seed script is the only path to it — a dashboard form
+   * that could set `externalUrl` would let an organizer publish an event on
+   * Upskills that silently refuses every registration.
+   */
+  imageUrl: HttpsUrlSchema.optional(),
   price: PriceSchema,
   currency: CurrencySchema,
   maxGuests: MaxGuestsSchema,
@@ -59,7 +71,20 @@ export const CreateEventSchema = z
  * an event never moves between organizers.
  */
 export const UpdateEventSchema = z
-  .object({ ...eventFields, status: EventStatusSchema })
+  .object({
+    ...eventFields,
+    /**
+     * On update only, `''` is a legal value and means "remove the image".
+     *
+     * Optional-and-absent already means "leave it alone", so without a third
+     * spelling there is no way to express removal: an organizer who pasted the
+     * wrong URL could overwrite it but never get back to having none. The data
+     * layer deletes the key rather than storing the empty string — see
+     * `applyOptionalText` in `events-write.ts`.
+     */
+    imageUrl: z.union([z.literal(''), eventFields.imageUrl.unwrap()]),
+    status: EventStatusSchema,
+  })
   .partial()
   .superRefine((value, ctx) => {
     if (Object.keys(value).length === 0) {

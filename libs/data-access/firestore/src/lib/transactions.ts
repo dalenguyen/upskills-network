@@ -391,6 +391,37 @@ export class EventNotRegisterableError extends Error {
  * Only `confirm` mode raises this. `hold` is the paid path: it reserves the
  * seat *pending* payment, which is precisely what a priced event needs.
  */
+/**
+ * Raised when someone tries to register for an event Upskills only *lists*.
+ *
+ * A curated community event carries an `externalUrl`: it belongs to an
+ * organizer who is not on this platform, and the only real registration is the
+ * one on their page. Taking a seat here would mint a guest document, a cancel
+ * token, and a confirmation email for a place that does not exist — the guest
+ * would show up to an event nobody told the actual organizer they were coming
+ * to.
+ *
+ * A sibling class rather than a fourth `EventNotRegisterableError` status:
+ * that error's `status` is the event's lifecycle state, and "external" is not
+ * one. Callers that map errors to responses need the URL to redirect to, which
+ * a status string has nowhere to carry.
+ *
+ * Checked inside the reservation transaction, against the event that
+ * transaction read, for the same reason {@link PaymentRequiredError} is.
+ *
+ * A route maps this to **409**.
+ */
+export class EventIsExternalError extends Error {
+  constructor(
+    readonly eventId: string,
+    /** Where the caller should be sent instead. */
+    readonly externalUrl: string,
+  ) {
+    super(`Event "${eventId}" is registered at ${externalUrl}, not here.`);
+    this.name = 'EventIsExternalError';
+  }
+}
+
 export class PaymentRequiredError extends Error {
   constructor(
     readonly eventId: string,
