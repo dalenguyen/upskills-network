@@ -170,4 +170,22 @@ describe('GET /api/v1/dashboard/orgs/:orgId', () => {
     });
     expect(JSON.stringify(result)).not.toContain('tok-1');
   });
+
+  it('answers no invitations to a member who cannot manage them', async () => {
+    // A volunteer may read the roster — colleagues they already work with —
+    // but not the addresses of people who are not on the staff at all.
+    const d = deps({
+      requireOrgRole: vi.fn(async (): Promise<OrgContext> => ({
+        ...ORG,
+        orgRole: 'volunteer',
+      })),
+      listOrgInvites: vi.fn(async () => [fakeInvite()]),
+    });
+
+    const result = await createDashboardOrgsDetailHandler(d)(request());
+
+    expect(d.listOrgInvites).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ invites: [] });
+    expect(JSON.stringify(result)).not.toContain('grace@example.com');
+  });
 });

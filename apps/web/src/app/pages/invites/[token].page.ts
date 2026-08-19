@@ -93,7 +93,7 @@ type PageState =
 
           @case ('accepted') {
             @if (accepted(); as result) {
-              <section class="py-12 text-center">
+              <section class="py-12 text-center" role="status">
                 <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
                   You've joined {{ result.orgName }}
                 </h1>

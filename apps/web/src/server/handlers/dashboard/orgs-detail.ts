@@ -19,6 +19,14 @@ import { toDashboardOrg, type DashboardOrg } from './org-view';
  * with the wrong role are all the same 403 from the guard, so probing org ids
  * cannot learn which ones exist. Any member role may read the org; the roster
  * is only ever answered to someone already in it.
+ *
+ * ## Why invitations are admin-only, while the roster is not
+ *
+ * A member's email is a colleague's address — everyone on the staff already
+ * works with them. An *invitation* names somebody who is not on the staff and
+ * may never accept, and only an org admin can create, resend, revoke, or
+ * confirm one. Answering that list to a volunteer would hand them addresses of
+ * non-members they cannot act on, so this narrows it to the role that can.
  */
 
 export interface DashboardOrgsDetailResponse {
@@ -65,9 +73,11 @@ export function createDashboardOrgsDetailHandler(
         'volunteer',
       );
 
+      const managesMembers = context.orgRole === 'admin';
+
       const [emails, invites] = await Promise.all([
         deps.getUserEmails(Object.keys(context.org.members)),
-        deps.listOrgInvites(orgId),
+        managesMembers ? deps.listOrgInvites(orgId) : Promise.resolve([]),
       ]);
 
       return {
