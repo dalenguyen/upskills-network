@@ -217,18 +217,20 @@ async function notify(
     return true;
   }
 
-  // Before the guest's own send rather than after, so a Resend failure on the
-  // guest's copy cannot skip the notice to the people who would have to chase
-  // it. `sendCancellationEmail` does not throw, but the ordering costs nothing
-  // and stops that from being load-bearing.
-  // Guarded here as well as inside the notifier, for the reason `register.ts`
-  // gives: an accepted cancellation answering 200 is this handler's guarantee,
-  // not one delegated to whatever the route injected.
+  // The guest's own copy first, matching `register.ts`: the leaver is the one
+  // waiting on it and the one who can act on it. `sendCancellationEmail` does
+  // not throw, so its result decides `emailSent` regardless of what follows.
+  const sent = (await deps.sendCancellationEmail(result.guest, workshop)).sent;
+
+  // Tell the organizer after the leaver has been emailed. Guarded here as well
+  // as inside the notifier, for the reason `register.ts` gives: an accepted
+  // cancellation answering 200 is this handler's guarantee, not one delegated
+  // to whatever the route injected.
   await deps
     .notifyOrganizers(workshop.orgId, workshop, 'cancellation', {
       guest: result.guest,
     })
     .catch(() => undefined);
 
-  return (await deps.sendCancellationEmail(result.guest, workshop)).sent;
+  return sent;
 }

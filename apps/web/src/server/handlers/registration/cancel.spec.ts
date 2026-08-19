@@ -224,6 +224,26 @@ describe('POST /api/v1/registration/:orgId/:eventId/cancel', () => {
       );
     });
 
+    it('emails the guest before notifying the organizer', async () => {
+      // The leaver's copy is the one the caller is waiting on; the organizer's
+      // notice follows it, matching `register.ts`.
+      const order: string[] = [];
+      const sendCancellationEmail = vi.fn(async () => {
+        order.push('guest');
+        return { sent: true as const, id: 'em_1' };
+      });
+      const notifyOrganizers = vi.fn(async () => {
+        order.push('organizer');
+        return undefined;
+      });
+
+      await createCancelHandler(
+        deps({ sendCancellationEmail, notifyOrganizers }),
+      )(post(VALID));
+
+      expect(order).toEqual(['guest', 'organizer']);
+    });
+
     it('still answers 2xx when the notice throws', async () => {
       // The cancellation is already committed at this point.
       const notifyOrganizers = vi.fn(async () => {
