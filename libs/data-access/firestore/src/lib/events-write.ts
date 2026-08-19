@@ -147,7 +147,10 @@ export async function createEvent(
       ...(input.externalUrl !== undefined
         ? { externalUrl: input.externalUrl.trim() }
         : {}),
-      ...(input.sourceName !== undefined
+      // Only alongside the URL it describes — see the matching rule in
+      // `updateEvent`. A source name with nothing to name is not a partial
+      // record, it is a wrong one.
+      ...(input.externalUrl !== undefined && input.sourceName !== undefined
         ? { sourceName: input.sourceName.trim() }
         : {}),
       ...(input.imageUrl !== undefined
@@ -241,6 +244,17 @@ export async function updateEvent(
     applyOptionalText(next, patch, 'externalUrl');
     applyOptionalText(next, patch, 'sourceName');
     applyOptionalText(next, patch, 'imageUrl');
+
+    // `sourceName` answers "whose listing is `externalUrl`?", so it cannot
+    // outlive the field it describes. Clearing the URL without clearing the
+    // name would leave an event that takes registrations here while still
+    // publishing "Meetup" as its source — not rendered today, because the card
+    // gates the badge on `externalUrl`, but the projection ships the field on
+    // its own and the next reader of it would have no reason to distrust it.
+    // Enforced here rather than at the caller: this is the only write path.
+    if (next.externalUrl === undefined) {
+      delete next.sourceName;
+    }
 
     if (patch.price !== undefined) {
       next.price = patch.price;

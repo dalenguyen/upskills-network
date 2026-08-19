@@ -3,7 +3,11 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { RouteMeta } from '@analogjs/router';
 import { Router } from '@angular/router';
-import { nextSlugCandidate, slugify } from '@upskills/validation';
+import {
+  HttpsUrlSchema,
+  nextSlugCandidate,
+  slugify,
+} from '@upskills/validation';
 import { firstValueFrom } from 'rxjs';
 
 import { authGuard } from '../../../../auth/auth-guard';
@@ -89,6 +93,36 @@ export function toIsoWithOffset(localValue: string, timeZone: string): string {
 /** `49.50` → `4950`; `19.99` → `1999` rather than `1998.9999…`. */
 export function dollarsToCents(dollars: number): number {
   return Math.round(dollars * 100);
+}
+
+/**
+ * Why an optional image URL is checked here as well as on the server.
+ *
+ * Both buttons on these forms are `type="button"`, so the browser's native
+ * constraint validation never runs — and `type="url"` would be too permissive
+ * anyway, since it happily accepts `http://`. Without this, pasting a plain
+ * `http://` link produces a round trip and a generic 400, which reads as "the
+ * save is broken" rather than "fix the protocol".
+ *
+ * It validates with {@link HttpsUrlSchema} — the same schema
+ * `UpdateEventSchema` uses server-side — rather than a regex of its own, so
+ * there is exactly one definition of what a legal URL is and the two answers
+ * cannot drift. The server check remains authoritative; this one only makes the
+ * failure legible sooner.
+ *
+ * @returns the message to show, or `null` when the value is fine. Empty is
+ *   fine: the field is optional, and on the edit form empty means "remove it".
+ */
+export function imageUrlError(value: string): string | null {
+  const trimmed = value.trim();
+
+  if (trimmed === '') {
+    return null;
+  }
+
+  return HttpsUrlSchema.safeParse(trimmed).success
+    ? null
+    : 'Enter an image URL starting with https://, or leave the field empty.';
 }
 
 @Component({
@@ -466,6 +500,12 @@ export default class DashboardEventsNewPageComponent implements OnInit {
 
     const state = this.state();
     if (state.status !== 'ready') {
+      return;
+    }
+
+    const imageProblem = imageUrlError(this.form.imageUrl);
+    if (imageProblem !== null) {
+      this.submitError.set(imageProblem);
       return;
     }
 

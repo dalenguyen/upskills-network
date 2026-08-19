@@ -326,6 +326,54 @@ describe('DashboardEventsEditPageComponent', () => {
     http.verify();
   });
 
+  it('sends a changed https image URL, and prefills the one already stored', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(
+      fixture,
+      http,
+      meResponse,
+      workshop({ imageUrl: 'https://example.com/old.jpg' }),
+    );
+
+    const input = (fixture.nativeElement as HTMLElement).querySelector(
+      '#imageUrl',
+    ) as HTMLInputElement;
+    expect(input.value).toBe('https://example.com/old.jpg');
+
+    fillRequiredFields(fixture);
+    setValue(fixture, '#imageUrl', 'https://example.com/new.jpg');
+
+    buttonByText(fixture, 'Save as draft').click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(
+      dashboardEventUpdateEndpoint('org_1', 'evt_1'),
+    );
+    expect(request.request.body).toMatchObject({
+      imageUrl: 'https://example.com/new.jpg',
+    });
+
+    request.flush({ event: workshop({ slug: 'rust-for-the-web' }) });
+    await fixture.whenStable();
+    http.verify();
+  });
+
+  it('refuses a non-https image URL before issuing the request', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http);
+    fillRequiredFields(fixture);
+    setValue(fixture, '#imageUrl', 'http://example.com/poster.jpg');
+
+    buttonByText(fixture, 'Save as draft').click();
+    fixture.detectChanges();
+
+    // No round trip: both buttons are type="button", so nothing else would
+    // catch this before the server answered a generic 400.
+    http.expectNone(dashboardEventUpdateEndpoint('org_1', 'evt_1'));
+    expect(fixture.nativeElement.textContent).toContain('https://');
+    http.verify();
+  });
+
   it('puts a draft with dollars converted to cents, clearing an emptied location and image', async () => {
     const { fixture, http, navigateByUrl } = await setup();
     await loadPage(fixture, http);

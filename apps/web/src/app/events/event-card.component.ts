@@ -34,9 +34,10 @@ import { EventImageComponent } from './event-image.component';
     <ui-card>
       <a [href]="eventPath(event())" class="flex h-full flex-col p-6">
         @if (event().imageUrl) {
+          <!-- No alt: the title is a heading three lines below, so the image
+               adds nothing a screen reader has not already been given. -->
           <app-event-image
             [src]="event().imageUrl"
-            [alt]="event().title"
             imageClass="mb-5 -mx-6 -mt-6 aspect-video w-[calc(100%+3rem)] max-w-none object-cover"
           />
         }

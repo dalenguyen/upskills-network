@@ -93,6 +93,17 @@ describe('createEvent', () => {
     });
   });
 
+  it('refuses to store a sourceName with no externalUrl to name', async () => {
+    const created = await createEvent('org-1', {
+      ...draft,
+      slug: 'orphan-source',
+      sourceName: 'Meetup',
+    });
+
+    const stored = await getEvent('org-1', created.eventId);
+    expect(stored && 'sourceName' in stored).toBe(false);
+  });
+
   it('omits the community-listing fields entirely when they are not given', async () => {
     // Absent, not empty. `externalUrl`'s mere presence is what refuses a
     // registration, so a stored `''` would be a different question than the one
@@ -209,6 +220,23 @@ describe('updateEvent', () => {
       expect(cleared && field in cleared).toBe(false);
     },
   );
+
+  it('drops sourceName when externalUrl is cleared, so it cannot outlive it', async () => {
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      externalUrl: 'https://example.com/events/toronto-ai',
+      sourceName: 'Meetup',
+    });
+
+    // Clearing only the URL. Keeping the name would leave an event that takes
+    // registrations here while still publishing "Meetup" as its source.
+    await updateEvent('org-1', 'evt-1', { externalUrl: '' });
+
+    const stored = await getEvent('org-1', 'evt-1');
+    expect(stored && 'externalUrl' in stored).toBe(false);
+    expect(stored && 'sourceName' in stored).toBe(false);
+  });
 
   it('leaves the listing fields alone when the patch does not mention them', async () => {
     // This is what makes a seeded event survive an edit through the dashboard,

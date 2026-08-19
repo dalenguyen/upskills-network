@@ -25,9 +25,9 @@ import { EventImageComponent } from './event-image.component';
   template: `
     <article>
       @if (event().imageUrl) {
+        <!-- No alt: the <h1> below already names the event. -->
         <app-event-image
           [src]="event().imageUrl"
-          [alt]="event().title"
           imageClass="mb-8 aspect-[2/1] w-full rounded-2xl object-cover"
         />
       }

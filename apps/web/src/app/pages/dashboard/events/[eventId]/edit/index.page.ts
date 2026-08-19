@@ -19,7 +19,11 @@ import {
 import { apiErrorStatus } from '../../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
-import { dollarsToCents, toIsoWithOffset } from '../../new/index.page';
+import {
+  dollarsToCents,
+  imageUrlError,
+  toIsoWithOffset,
+} from '../../new/index.page';
 
 /**
  * `/dashboard/events/[eventId]/edit` — edit one event for the caller's first org.
@@ -539,6 +543,12 @@ export default class DashboardEventsEditPageComponent implements OnInit {
 
     const state = this.state();
     if (state.status !== 'ready') {
+      return;
+    }
+
+    const imageProblem = imageUrlError(this.form.imageUrl);
+    if (imageProblem !== null) {
+      this.submitError.set(imageProblem);
       return;
     }
 
