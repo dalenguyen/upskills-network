@@ -8,7 +8,7 @@ import {
   inviteDetailEndpoint,
   type InviteAcceptResponse,
   type InviteDetailResponse,
-} from '../../dashboard/dashboard-api';
+} from '../../invites/invites-api';
 import { apiErrorCode, apiErrorStatus } from '../../events/event-api';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';

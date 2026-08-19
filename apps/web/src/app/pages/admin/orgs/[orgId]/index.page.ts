@@ -535,6 +535,8 @@ export default class AdminOrgDetailPageComponent implements OnInit {
 
     this.submitting.set(true);
     this.submitError.set(null);
+    // Or a stale green "invitation sent" would sit beside a fresh red error.
+    this.submitNotice.set(null);
 
     try {
       const response = await firstValueFrom(
@@ -645,6 +647,8 @@ export default class AdminOrgDetailPageComponent implements OnInit {
 
     this.submitting.set(true);
     this.submitError.set(null);
+    // Or a stale green "invitation sent" would sit beside a fresh red error.
+    this.submitNotice.set(null);
 
     try {
       const response = await firstValueFrom(
@@ -681,6 +685,8 @@ export default class AdminOrgDetailPageComponent implements OnInit {
 
     this.submitting.set(true);
     this.submitError.set(null);
+    // Or a stale green "invitation sent" would sit beside a fresh red error.
+    this.submitNotice.set(null);
 
     try {
       const response = await firstValueFrom(
@@ -733,7 +739,7 @@ export default class AdminOrgDetailPageComponent implements OnInit {
     }
 
     if (code === 'user-not-found') {
-      return 'No account with that email address. They need to sign in once before they can be added.';
+      return 'That account no longer exists. Refresh to see the current roster.';
     }
 
     const status = apiErrorStatus(error);

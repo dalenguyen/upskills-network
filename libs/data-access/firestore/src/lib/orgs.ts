@@ -261,13 +261,16 @@ function orgFromSnapshot(
 /**
  * Throws unless `uid` can stop being an admin without stranding the org.
  *
+ * Exported for `invites.ts`: accepting an invitation is a membership write like
+ * any other, and it must not be the one path that can leave an org adminless.
+ *
  * Removing or demoting an admin is allowed exactly when some *other* member is
  * already an admin. The check runs against the document read inside the
  * transaction, so two simultaneous removals cannot both see "one other admin"
  * and both succeed — the second writer's transaction re-reads the result of the
  * first and finds no other admin left.
  */
-function ensureNotLastAdmin(org: Organizer, uid: string): void {
+export function ensureNotLastAdmin(org: Organizer, uid: string): void {
   const hasAnotherAdmin = Object.entries(org.members).some(
     ([memberUid, membership]) =>
       memberUid !== uid && membership.role === 'admin',

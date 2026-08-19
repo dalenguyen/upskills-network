@@ -19,10 +19,6 @@ import type {
   DashboardOrg,
   DashboardOrgMembership,
 } from '../../server/handlers/dashboard/org-view';
-import type {
-  InviteAcceptResponse,
-  InviteDetailResponse,
-} from '../../server/handlers/invites/invite-accept';
 import type { OrgInviteView } from '../../server/handlers/invites/invite-view';
 import type { OrgInvitesResponse } from '../../server/handlers/invites/org-invites';
 
@@ -57,7 +53,6 @@ export type { DashboardOrgMembersSetResponse };
 export type { DashboardOrgMembersRemoveResponse };
 export type { DashboardOrg, DashboardOrgMembership };
 export type { OrgInviteView };
-export type { InviteAcceptResponse, InviteDetailResponse };
 
 /** What every dashboard invite write answers: the roster and its invitations. */
 export type DashboardOrgInvitesResponse = OrgInvitesResponse<DashboardOrg>;
@@ -134,19 +129,4 @@ export function dashboardOrgInvitesEndpoint(orgId: string): string {
 /** `POST` — accept an invitation on the invitee's behalf. */
 export function dashboardOrgInviteConfirmEndpoint(orgId: string): string {
   return `/api/v1/dashboard/orgs/${encodeURIComponent(orgId)}/invites/confirm`;
-}
-
-/**
- * `GET` — what one invitation offers, by its emailed token.
- *
- * The token is a credential, so it is path-encoded like every other id here:
- * it must not be able to smuggle a `/` into the request.
- */
-export function inviteDetailEndpoint(token: string): string {
-  return `/api/v1/invites/${encodeURIComponent(token)}`;
-}
-
-/** `POST` — accept the invitation this token names. Requires a session. */
-export function inviteAcceptEndpoint(token: string): string {
-  return `/api/v1/invites/${encodeURIComponent(token)}/accept`;
 }

@@ -15,7 +15,7 @@ import {
   inviteAcceptEndpoint,
   inviteDetailEndpoint,
   type InviteDetailResponse,
-} from '../../dashboard/dashboard-api';
+} from '../../invites/invites-api';
 import InviteAcceptPageComponent from './[token].page';
 
 /**

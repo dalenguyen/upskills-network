@@ -937,7 +937,7 @@ export default class DashboardOverviewPageComponent implements OnInit {
     }
 
     if (code === 'user-not-found') {
-      return 'No account with that email address. They need to sign in once before they can be added.';
+      return 'That account no longer exists. Refresh to see the current roster.';
     }
 
     if (apiErrorStatus(error) === 400) {

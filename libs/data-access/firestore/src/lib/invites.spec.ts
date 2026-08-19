@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { seedOrg } from '../testing/seed';
+import { T0, seedOrg } from '../testing/seed';
 import { orgInviteRef } from './collections';
 import {
   INVITE_TTL_DAYS,
@@ -16,7 +16,7 @@ import {
   orgInviteStatus,
   revokeOrgInvite,
 } from './invites';
-import { OrgNotFoundError } from './orgs';
+import { LastOrgAdminError, OrgNotFoundError } from './orgs';
 import { getOrg } from './reads';
 
 /**
@@ -374,9 +374,16 @@ describe('acceptOrgInvite', () => {
     );
   });
 
-  it('keeps the original addedAt when a former member rejoins', async () => {
-    const org = await seedOrg({ orgId: 'org-1' });
-    const firstJoined = org.members['uid-1'].addedAt;
+  it('keeps the original addedAt when an existing member accepts', async () => {
+    const org = await seedOrg({
+      orgId: 'org-1',
+      members: {
+        'uid-1': { role: 'admin', addedAt: T0 },
+        'uid-2': { role: 'volunteer', addedAt: T0 },
+      },
+      memberUids: ['uid-1', 'uid-2'],
+    });
+    const firstJoined = org.members['uid-2'].addedAt;
 
     const invite = await createOrgInvite({
       orgId: 'org-1',
@@ -386,13 +393,70 @@ describe('acceptOrgInvite', () => {
     });
 
     const { org: updated } = await acceptOrgInvite(invite.inviteId, {
-      uid: 'uid-1',
+      uid: 'uid-2',
     });
 
-    expect(updated.members['uid-1'].addedAt.toMillis()).toBe(
+    expect(updated.members['uid-2'].addedAt.toMillis()).toBe(
       firstJoined.toMillis(),
     );
-    expect(updated.members['uid-1'].role).toBe('manager');
+    expect(updated.members['uid-2'].role).toBe('manager');
+  });
+
+  it('refuses an invitation that would demote the last admin', async () => {
+    // The org's only admin accepting a `volunteer` invitation would strand the
+    // org — the same rule `setOrgMember` and `removeOrgMember` hold.
+    await seedOrg({ orgId: 'org-1' });
+    const invite = await createOrgInvite({
+      orgId: 'org-1',
+      email: 'ada@example.com',
+      role: 'volunteer',
+      invitedBy: 'uid-1',
+    });
+
+    await expect(
+      acceptOrgInvite(invite.inviteId, { uid: 'uid-1' }),
+    ).rejects.toBeInstanceOf(LastOrgAdminError);
+
+    // Neither the membership nor the invitation moved.
+    expect((await getOrg('org-1'))?.members['uid-1'].role).toBe('admin');
+    const stored = await getOrgInvite(invite.inviteId);
+    expect(stored && orgInviteStatus(stored)).toBe('pending');
+  });
+
+  it('lets the last admin accept an invitation that keeps them an admin', async () => {
+    await seedOrg({ orgId: 'org-1' });
+    const invite = await createOrgInvite({
+      orgId: 'org-1',
+      email: 'ada@example.com',
+      role: 'admin',
+      invitedBy: 'uid-1',
+    });
+
+    await expect(
+      acceptOrgInvite(invite.inviteId, { uid: 'uid-1' }),
+    ).resolves.toMatchObject({ invite: { acceptedBy: 'uid-1' } });
+  });
+
+  it('lets an admin be demoted by an invitation when another admin remains', async () => {
+    await seedOrg({
+      orgId: 'org-1',
+      members: {
+        'uid-1': { role: 'admin', addedAt: T0 },
+        'uid-2': { role: 'admin', addedAt: T0 },
+      },
+      memberUids: ['uid-1', 'uid-2'],
+    });
+
+    const invite = await createOrgInvite({
+      orgId: 'org-1',
+      email: 'ada@example.com',
+      role: 'manager',
+      invitedBy: 'uid-1',
+    });
+
+    const { org } = await acceptOrgInvite(invite.inviteId, { uid: 'uid-2' });
+
+    expect(org.members['uid-2'].role).toBe('manager');
   });
 
   it('rejects a token that names no invitation', async () => {

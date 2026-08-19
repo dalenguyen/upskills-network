@@ -8,7 +8,7 @@ import { normalizeEmail } from '@upskills/validation';
 import { randomBytes } from 'node:crypto';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { orgInviteRef, orgInvitesCol, orgRef } from './collections';
-import { OrgNotFoundError } from './orgs';
+import { OrgNotFoundError, ensureNotLastAdmin } from './orgs';
 import { runTransaction } from './transactions';
 
 /**
@@ -288,12 +288,16 @@ export interface AcceptOrgInviteOptions {
  *
  * Idempotent for the invitee who already accepted: a second click re-reads
  * `acceptedAt` and throws {@link InviteNotPendingError} rather than writing the
- * membership twice. Accepting never demotes — a person who is already a member
- * with a different role keeps the role the invitation offers, which is the same
- * "last write wins on role" rule `setOrgMember` follows.
+ * membership twice.
+ *
+ * An existing member takes the invited role, the same "last write wins on role"
+ * rule `setOrgMember` follows — and under the same guard: an invitation cannot
+ * demote the last admin, so accepting a `volunteer` invite as an org's only
+ * admin is refused rather than quietly stranding the org. Nothing else about
+ * membership is special here; that is the point.
  *
  * @throws InviteNotFoundError, InviteNotPendingError, InviteEmailMismatchError,
- *   OrgNotFoundError.
+ *   OrgNotFoundError, LastOrgAdminError.
  */
 export async function acceptOrgInvite(
   inviteId: string,
@@ -332,6 +336,11 @@ export async function acceptOrgInvite(
     }
 
     const existing = org.members[options.uid];
+
+    if (existing?.role === 'admin' && invite.role !== 'admin') {
+      ensureNotLastAdmin(org, options.uid);
+    }
+
     const members: Organizer['members'] = {
       ...org.members,
       [options.uid]: {

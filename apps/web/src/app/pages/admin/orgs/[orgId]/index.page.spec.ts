@@ -562,4 +562,40 @@ describe('AdminOrgDetailPageComponent', () => {
     );
     http.verify();
   });
+
+  it('clears the success notice when a later write fails', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [pendingInvite()]);
+
+    buttonByLabel(fixture, 'Revoke invitation for hopper@example.com').click();
+    fixture.detectChanges();
+    http
+      .expectOne(adminOrgInvitesEndpoint('org_1'))
+      .flush({ org: adminOrg(), invites: [] });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Invitation revoked.');
+
+    // A failure right after must not render beside the stale green notice.
+    setValue(fixture, '#role-uid-member', 'volunteer');
+    buttonByLabel(fixture, 'Change role for grace@example.com').click();
+    fixture.detectChanges();
+
+    http
+      .expectOne(adminOrgMembersEndpoint('org_1'))
+      .flush(
+        { data: { error: 'last-org-admin' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('must keep at least one admin');
+    expect(root.textContent).not.toContain('Invitation revoked.');
+    http.verify();
+  });
 });
