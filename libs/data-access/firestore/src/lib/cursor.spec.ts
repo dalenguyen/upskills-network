@@ -35,6 +35,20 @@ describe('event cursor', () => {
     expect(decodeEventCursor(cursor).orgId).toBe('org-9');
   });
 
+  // The cursor arrives base64-encoded from `?cursor=`, so both ids are
+  // attacker-controlled and get spliced into a document path. A `/` would change
+  // the path's segment count and make Firestore throw a raw `invalid-argument`,
+  // which the route maps to 500 rather than the 400 it should be.
+  it.each([
+    { startsAtMs: 1, eventId: 'a/b', orgId: 'org-1' },
+    { startsAtMs: 1, eventId: 'evt-1', orgId: 'a/b' },
+    { startsAtMs: 1, eventId: 'evt-1', orgId: '../../users/uid-1' },
+  ])('rejects %j, which would smuggle a path segment', (payload) => {
+    const bad = Buffer.from(JSON.stringify(payload)).toString('base64url');
+
+    expect(() => decodeEventCursor(bad)).toThrow('Invalid cursor');
+  });
+
   it('rejects a cursor with no organizer, which cannot address a document', () => {
     const bad = Buffer.from(
       JSON.stringify({ startsAtMs: 1, eventId: 'evt-1' }),

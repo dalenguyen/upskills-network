@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   apiErrorStatus,
   eventDetailEndpoint,
+  eventPath,
   type EventDetailResponse,
   type PublicEvent,
 } from '../../events/event-api';
@@ -173,7 +174,7 @@ export default class EventPageComponent implements OnInit {
    */
   private applyEventMeta(event: PublicEvent): void {
     const title = `${event.title} · Upskills`;
-    const url = `https://upskillsnetwork.com/events/${event.slug}`;
+    const url = `https://upskillsnetwork.com${eventPath(event)}`;
 
     this.title.setTitle(title);
     this.meta.updateTag({ name: 'description', content: event.description });

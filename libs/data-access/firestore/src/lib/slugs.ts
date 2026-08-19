@@ -289,7 +289,7 @@ export async function releaseSlug(
   slug: string,
   ownerId: string,
 ): Promise<boolean> {
-  const normalized = normalizeSlug(target, slug);
+  const normalized = normalizeStoredSlug(slug);
 
   return runTransaction((transaction) =>
     releaseSlugInTransaction(transaction, target, normalized, ownerId),
@@ -312,7 +312,8 @@ export async function releaseSlugInTransaction(
   slug: string,
   ownerId: string,
 ): Promise<boolean> {
-  const normalized = normalizeSlug(target, slug);
+  // Shape only, never policy — see {@link normalizeStoredSlug}.
+  const normalized = normalizeStoredSlug(slug);
   const ref = reservationRef(target, normalized);
   const holder = await readOwner(transaction, ref);
 
@@ -414,7 +415,33 @@ export function asSlugTaken(
  * to refuse an organizer an event called `dashboard`.
  */
 function normalizeSlug(target: SlugTarget, slug: string): string {
-  const schema = target.kind === 'org' ? OrgSlugSchema : SlugSchema;
+  return parseSlug(target.kind === 'org' ? OrgSlugSchema : SlugSchema, slug);
+}
+
+/**
+ * Normalize a slug that is already **stored**, for giving it back.
+ *
+ * Deliberately the shape rule only, never {@link OrgSlugSchema}'s reserved-word
+ * policy. Those two rules answer different questions: "may this name be taken?"
+ * is a policy that can tighten over time, while "is this a legal document id?"
+ * is a fact about the string.
+ *
+ * Applying the policy here would be a trap. Add a word to `RESERVED_SLUGS` that
+ * some organizer already holds — a word that was free when they took it — and
+ * `deleteOrg` starts throwing `InvalidSlugError` on the release, leaving an
+ * organizer that can never be deleted because of a rule introduced after it was
+ * created. A release only ever removes a reservation the owner already holds, so
+ * there is nothing for the policy to protect.
+ */
+function normalizeStoredSlug(slug: string): string {
+  return parseSlug(SlugSchema, slug);
+}
+
+/** Run one slug schema, reporting a failure as {@link InvalidSlugError}. */
+function parseSlug(
+  schema: typeof SlugSchema | typeof OrgSlugSchema,
+  slug: string,
+): string {
   const parsed = schema.safeParse(slug);
 
   if (!parsed.success) {

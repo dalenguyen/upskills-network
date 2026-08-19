@@ -309,6 +309,9 @@ export default class AdminOrgsPageComponent implements OnInit {
 
     this.form.name = '';
     this.form.slug = '';
+    // Reset with the form: a slug edited by hand on the *previous* organizer
+    // must not stop the next name from deriving one.
+    this.slugTouched = false;
     await this.load();
   }
 

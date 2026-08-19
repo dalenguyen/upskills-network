@@ -259,3 +259,26 @@ describe('releaseSlug', () => {
     });
   });
 });
+
+describe('releaseSlug and the reserved-word policy', () => {
+  // `RESERVED_SLUGS` can grow. When it does, organizers already holding a
+  // now-reserved slug must still be deletable — applying the policy on the way
+  // out would strand them behind a rule introduced after they were created.
+  it('gives back a slug the reservation policy would now refuse', async () => {
+    // Written directly: `reserveSlug` is exactly what would refuse this today.
+    await orgSlugRef('dashboard').set({ orgId: 'org-legacy' });
+
+    await expect(
+      releaseSlug(ORG_SLUGS, 'dashboard', 'org-legacy'),
+    ).resolves.toBe(true);
+    await expect(orgSlugRef('dashboard').get()).resolves.toMatchObject({
+      exists: false,
+    });
+  });
+
+  it('still refuses a slug that is not a legal document id', async () => {
+    await expect(releaseSlug(ORG_SLUGS, 'Not A Slug', 'org-1')).rejects.toThrow(
+      InvalidSlugError,
+    );
+  });
+});

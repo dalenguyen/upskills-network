@@ -1,6 +1,12 @@
 import type { OrgRole, Organizer } from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
-import { eventsCol, orgRef, orgsCol, userRef } from './collections';
+import {
+  eventsCol,
+  orgInvitesCol,
+  orgRef,
+  orgsCol,
+  userRef,
+} from './collections';
 import {
   ORG_SLUGS,
   asSlugTaken,
@@ -196,6 +202,10 @@ export async function createOrg({
  * forces the retry that then refuses. Checking outside the transaction would
  * leave a window in which an event lands under an organizer being deleted.
  *
+ * Pending invitations are revoked in the same commit rather than blocking the
+ * delete — they live in the top-level `orgInvites` collection, so nothing else
+ * would ever clean them up.
+ *
  * @throws OrgNotFoundError when `orgId` names no organizer.
  * @throws OrgNotEmptyError when the organizer still owns any event, of any
  *   status — cancelled events count, because their guest documents are still
@@ -217,6 +227,19 @@ export async function deleteOrg(orgId: string): Promise<void> {
       throw new OrgNotEmptyError(orgId);
     }
 
+    // Invitations are top-level (`orgInvites/{inviteId}` with an `orgId`
+    // field), so unlike the events subcollection they are not even nominally
+    // beneath the organizer — deleting it would strand every one of them.
+    //
+    // They are revoked rather than counted against the emptiness check: an
+    // outstanding invitation is not a reason to refuse the delete, it is
+    // something the delete should clean up. `acceptOrgInvite` would already
+    // reject them with `OrgNotFoundError`, but they would keep showing up in
+    // the invite listings and lookups until someone noticed.
+    const invites = await transaction.get(
+      orgInvitesCol().where('orgId', '==', orgId),
+    );
+
     const memberDocs = await Promise.all(
       existing.memberUids.map(async (uid) => ({
         ref: userRef(uid),
@@ -232,6 +255,10 @@ export async function deleteOrg(orgId: string): Promise<void> {
       existing.slug,
       orgId,
     );
+
+    for (const invite of invites.docs) {
+      transaction.delete(invite.ref);
+    }
 
     for (const { ref, user } of memberDocs) {
       if (!user) {

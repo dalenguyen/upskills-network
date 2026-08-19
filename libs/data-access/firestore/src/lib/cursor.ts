@@ -40,6 +40,26 @@ export function encodeEventCursor(
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
 
+/**
+ * Whether an id can safely become one segment of a document path.
+ *
+ * A cursor arrives base64-encoded from `?cursor=`, which makes both ids inside
+ * it **attacker-controlled**. `documentIdCursor` in `reads.ts` splices them into
+ * `organizers/{orgId}/events/{eventId}` for the collection-group query, so a `/`
+ * smuggled into either one changes the segment count of that path. Firestore
+ * then rejects it with a raw `invalid-argument` that `rethrowAsBadCursor` does
+ * not recognise — it only maps the literal `Invalid cursor` — so a malformed
+ * cursor would surface as a **500** instead of the 400 it is.
+ *
+ * Rejecting the separator here keeps that decision in the one place that parses
+ * untrusted input, and keeps every path built downstream well-formed by
+ * construction. Firestore's own generated ids never contain `/`, so nothing
+ * legitimate is excluded.
+ */
+function isPathSegment(value: unknown): value is string {
+  return typeof value === 'string' && value !== '' && !value.includes('/');
+}
+
 /** Reverse of {@link encodeEventCursor}. Throws on anything malformed. */
 export function decodeEventCursor(cursor: string): EventCursor {
   let parsed: unknown;
@@ -55,10 +75,8 @@ export function decodeEventCursor(cursor: string): EventCursor {
     parsed === null ||
     typeof (parsed as EventCursor).startsAtMs !== 'number' ||
     !Number.isFinite((parsed as EventCursor).startsAtMs) ||
-    typeof (parsed as EventCursor).eventId !== 'string' ||
-    (parsed as EventCursor).eventId === '' ||
-    typeof (parsed as EventCursor).orgId !== 'string' ||
-    (parsed as EventCursor).orgId === ''
+    !isPathSegment((parsed as EventCursor).eventId) ||
+    !isPathSegment((parsed as EventCursor).orgId)
   ) {
     throw new Error('Invalid cursor');
   }

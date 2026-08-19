@@ -133,7 +133,7 @@ describe('EventPageComponent', () => {
       'link[rel="canonical"]',
     );
     expect(canonical?.getAttribute('href')).toBe(
-      'https://upskillsnetwork.com/events/intro-to-kubernetes',
+      'https://upskillsnetwork.com/acme/intro-to-kubernetes',
     );
   });
 
@@ -214,7 +214,10 @@ describe('EventPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap({ slug: 'no-such-workshop' }),
+              paramMap: convertToParamMap({
+                orgSlug: 'acme',
+                eventSlug: 'no-such-workshop',
+              }),
             },
           },
         },
