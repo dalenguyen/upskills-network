@@ -174,7 +174,7 @@ export const routeMeta: RouteMeta = {
                         <tr>
                           <td class="px-4 py-3">
                             <a
-                              [href]="'/events/' + workshop.slug"
+                              [href]="publicEventPath(workshop)"
                               class="font-medium text-indigo-600 transition hover:text-indigo-500"
                             >
                               {{ workshop.title }}
@@ -236,6 +236,22 @@ export default class DashboardEventsPageComponent implements OnInit {
   readonly cancelling = signal(false);
   readonly notice = signal<string | null>(null);
   readonly cancelError = signal<string | null>(null);
+
+  /**
+   * The public URL of one of this org's events: `/{orgSlug}/{eventSlug}`.
+   *
+   * A method rather than a template expression because the org slug lives in
+   * the `ready` branch of the state union, which the template's `@switch`
+   * narrows but does not bind to a name. Returns `''` — an inert link — if
+   * called before the state is ready, which the template's own guard prevents.
+   */
+  protected publicEventPath(workshop: DashboardEvent): string {
+    const state = this.state();
+
+    return state.status === 'ready'
+      ? `/${encodeURIComponent(state.org.slug)}/${encodeURIComponent(workshop.slug)}`
+      : '';
+  }
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -306,7 +322,7 @@ export default class DashboardEventsPageComponent implements OnInit {
     try {
       const response = await firstValueFrom(
         this.http.delete<DashboardEventsCancelResponse>(
-          dashboardEventCancelEndpoint(workshop.eventId),
+          dashboardEventCancelEndpoint(state.org.orgId, workshop.eventId),
           { withCredentials: true },
         ),
       );

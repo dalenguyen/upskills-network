@@ -13,7 +13,15 @@ import { badRequest, notFound, toHttpError } from '../http-error';
 import { conflict } from './registration-errors';
 
 /**
- * `POST /api/v1/registration/:eventId/register` — the free registration path.
+ * `POST /api/v1/registration/:orgId/:eventId/register` — the free registration
+ * path.
+ *
+ * ## Why the organizer is in the path
+ *
+ * Events live at `organizers/{orgId}/events/{eventId}`, so an event id on its
+ * own no longer addresses a document. The organizer segment is not a permission
+ * check and is not trusted as one: naming the wrong organizer simply addresses
+ * a path where no event exists, and answers the same 404 as a made-up event id.
  *
  * ## What this route does not decide
  *
@@ -76,9 +84,10 @@ export interface RegisterResponse {
 
 export interface RegisterDeps {
   /** `getEvent` from `@upskills/firestore`. */
-  getEvent(eventId: string): Promise<WorkshopEvent | null>;
+  getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
   /** `reserveSpot` from `@upskills/firestore`, in `confirm` mode. */
   reserveSpot(
+    orgId: string,
     eventId: string,
     draft: { email: string; name: string },
   ): Promise<ReserveSpotResult>;
@@ -138,9 +147,10 @@ function asRegistrationError(error: unknown): unknown {
 export function createRegisterHandler(deps: RegisterDeps): EventHandler {
   return defineEventHandler(async (event: H3Event) => {
     try {
+      const orgId = getRouterParam(event, 'orgId');
       const eventId = getRouterParam(event, 'eventId');
 
-      if (eventId === undefined || eventId === '') {
+      if (!orgId || !eventId) {
         throw eventNotFound();
       }
 
@@ -153,14 +163,14 @@ export function createRegisterHandler(deps: RegisterDeps): EventHandler {
         );
       }
 
-      const workshop = await deps.getEvent(eventId);
+      const workshop = await deps.getEvent(orgId, eventId);
 
       if (workshop === null) {
         throw eventNotFound();
       }
 
       const result = await deps
-        .reserveSpot(eventId, {
+        .reserveSpot(orgId, eventId, {
           email: parsed.data.email,
           name: parsed.data.name,
         })

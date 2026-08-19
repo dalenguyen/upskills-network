@@ -69,10 +69,10 @@ function deps(
   };
 }
 
-function request(eventId = 'evt-1') {
+function request(eventId = 'evt-1', orgId = 'org-1') {
   return createTestEvent({
     method: 'DELETE',
-    url: `/api/v1/dashboard/events/${eventId}`,
+    url: `/api/v1/dashboard/events/${eventId}?orgId=${orgId}`,
     params: { eventId },
   }).event;
 }
@@ -98,14 +98,14 @@ describe('DELETE /api/v1/dashboard/events/:eventId', () => {
 
     const result = await createDashboardEventsCancelHandler(d)(event);
 
-    expect(d.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(d.getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(d.requireOrgRole).toHaveBeenCalledWith(
       event,
       'org-1',
       'admin',
       'manager',
     );
-    expect(cancelEvent).toHaveBeenCalledWith('evt-1');
+    expect(cancelEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(sendCancellationEmail).toHaveBeenCalledTimes(2);
     expect(sendCancellationEmail).toHaveBeenNthCalledWith(
       1,
@@ -286,35 +286,26 @@ describe('DELETE /api/v1/dashboard/events/:eventId', () => {
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(d.requireOrgRole).not.toHaveBeenCalled();
+    // The role check now runs first, against `?orgId=`. What still must not
+    // happen is a 404: a missing event answers exactly as somebody else's does.
+    expect(d.getEvent).toHaveBeenCalled();
     expect(d.cancelEvent).not.toHaveBeenCalled();
   });
 
   it('answers 403 for an event owned by another org', async () => {
-    const requireOrgRole = vi.fn(async () => {
-      throw fakeForbiddenError(
-        'One of [admin, manager] in org "org-2" is required.',
-      );
-    });
-    const d = deps({
-      getEvent: vi.fn(async () => fakeEvent({ orgId: 'org-2' })),
-      requireOrgRole,
-    });
-    const event = request();
+    // Another org's event is simply absent from `organizers/org-1/events` —
+    // ownership is the path — so it reads as null and gets the same 403 a
+    // missing event gets.
+    const getEvent = vi.fn(async () => null);
+    const d = deps({ getEvent });
 
     await expect(
-      createDashboardEventsCancelHandler(d)(event),
+      createDashboardEventsCancelHandler(d)(request()),
     ).rejects.toMatchObject({
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(requireOrgRole).toHaveBeenCalledWith(
-      event,
-      'org-2',
-      'admin',
-      'manager',
-    );
-    expect(d.cancelEvent).not.toHaveBeenCalled();
+    expect(getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
   });
 
   it('answers 403 for a check_in or volunteer member', async () => {

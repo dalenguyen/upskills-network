@@ -17,13 +17,14 @@ describe('CreateOrgSchema', () => {
 
   it('rejects a blank name', () => {
     expect(
-      CreateOrgSchema.safeParse({ name: '   ', slug: 'org' }).success,
+      CreateOrgSchema.safeParse({ name: '   ', slug: 'upskills' }).success,
     ).toBe(false);
   });
 
   it('rejects a name over 120 characters', () => {
     expect(
-      CreateOrgSchema.safeParse({ name: 'a'.repeat(121), slug: 'org' }).success,
+      CreateOrgSchema.safeParse({ name: 'a'.repeat(121), slug: 'upskills' })
+        .success,
     ).toBe(false);
   });
 
@@ -39,6 +40,15 @@ describe('CreateOrgSchema', () => {
   it('rejects a missing slug', () => {
     expect(CreateOrgSchema.safeParse({ name: 'Org' }).success).toBe(false);
   });
+
+  it.each(['admin', 'dashboard', 'events', 'login'])(
+    'rejects the reserved slug %j, which would shadow a top-level route',
+    (slug) => {
+      expect(CreateOrgSchema.safeParse({ name: 'Org', slug }).success).toBe(
+        false,
+      );
+    },
+  );
 });
 
 describe('OrgMemberSchema', () => {

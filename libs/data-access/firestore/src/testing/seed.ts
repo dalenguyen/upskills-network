@@ -88,8 +88,12 @@ export async function seedEvent(
     ...overrides,
   };
 
-  await eventRef(event.eventId).set(event);
-  await eventSlugRef(event.slug).set({ eventId: event.eventId });
+  // Both the event and its slug reservation live under the organizer, so
+  // `event.orgId` decides where they are written — overriding it in a test
+  // seeds a genuinely different organizer's event, not the same event tagged
+  // differently.
+  await eventRef(event.orgId, event.eventId).set(event);
+  await eventSlugRef(event.orgId, event.slug).set({ eventId: event.eventId });
   return event;
 }
 
@@ -112,6 +116,6 @@ export async function seedGuest(
     guestId: email,
   };
 
-  await guestRef(guest.eventId, guest.email).set(guest);
+  await guestRef(guest.orgId, guest.eventId, guest.email).set(guest);
   return guest;
 }

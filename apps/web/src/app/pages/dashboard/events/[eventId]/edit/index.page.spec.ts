@@ -87,7 +87,9 @@ describe('DashboardEventsEditPageComponent', () => {
     meRequest.flush(me);
     await Promise.resolve();
 
-    const detailRequest = http.expectOne(dashboardEventDetailEndpoint('evt_1'));
+    const detailRequest = http.expectOne(
+      dashboardEventDetailEndpoint('org_1', 'evt_1'),
+    );
     expect(detailRequest.request.withCredentials).toBe(true);
     detailRequest.flush({ event: item });
 
@@ -261,7 +263,7 @@ describe('DashboardEventsEditPageComponent', () => {
     await Promise.resolve();
 
     http
-      .expectOne(dashboardEventDetailEndpoint('evt_1'))
+      .expectOne(dashboardEventDetailEndpoint('org_1', 'evt_1'))
       .flush(
         { data: { error: 'event-forbidden' } },
         { status: 403, statusText: 'Forbidden' },
@@ -300,7 +302,7 @@ describe('DashboardEventsEditPageComponent', () => {
     await Promise.resolve();
 
     http
-      .expectOne(dashboardEventDetailEndpoint('evt_1'))
+      .expectOne(dashboardEventDetailEndpoint('org_1', 'evt_1'))
       .flush({}, { status: 500, statusText: 'Server Error' });
 
     await fixture.whenStable();
@@ -332,7 +334,9 @@ describe('DashboardEventsEditPageComponent', () => {
     buttonByText(fixture, 'Save as draft').click();
     fixture.detectChanges();
 
-    const request = http.expectOne(dashboardEventUpdateEndpoint('evt_1'));
+    const request = http.expectOne(
+      dashboardEventUpdateEndpoint('org_1', 'evt_1'),
+    );
     expect(request.request.method).toBe('PUT');
     expect(request.request.withCredentials).toBe(true);
     expect(request.request.body).toEqual({
@@ -364,7 +368,9 @@ describe('DashboardEventsEditPageComponent', () => {
     buttonByText(fixture, 'Publish').click();
     fixture.detectChanges();
 
-    const request = http.expectOne(dashboardEventUpdateEndpoint('evt_1'));
+    const request = http.expectOne(
+      dashboardEventUpdateEndpoint('org_1', 'evt_1'),
+    );
     expect(request.request.body).toMatchObject({
       endsAt: '2026-09-01T21:00:00-04:00',
       location: 'Toronto Reference Library',
@@ -389,7 +395,7 @@ describe('DashboardEventsEditPageComponent', () => {
     fixture.detectChanges();
 
     http
-      .expectOne(dashboardEventUpdateEndpoint('evt_1'))
+      .expectOne(dashboardEventUpdateEndpoint('org_1', 'evt_1'))
       .flush({}, { status: 409, statusText: 'Conflict' });
 
     await fixture.whenStable();

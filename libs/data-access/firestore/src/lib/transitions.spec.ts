@@ -27,12 +27,16 @@ const event = (overrides: Partial<WorkshopEvent> = {}) =>
 async function expectCountersMatchGuests(
   eventId: string,
   step = 'the last transition',
+  orgId = 'org-7',
 ): Promise<void> {
-  const guests = await listEventGuests(eventId);
+  const guests = await listEventGuests(orgId, eventId);
   const tally = (status: GuestStatus) =>
     guests.filter((guest) => guest.status === status).length;
 
-  expect(await getEvent(eventId), `counters after ${step}`).toMatchObject({
+  expect(
+    await getEvent(orgId, eventId),
+    `counters after ${step}`,
+  ).toMatchObject({
     confirmedCount: tally('confirmed'),
     heldCount: tally('held'),
     pendingCount: tally('pending'),
@@ -44,13 +48,14 @@ describe('confirmHeldGuest', () => {
     await event({ heldCount: 1 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'buyer@e.com',
       status: 'held',
       holdExpiresAt: at(30),
       confirmedAt: undefined,
     });
 
-    const result = await confirmHeldGuest('evt-1', 'Buyer@E.com', {
+    const result = await confirmHeldGuest('org-7', 'evt-1', 'Buyer@E.com', {
       stripeSessionId: 'cs_1',
       stripePaymentIntentId: 'pi_1',
       amountPaid: 2500,
@@ -67,10 +72,10 @@ describe('confirmHeldGuest', () => {
     // Dropped, so the expiry sweep can never reclaim a paid-for seat.
     expect(result.guest?.holdExpiresAt).toBeUndefined();
     expect(
-      (await getGuest('evt-1', 'buyer@e.com'))?.holdExpiresAt,
+      (await getGuest('org-7', 'evt-1', 'buyer@e.com'))?.holdExpiresAt,
     ).toBeUndefined();
 
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       heldCount: 0,
     });
@@ -79,16 +84,21 @@ describe('confirmHeldGuest', () => {
 
   it('is idempotent — a redelivered webhook does not double-count', async () => {
     await event({ heldCount: 1 });
-    await seedGuest({ eventId: 'evt-1', email: 'b@e.com', status: 'held' });
-    await confirmHeldGuest('evt-1', 'b@e.com');
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'b@e.com',
+      status: 'held',
+    });
+    await confirmHeldGuest('org-7', 'evt-1', 'b@e.com');
 
-    const second = await confirmHeldGuest('evt-1', 'b@e.com');
+    const second = await confirmHeldGuest('org-7', 'evt-1', 'b@e.com');
 
     expect(second).toMatchObject({
       changed: false,
       reason: 'already-applied',
     });
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       heldCount: 0,
     });
@@ -96,9 +106,14 @@ describe('confirmHeldGuest', () => {
 
   it('refuses a guest who is not holding', async () => {
     await event({ pendingCount: 1 });
-    await seedGuest({ eventId: 'evt-1', email: 'q@e.com', status: 'pending' });
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'q@e.com',
+      status: 'pending',
+    });
 
-    expect(await confirmHeldGuest('evt-1', 'q@e.com')).toMatchObject({
+    expect(await confirmHeldGuest('org-7', 'evt-1', 'q@e.com')).toMatchObject({
       changed: false,
       reason: 'wrong-status',
     });
@@ -108,7 +123,9 @@ describe('confirmHeldGuest', () => {
   it('reports a missing guest instead of throwing', async () => {
     await event();
 
-    expect(await confirmHeldGuest('evt-1', 'nobody@e.com')).toMatchObject({
+    expect(
+      await confirmHeldGuest('org-7', 'evt-1', 'nobody@e.com'),
+    ).toMatchObject({
       changed: false,
       guest: null,
       reason: 'not-found',
@@ -117,7 +134,7 @@ describe('confirmHeldGuest', () => {
 
   it('throws when the event does not exist', async () => {
     await expect(
-      confirmHeldGuest('evt-gone', 'a@e.com'),
+      confirmHeldGuest('org-7', 'evt-gone', 'a@e.com'),
     ).rejects.toBeInstanceOf(EventNotFoundError);
   });
 });
@@ -127,17 +144,18 @@ describe('releaseHold', () => {
     await event({ heldCount: 1 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'lapsed@e.com',
       status: 'held',
       holdExpiresAt: at(30),
     });
 
-    const result = await releaseHold('evt-1', 'lapsed@e.com');
+    const result = await releaseHold('org-7', 'evt-1', 'lapsed@e.com');
 
     expect(result).toMatchObject({ changed: true });
     expect(result.guest).toMatchObject({ status: 'expired' });
     expect(result.guest?.holdExpiresAt).toBeUndefined();
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       heldCount: 0,
       confirmedCount: 0,
     });
@@ -146,9 +164,14 @@ describe('releaseHold', () => {
 
   it('is a no-op on an already-expired hold', async () => {
     await event();
-    await seedGuest({ eventId: 'evt-1', email: 'x@e.com', status: 'expired' });
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'x@e.com',
+      status: 'expired',
+    });
 
-    expect(await releaseHold('evt-1', 'x@e.com')).toMatchObject({
+    expect(await releaseHold('org-7', 'evt-1', 'x@e.com')).toMatchObject({
       changed: false,
       reason: 'already-applied',
     });
@@ -158,15 +181,18 @@ describe('releaseHold', () => {
     await event({ confirmedCount: 1 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'paid@e.com',
       status: 'confirmed',
     });
 
-    expect(await releaseHold('evt-1', 'paid@e.com')).toMatchObject({
+    expect(await releaseHold('org-7', 'evt-1', 'paid@e.com')).toMatchObject({
       changed: false,
       reason: 'wrong-status',
     });
-    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 1 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 1,
+    });
   });
 });
 
@@ -181,14 +207,19 @@ describe('cancelGuest', () => {
     'releases the place a %s guest held',
     async (status, counters) => {
       await event(counters);
-      await seedGuest({ eventId: 'evt-1', email: 'go@e.com', status });
+      await seedGuest({
+        eventId: 'evt-1',
+        orgId: 'org-7',
+        email: 'go@e.com',
+        status,
+      });
 
-      const result = await cancelGuest('evt-1', 'go@e.com');
+      const result = await cancelGuest('org-7', 'evt-1', 'go@e.com');
 
       expect(result).toMatchObject({ changed: true });
       expect(result.guest).toMatchObject({ status: 'cancelled' });
       expect(result.guest?.cancelledAt).toBeDefined();
-      expect(await getEvent('evt-1')).toMatchObject({
+      expect(await getEvent('org-7', 'evt-1')).toMatchObject({
         confirmedCount: 0,
         heldCount: 0,
         pendingCount: 0,
@@ -201,37 +232,40 @@ describe('cancelGuest', () => {
     await event({ pendingCount: 1 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'q@e.com',
       status: 'pending',
       waitlistPosition: 4,
     });
 
-    await cancelGuest('evt-1', 'q@e.com');
+    await cancelGuest('org-7', 'evt-1', 'q@e.com');
 
     expect(
-      (await getGuest('evt-1', 'q@e.com'))?.waitlistPosition,
+      (await getGuest('org-7', 'evt-1', 'q@e.com'))?.waitlistPosition,
     ).toBeUndefined();
   });
 
   it('cancelling an already-cancelled guest is a no-op', async () => {
     await event({ confirmedCount: 1 });
-    await seedGuest({ eventId: 'evt-1', email: 'twice@e.com' });
-    await cancelGuest('evt-1', 'twice@e.com');
+    await seedGuest({ eventId: 'evt-1', orgId: 'org-7', email: 'twice@e.com' });
+    await cancelGuest('org-7', 'evt-1', 'twice@e.com');
 
-    const second = await cancelGuest('evt-1', 'twice@e.com');
+    const second = await cancelGuest('org-7', 'evt-1', 'twice@e.com');
 
     expect(second).toMatchObject({
       changed: false,
       reason: 'already-applied',
     });
     // The counter went down once, not twice, and never below zero.
-    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 0 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 0,
+    });
   });
 
   it('reports a missing guest instead of throwing', async () => {
     await event();
 
-    expect(await cancelGuest('evt-1', 'nobody@e.com')).toMatchObject({
+    expect(await cancelGuest('org-7', 'evt-1', 'nobody@e.com')).toMatchObject({
       changed: false,
       guest: null,
       reason: 'not-found',
@@ -240,13 +274,20 @@ describe('cancelGuest', () => {
 
   it('leaves an expired hold alone — its seat was already released', async () => {
     await event();
-    await seedGuest({ eventId: 'evt-1', email: 'x@e.com', status: 'expired' });
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'x@e.com',
+      status: 'expired',
+    });
 
-    expect(await cancelGuest('evt-1', 'x@e.com')).toMatchObject({
+    expect(await cancelGuest('org-7', 'evt-1', 'x@e.com')).toMatchObject({
       changed: false,
       reason: 'wrong-status',
     });
-    expect((await getGuest('evt-1', 'x@e.com'))?.status).toBe('expired');
+    expect((await getGuest('org-7', 'evt-1', 'x@e.com'))?.status).toBe(
+      'expired',
+    );
   });
 });
 
@@ -257,6 +298,7 @@ describe('promoteNextPending', () => {
     // `registeredAt` is what decides, and it is the only thing that should.
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'second@e.com',
       status: 'pending',
       registeredAt: at(2),
@@ -264,6 +306,7 @@ describe('promoteNextPending', () => {
     });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'first@e.com',
       status: 'pending',
       registeredAt: at(1),
@@ -271,13 +314,14 @@ describe('promoteNextPending', () => {
     });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'third@e.com',
       status: 'pending',
       registeredAt: at(3),
       waitlistPosition: 2,
     });
 
-    const promoted = await promoteNextPending('evt-1');
+    const promoted = await promoteNextPending('org-7', 'evt-1');
 
     expect(promoted).toMatchObject({
       email: 'first@e.com',
@@ -285,7 +329,7 @@ describe('promoteNextPending', () => {
     });
     expect(promoted?.waitlistPosition).toBeUndefined();
     expect(promoted?.confirmedAt).toBeDefined();
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       pendingCount: 2,
     });
@@ -295,21 +339,22 @@ describe('promoteNextPending', () => {
   it('returns null when nobody is waiting', async () => {
     await event();
 
-    expect(await promoteNextPending('evt-1')).toBeNull();
+    expect(await promoteNextPending('org-7', 'evt-1')).toBeNull();
   });
 
   it('returns null rather than overselling a full event', async () => {
     await event({ maxGuests: 1, confirmedCount: 1, pendingCount: 1 });
-    await seedGuest({ eventId: 'evt-1', email: 'taken@e.com' });
+    await seedGuest({ eventId: 'evt-1', orgId: 'org-7', email: 'taken@e.com' });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'waiting@e.com',
       status: 'pending',
       registeredAt: at(1),
     });
 
-    expect(await promoteNextPending('evt-1')).toBeNull();
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await promoteNextPending('org-7', 'evt-1')).toBeNull();
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       pendingCount: 1,
     });
@@ -319,39 +364,51 @@ describe('promoteNextPending', () => {
     await event({ maxGuests: 1, heldCount: 1, pendingCount: 1 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'holder@e.com',
       status: 'held',
     });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'waiting@e.com',
       status: 'pending',
       registeredAt: at(1),
     });
 
-    expect(await promoteNextPending('evt-1')).toBeNull();
+    expect(await promoteNextPending('org-7', 'evt-1')).toBeNull();
   });
 
   it('throws when the event does not exist', async () => {
-    await expect(promoteNextPending('evt-gone')).rejects.toBeInstanceOf(
-      EventNotFoundError,
-    );
+    await expect(
+      promoteNextPending('org-7', 'evt-gone'),
+    ).rejects.toBeInstanceOf(EventNotFoundError);
   });
 });
 
 describe('promoteNextPending under concurrency', () => {
   it('two simultaneous promotions take two different guests', async () => {
     await event({ maxGuests: 4, confirmedCount: 2, pendingCount: 2 });
-    await seedGuest({ eventId: 'evt-1', email: 'seated-a@e.com' });
-    await seedGuest({ eventId: 'evt-1', email: 'seated-b@e.com' });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'seated-a@e.com',
+    });
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
+      email: 'seated-b@e.com',
+    });
+    await seedGuest({
+      eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'wait-1@e.com',
       status: 'pending',
       registeredAt: at(1),
     });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'wait-2@e.com',
       status: 'pending',
       registeredAt: at(2),
@@ -360,18 +417,18 @@ describe('promoteNextPending under concurrency', () => {
     // Two cancellations landing together, each freeing a seat and pulling the
     // next guest in. The dangerous outcome is both promoting `wait-1`.
     const [left, right] = await Promise.all([
-      cancelGuest('evt-1', 'seated-a@e.com').then(() =>
-        promoteNextPending('evt-1'),
+      cancelGuest('org-7', 'evt-1', 'seated-a@e.com').then(() =>
+        promoteNextPending('org-7', 'evt-1'),
       ),
-      cancelGuest('evt-1', 'seated-b@e.com').then(() =>
-        promoteNextPending('evt-1'),
+      cancelGuest('org-7', 'evt-1', 'seated-b@e.com').then(() =>
+        promoteNextPending('org-7', 'evt-1'),
       ),
     ]);
 
     expect(new Set([left?.email, right?.email])).toEqual(
       new Set(['wait-1@e.com', 'wait-2@e.com']),
     );
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 2,
       pendingCount: 0,
     });
@@ -383,6 +440,7 @@ describe('promoteNextPending under concurrency', () => {
     for (const index of [1, 2, 3]) {
       await seedGuest({
         eventId: 'evt-1',
+        orgId: 'org-7',
         email: `wait-${index}@e.com`,
         status: 'pending',
         registeredAt: at(index),
@@ -390,13 +448,13 @@ describe('promoteNextPending under concurrency', () => {
     }
 
     const promoted = await Promise.all(
-      Array.from({ length: 6 }, () => promoteNextPending('evt-1')),
+      Array.from({ length: 6 }, () => promoteNextPending('org-7', 'evt-1')),
     );
 
     const emails = promoted.flatMap((guest) => (guest ? [guest.email] : []));
     expect(emails).toHaveLength(3);
     expect(new Set(emails).size).toBe(3);
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 3,
       pendingCount: 0,
     });
@@ -411,7 +469,12 @@ describe('counter invariant across mixed transitions', () => {
     // A scripted run through every transition this library can perform, with
     // the invariant re-checked after each one. Each entry is one step.
     const register = (email: string, mode: 'confirm' | 'hold') => () =>
-      reserveSpot('evt-1', { email, name: email[0].toUpperCase() }, mode);
+      reserveSpot(
+        'org-7',
+        'evt-1',
+        { email, name: email[0].toUpperCase() },
+        mode,
+      );
 
     const steps: [string, () => Promise<unknown>][] = [
       ['a confirms', register('a@e.com', 'confirm')],
@@ -422,17 +485,24 @@ describe('counter invariant across mixed transitions', () => {
       ['a re-registers (no-op)', register('a@e.com', 'confirm')],
       [
         "b's payment lands",
-        () => confirmHeldGuest('evt-1', 'b@e.com', { amountPaid: 100 }),
+        () =>
+          confirmHeldGuest('org-7', 'evt-1', 'b@e.com', { amountPaid: 100 }),
       ],
-      ['a cancels', () => cancelGuest('evt-1', 'a@e.com')],
-      ['c is promoted', () => promoteNextPending('evt-1')],
-      ['b cancels', () => cancelGuest('evt-1', 'b@e.com')],
-      ['d is promoted', () => promoteNextPending('evt-1')],
-      ['nobody left to promote', () => promoteNextPending('evt-1')],
-      ['c cancels, freeing a seat', () => cancelGuest('evt-1', 'c@e.com')],
+      ['a cancels', () => cancelGuest('org-7', 'evt-1', 'a@e.com')],
+      ['c is promoted', () => promoteNextPending('org-7', 'evt-1')],
+      ['b cancels', () => cancelGuest('org-7', 'evt-1', 'b@e.com')],
+      ['d is promoted', () => promoteNextPending('org-7', 'evt-1')],
+      ['nobody left to promote', () => promoteNextPending('org-7', 'evt-1')],
+      [
+        'c cancels, freeing a seat',
+        () => cancelGuest('org-7', 'evt-1', 'c@e.com'),
+      ],
       ['a comes back and holds it', register('a@e.com', 'hold')],
-      ["a's hold lapses", () => releaseHold('evt-1', 'a@e.com')],
-      ['cancelling lapsed a is a no-op', () => cancelGuest('evt-1', 'a@e.com')],
+      ["a's hold lapses", () => releaseHold('org-7', 'evt-1', 'a@e.com')],
+      [
+        'cancelling lapsed a is a no-op',
+        () => cancelGuest('org-7', 'evt-1', 'a@e.com'),
+      ],
       ['a registers a third time', register('a@e.com', 'confirm')],
     ];
 
@@ -442,12 +512,12 @@ describe('counter invariant across mixed transitions', () => {
     }
 
     // And the end state is the one the script implies.
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 2,
       heldCount: 0,
       pendingCount: 0,
     });
-    const finalGuests = await listEventGuests('evt-1');
+    const finalGuests = await listEventGuests('org-7', 'evt-1');
     expect(
       finalGuests
         .filter((guest) => guest.status === 'confirmed')
@@ -463,6 +533,7 @@ describe('counter invariant across mixed transitions', () => {
     await Promise.all(
       emails.map((email, index) =>
         reserveSpot(
+          'org-7',
           'evt-1',
           { email, name: 'M' },
           index % 3 === 0 ? 'hold' : 'confirm',
@@ -477,12 +548,14 @@ describe('counter invariant across mixed transitions', () => {
       emails
         .filter((_, index) => index % 3 === 0)
         .map((email) =>
-          cancelGuest('evt-1', email).then(() => promoteNextPending('evt-1')),
+          cancelGuest('org-7', 'evt-1', email).then(() =>
+            promoteNextPending('org-7', 'evt-1'),
+          ),
         ),
     );
 
     await expectCountersMatchGuests('evt-1');
-    const event1 = await getEvent('evt-1');
+    const event1 = await getEvent('org-7', 'evt-1');
     // Never oversold, whatever order the burst resolved in.
     expect(
       (event1?.confirmedCount ?? 0) + (event1?.heldCount ?? 0),

@@ -44,17 +44,17 @@ function deps(
   };
 }
 
-function request(body: unknown, eventId = 'evt-1') {
+function request(body: unknown, eventId = 'evt-1', orgId = 'org-1') {
   return createTestEvent({
     method: 'PUT',
-    url: `/api/v1/dashboard/events/${eventId}`,
+    url: `/api/v1/dashboard/events/${eventId}?orgId=${orgId}`,
     params: { eventId },
     body,
   }).event;
 }
 
 describe('PUT /api/v1/dashboard/events/:eventId', () => {
-  it('authorizes against the event org, validates, and updates', async () => {
+  it('authorizes the ?orgId= org, validates, and updates', async () => {
     const updateEvent = vi.fn(async () =>
       fakeEvent({ status: 'draft', title: 'New title' }),
     );
@@ -63,14 +63,16 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
 
     const result = await createDashboardEventsUpdateHandler(d)(event);
 
-    expect(d.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(d.getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(d.requireOrgRole).toHaveBeenCalledWith(
       event,
       'org-1',
       'admin',
       'manager',
     );
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', { title: 'New title' });
+    expect(updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
+      title: 'New title',
+    });
     expect(result).toEqual({
       event: expect.objectContaining({ eventId: 'evt-1', title: 'New title' }),
     });
@@ -107,7 +109,7 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
       request({ status: 'published' }),
     );
 
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', {
+    expect(updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
       status: 'published',
     });
   });
@@ -123,35 +125,26 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(d.requireOrgRole).not.toHaveBeenCalled();
+    // The role check now runs first, against `?orgId=`. What still must not
+    // happen is a 404: a missing event answers exactly as somebody else's does.
+    expect(d.getEvent).toHaveBeenCalled();
     expect(d.updateEvent).not.toHaveBeenCalled();
   });
 
   it('answers 403 for an event owned by another org', async () => {
-    const requireOrgRole = vi.fn(async () => {
-      throw fakeForbiddenError(
-        'One of [admin, manager] in org "org-2" is required.',
-      );
-    });
-    const d = deps({
-      getEvent: vi.fn(async () => fakeEvent({ orgId: 'org-2' })),
-      requireOrgRole,
-    });
-    const event = request({ title: 'New title' });
+    // Another org's event is simply absent from `organizers/org-1/events` —
+    // ownership is the path — so it reads as null and gets the same 403 a
+    // missing event gets.
+    const getEvent = vi.fn(async () => null);
+    const d = deps({ getEvent });
 
     await expect(
-      createDashboardEventsUpdateHandler(d)(event),
+      createDashboardEventsUpdateHandler(d)(request({ title: 'New title' })),
     ).rejects.toMatchObject({
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(requireOrgRole).toHaveBeenCalledWith(
-      event,
-      'org-2',
-      'admin',
-      'manager',
-    );
-    expect(d.updateEvent).not.toHaveBeenCalled();
+    expect(getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
   });
 
   it('answers 403 for a check_in or volunteer member', async () => {

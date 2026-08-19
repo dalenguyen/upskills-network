@@ -40,23 +40,23 @@ function deps(
   };
 }
 
-function request(eventId = 'evt-1') {
+function request(eventId = 'evt-1', orgId = 'org-1') {
   return createTestEvent({
     method: 'GET',
-    url: `/api/v1/dashboard/events/${eventId}`,
+    url: `/api/v1/dashboard/events/${eventId}?orgId=${orgId}`,
     params: { eventId },
   }).event;
 }
 
 describe('GET /api/v1/dashboard/events/:eventId', () => {
-  it('reads the event by id, authorizes against its org, and returns it', async () => {
+  it('authorizes the ?orgId= org, reads the event, and returns it', async () => {
     const getEvent = vi.fn(async () => fakeEvent({ status: 'draft' }));
     const d = deps({ getEvent });
     const event = request();
 
     const result = await createDashboardEventsDetailHandler(d)(event);
 
-    expect(getEvent).toHaveBeenCalledWith('evt-1');
+    expect(getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(d.requireOrgRole).toHaveBeenCalledWith(
       event,
       'org-1',
@@ -92,7 +92,8 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
   });
 
   it('answers 403, not 404, for a missing event', async () => {
-    const d = deps({ getEvent: vi.fn(async () => null) });
+    const getEvent = vi.fn(async () => null);
+    const d = deps({ getEvent });
 
     await expect(
       createDashboardEventsDetailHandler(d)(request('nope')),
@@ -100,19 +101,19 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(d.requireOrgRole).not.toHaveBeenCalled();
+    // The role check now runs first, against `?orgId=`, so it *has* been
+    // called by this point. What still must not happen is a 404: a missing
+    // event and somebody else's event answer identically.
+    expect(getEvent).toHaveBeenCalledWith('org-1', 'nope');
   });
 
   it('answers 403 for an event owned by another org', async () => {
-    const requireOrgRole = vi.fn(async () => {
-      throw fakeForbiddenError(
-        'One of [admin, manager] in org "org-2" is required.',
-      );
-    });
-    const d = deps({
-      getEvent: vi.fn(async () => fakeEvent({ orgId: 'org-2' })),
-      requireOrgRole,
-    });
+    // Another org's event is not "found and refused" any more — it is simply
+    // absent from `organizers/org-1/events`, because ownership is the path.
+    // `getEvent` returning null is what that looks like from here, and the
+    // answer is the same 403 a missing event gets.
+    const getEvent = vi.fn(async () => null);
+    const d = deps({ getEvent });
     const event = request();
 
     await expect(
@@ -121,9 +122,23 @@ describe('GET /api/v1/dashboard/events/:eventId', () => {
       statusCode: 403,
       data: { error: 'forbidden' },
     });
-    expect(requireOrgRole).toHaveBeenCalledWith(
+    expect(getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
+  });
+
+  it('authorizes the org from ?orgId=, never one taken from the event', async () => {
+    // The event body is deliberately stamped with a different org. If the
+    // handler ever authorized against *that*, a caller could name their own
+    // org in the query and still reach an event claiming to belong elsewhere.
+    const d = deps({
+      getEvent: vi.fn(async () => fakeEvent({ orgId: 'org-999' })),
+    });
+    const event = request('evt-1', 'org-1');
+
+    await createDashboardEventsDetailHandler(d)(event);
+
+    expect(d.requireOrgRole).toHaveBeenCalledWith(
       event,
-      'org-2',
+      'org-1',
       'admin',
       'manager',
     );

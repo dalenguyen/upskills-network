@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { RouteMeta } from '@analogjs/router';
+import { slugify } from '@upskills/validation';
 import { firstValueFrom, type Observable } from 'rxjs';
 
 import { authGuard } from '../../auth/auth-guard';
@@ -122,6 +123,7 @@ export const routeMeta: RouteMeta = {
                     required
                     maxlength="120"
                     [(ngModel)]="createForm.name"
+                    (ngModelChange)="onOrgNameChange()"
                     class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   />
                 </div>
@@ -140,6 +142,7 @@ export const routeMeta: RouteMeta = {
                     required
                     pattern="[a-z0-9-]+"
                     [(ngModel)]="createForm.slug"
+                    (ngModelChange)="slugTouched = true"
                     class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
                   />
                   <p class="mt-1 text-xs text-zinc-500">
@@ -532,6 +535,25 @@ export const routeMeta: RouteMeta = {
   `,
 })
 export default class DashboardOverviewPageComponent implements OnInit {
+  /**
+   * Whether the operator has edited the org slug themselves. One-way: once they
+   * touch it, the name stops driving it.
+   */
+  protected slugTouched = false;
+
+  /**
+   * Derive the org slug from the name, until it is edited by hand.
+   *
+   * Unlike the event form, this never walks the slug forward to `-2` on a
+   * collision. An organizer slug is the front of every URL they own — it is
+   * identity, not a convenience — so "that one is taken" is the right answer to
+   * give a human, not something to silently work around.
+   */
+  protected onOrgNameChange(): void {
+    if (!this.slugTouched) {
+      this.createForm.slug = slugify(this.createForm.name);
+    }
+  }
   private readonly http = inject(HttpClient);
 
   readonly state = signal<PageState>({ status: 'loading' });

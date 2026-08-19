@@ -265,7 +265,7 @@ export class RegistrationFormComponent {
     try {
       const response = await firstValueFrom(
         this.http.post<RegisterResponse>(
-          registerEndpoint(this.event().eventId),
+          registerEndpoint(this.event().orgId, this.event().eventId),
           { email: parsed.data.email, name: parsed.data.name },
         ),
       );

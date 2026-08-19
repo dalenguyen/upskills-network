@@ -8,7 +8,7 @@ import {
   findRegistrationsByEmail,
   findUserByEmail,
   getEvent,
-  getEventBySlug,
+  getEventByPath,
   getGuest,
   getOrg,
   getOrgBySlug,
@@ -152,11 +152,11 @@ describe('listOrgs', () => {
   });
 });
 
-describe('getEvent / getEventBySlug', () => {
+describe('getEvent / getEventByPath', () => {
   it('reads an event by id with the doc id as its eventId', async () => {
     await seedEvent({ eventId: 'evt-9', title: 'Advanced Networking' });
 
-    expect(await getEvent('evt-9')).toMatchObject({
+    expect(await getEvent('org-1', 'evt-9')).toMatchObject({
       eventId: 'evt-9',
       title: 'Advanced Networking',
       currency: 'cad',
@@ -164,30 +164,64 @@ describe('getEvent / getEventBySlug', () => {
     });
   });
 
-  it('resolves the slug through the eventSlugs reservation doc', async () => {
+  it('resolves both slugs through their reservation docs', async () => {
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz' });
     await seedEvent({ eventId: 'evt-9', slug: 'advanced-networking' });
 
-    expect(await getEventBySlug('advanced-networking')).toMatchObject({
-      eventId: 'evt-9',
-      slug: 'advanced-networking',
+    expect(
+      await getEventByPath('upskills-yyz', 'advanced-networking'),
+    ).toMatchObject({
+      organizer: { orgId: 'org-1', slug: 'upskills-yyz' },
+      event: { eventId: 'evt-9', slug: 'advanced-networking' },
+    });
+  });
+
+  it('scopes the event slug to the organizer, so two orgs may share one', async () => {
+    await seedOrg({ orgId: 'org-a', slug: 'org-a' });
+    await seedOrg({ orgId: 'org-b', slug: 'org-b' });
+    await seedEvent({ eventId: 'evt-a', orgId: 'org-a', slug: 'react-basics' });
+    await seedEvent({ eventId: 'evt-b', orgId: 'org-b', slug: 'react-basics' });
+
+    expect(await getEventByPath('org-a', 'react-basics')).toMatchObject({
+      event: { eventId: 'evt-a' },
+    });
+    expect(await getEventByPath('org-b', 'react-basics')).toMatchObject({
+      event: { eventId: 'evt-b' },
     });
   });
 
   it('finds a draft event by slug — the lookup is not status-filtered', async () => {
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz' });
     await seedEvent({ eventId: 'evt-draft', slug: 'secret', status: 'draft' });
 
-    expect(await getEventBySlug('secret')).toMatchObject({ status: 'draft' });
+    expect(await getEventByPath('upskills-yyz', 'secret')).toMatchObject({
+      event: { status: 'draft' },
+    });
   });
 
   it('returns null for an unknown id or slug', async () => {
-    await expect(getEvent('evt-missing')).resolves.toBeNull();
-    await expect(getEventBySlug('never-reserved')).resolves.toBeNull();
+    await expect(getEvent('org-1', 'evt-missing')).resolves.toBeNull();
+    await expect(
+      getEventByPath('upskills-yyz', 'never-reserved'),
+    ).resolves.toBeNull();
   });
 
   it('returns null when a reservation points at a deleted event', async () => {
-    await eventSlugRef('dangling').set({ eventId: 'evt-gone' });
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz' });
+    await eventSlugRef('org-1', 'dangling').set({ eventId: 'evt-gone' });
 
-    await expect(getEventBySlug('dangling')).resolves.toBeNull();
+    await expect(
+      getEventByPath('upskills-yyz', 'dangling'),
+    ).resolves.toBeNull();
+  });
+
+  it('returns null when the organizer slug names nobody', async () => {
+    await seedOrg({ orgId: 'org-1', slug: 'upskills-yyz' });
+    await seedEvent({ eventId: 'evt-9', slug: 'advanced-networking' });
+
+    await expect(
+      getEventByPath('no-such-org', 'advanced-networking'),
+    ).resolves.toBeNull();
   });
 });
 
@@ -399,7 +433,7 @@ describe('listEventGuests', () => {
       registeredAt: at(5),
     });
 
-    const guests = await listEventGuests('evt-1');
+    const guests = await listEventGuests('org-1', 'evt-1');
 
     expect(guests.map((guest) => guest.email)).toEqual([
       'first@example.com',
@@ -426,7 +460,9 @@ describe('listEventGuests', () => {
       waitlistPosition: 1,
     });
 
-    const pending = await listEventGuests('evt-1', { status: 'pending' });
+    const pending = await listEventGuests('org-1', 'evt-1', {
+      status: 'pending',
+    });
 
     expect(pending.map((guest) => guest.email)).toEqual([
       'waiting@example.com',
@@ -438,12 +474,12 @@ describe('listEventGuests', () => {
     await seedGuest({ eventId: 'evt-2', email: 'theirs@example.com' });
 
     expect(
-      (await listEventGuests('evt-1')).map((guest) => guest.email),
+      (await listEventGuests('org-1', 'evt-1')).map((guest) => guest.email),
     ).toEqual(['mine@example.com']);
   });
 
   it('returns an empty array for an event with no guests', async () => {
-    await expect(listEventGuests('evt-empty')).resolves.toEqual([]);
+    await expect(listEventGuests('org-1', 'evt-empty')).resolves.toEqual([]);
   });
 });
 
@@ -455,23 +491,29 @@ describe('getGuest', () => {
       name: 'Grace',
     });
 
-    expect(await getGuest('evt-1', 'guest@example.com')).toMatchObject({
-      guestId: 'guest@example.com',
-      eventId: 'evt-1',
-      name: 'Grace',
-    });
+    expect(await getGuest('org-1', 'evt-1', 'guest@example.com')).toMatchObject(
+      {
+        guestId: 'guest@example.com',
+        eventId: 'evt-1',
+        name: 'Grace',
+      },
+    );
   });
 
   it("normalizes the caller's email before building the doc id", async () => {
     await seedGuest({ eventId: 'evt-1', email: 'Guest@Example.com' });
 
-    expect(await getGuest('evt-1', '  GUEST@example.COM ')).toMatchObject({
+    expect(
+      await getGuest('org-1', 'evt-1', '  GUEST@example.COM '),
+    ).toMatchObject({
       guestId: 'guest@example.com',
     });
   });
 
   it('returns null when the guest is not registered', async () => {
-    await expect(getGuest('evt-1', 'stranger@example.com')).resolves.toBeNull();
+    await expect(
+      getGuest('org-1', 'evt-1', 'stranger@example.com'),
+    ).resolves.toBeNull();
   });
 });
 
@@ -513,7 +555,7 @@ describe('findRegistrationsByEmail', () => {
   it('stamps the event id from the document path', async () => {
     // A guest doc written without the redundant `eventId` field still reports
     // the right event, because the path is the source of truth.
-    await guestRef('evt-7', 'path@example.com').set({
+    await guestRef('org-1', 'evt-7', 'path@example.com').set({
       guestId: 'path@example.com',
       orgId: 'org-1',
       email: 'path@example.com',

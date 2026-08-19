@@ -73,7 +73,8 @@ function errorName(error: unknown): string | null {
  *   ids for an operator's log, and echoing it would tell a caller about
  *   memberships they cannot see.
  * - `InvalidSlugError` → 400.
- * - `SlugTakenError`, `LastOrgAdminError`, and `OrgLimitExceededError` → 409.
+ * - `SlugTakenError`, `LastOrgAdminError`, `OrgLimitExceededError`,
+ *   `OrgNotEmptyError`, and `EventNotDeletableError` → 409.
  * - `OrgNotFoundError` and `InviteNotFoundError` → 404.
  * - `AmbiguousUserEmailError` → 409.
  * - `InviteNotPendingError` → 409.
@@ -119,6 +120,18 @@ export function toHttpError(error: unknown): unknown {
       return conflict(
         'org-limit-exceeded',
         'A user can belong to only one organizer.',
+      );
+
+    case 'OrgNotEmptyError':
+      return conflict(
+        'org-not-empty',
+        'Delete or cancel this organizer’s events before deleting the organizer.',
+      );
+
+    case 'EventNotDeletableError':
+      return conflict(
+        'event-not-deletable',
+        'Only a draft event with no registrations can be deleted. Cancel it instead.',
       );
 
     case 'OrgNotFoundError':

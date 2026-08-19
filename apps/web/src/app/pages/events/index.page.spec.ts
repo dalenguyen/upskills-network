@@ -16,6 +16,7 @@ function event(overrides: Partial<PublicEvent> = {}): PublicEvent {
   return {
     eventId: 'evt_1',
     orgId: 'org_1',
+    orgSlug: 'acme',
     title: 'Intro to Kubernetes',
     slug: 'intro-to-kubernetes',
     description: 'A hands-on afternoon.',
@@ -73,8 +74,8 @@ describe('EventsPageComponent', () => {
     expect(cards.length).toBe(2);
 
     const links = root.querySelectorAll<HTMLAnchorElement>('app-event-card a');
-    expect(links[0]?.getAttribute('href')).toBe('/events/intro-to-kubernetes');
-    expect(links[1]?.getAttribute('href')).toBe('/events/rust-for-the-web');
+    expect(links[0]?.getAttribute('href')).toBe('/acme/intro-to-kubernetes');
+    expect(links[1]?.getAttribute('href')).toBe('/acme/rust-for-the-web');
     expect(root.textContent).toContain('Intro to Kubernetes');
     expect(root.textContent).toContain('Rust for the web');
     http.verify();

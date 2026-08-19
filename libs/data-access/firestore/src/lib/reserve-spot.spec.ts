@@ -21,6 +21,7 @@ describe('reserveSpot — confirm mode', () => {
     await event();
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'Ada@Example.COM ', name: '  Ada  ' },
       'confirm',
@@ -33,8 +34,9 @@ describe('reserveSpot — confirm mode', () => {
     expect(result.guest).toMatchObject({
       guestId: 'ada@example.com',
       eventId: 'evt-1',
-      // Copied off the event, so the guest doc is self-describing for the
-      // collection-group lookup that never names the event.
+      // Taken from the path the guest is written to, so the doc is
+      // self-describing for the collection-group lookup that names neither the
+      // event nor the organizer.
       orgId: 'org-7',
       email: 'ada@example.com',
       name: 'Ada',
@@ -44,11 +46,11 @@ describe('reserveSpot — confirm mode', () => {
     expect(result.guest.confirmedAt).toBeDefined();
 
     // The doc id is the normalized email — raw input never reaches the path.
-    expect(await getGuest('evt-1', 'ADA@example.com')).toMatchObject({
+    expect(await getGuest('org-7', 'evt-1', 'ADA@example.com')).toMatchObject({
       guestId: 'ada@example.com',
       status: 'confirmed',
     });
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       heldCount: 0,
       pendingCount: 0,
@@ -57,9 +59,15 @@ describe('reserveSpot — confirm mode', () => {
 
   it('waitlists once the confirmed seats are gone', async () => {
     await event({ maxGuests: 1 });
-    await reserveSpot('evt-1', { email: 'first@e.com', name: 'A' }, 'confirm');
+    await reserveSpot(
+      'org-7',
+      'evt-1',
+      { email: 'first@e.com', name: 'A' },
+      'confirm',
+    );
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'second@e.com', name: 'B' },
       'confirm',
@@ -70,7 +78,7 @@ describe('reserveSpot — confirm mode', () => {
       status: 'pending',
       waitlistPosition: 1,
     });
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 1,
       pendingCount: 1,
     });
@@ -78,11 +86,17 @@ describe('reserveSpot — confirm mode', () => {
 
   it('hands out contiguous waitlist positions', async () => {
     await event({ maxGuests: 1 });
-    await reserveSpot('evt-1', { email: 'first@e.com', name: 'A' }, 'confirm');
+    await reserveSpot(
+      'org-7',
+      'evt-1',
+      { email: 'first@e.com', name: 'A' },
+      'confirm',
+    );
 
     const positions: (number | undefined)[] = [];
     for (const email of ['b@e.com', 'c@e.com', 'd@e.com']) {
       const result = await reserveSpot(
+        'org-7',
         'evt-1',
         { email, name: 'X' },
         'confirm',
@@ -91,14 +105,20 @@ describe('reserveSpot — confirm mode', () => {
     }
 
     expect(positions).toEqual([1, 2, 3]);
-    expect(await getEvent('evt-1')).toMatchObject({ pendingCount: 3 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({ pendingCount: 3 });
   });
 
   it('counts holds against capacity — a seat mid-checkout is not available', async () => {
     await event({ maxGuests: 1 });
-    await reserveSpot('evt-1', { email: 'holder@e.com', name: 'H' }, 'hold');
+    await reserveSpot(
+      'org-7',
+      'evt-1',
+      { email: 'holder@e.com', name: 'H' },
+      'hold',
+    );
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'late@e.com', name: 'L' },
       'confirm',
@@ -114,6 +134,7 @@ describe('reserveSpot — hold mode', () => {
     const holdExpiresAt = at(30);
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       {
         email: 'buyer@e.com',
@@ -134,7 +155,7 @@ describe('reserveSpot — hold mode', () => {
     );
     // A hold is not a seat yet.
     expect(result.guest.confirmedAt).toBeUndefined();
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 0,
       heldCount: 1,
     });
@@ -144,6 +165,7 @@ describe('reserveSpot — hold mode', () => {
     await event({ maxGuests: 1, confirmedCount: 1 });
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'buyer@e.com', name: 'Buyer' },
       'hold',
@@ -151,7 +173,7 @@ describe('reserveSpot — hold mode', () => {
 
     // No Stripe session should ever be created for this one.
     expect(result.outcome).toBe('waitlisted');
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       heldCount: 0,
       pendingCount: 1,
     });
@@ -165,6 +187,7 @@ describe('reserveSpot — unlimited capacity', () => {
     const outcomes: string[] = [];
     for (let index = 0; index < 5; index++) {
       const result = await reserveSpot(
+        'org-7',
         'evt-1',
         { email: `guest-${index}@e.com`, name: 'G' },
         'confirm',
@@ -173,7 +196,7 @@ describe('reserveSpot — unlimited capacity', () => {
     }
 
     expect(outcomes).toEqual(Array(5).fill('confirmed'));
-    expect(await getEvent('evt-1')).toMatchObject({
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
       confirmedCount: 5,
       pendingCount: 0,
     });
@@ -184,12 +207,14 @@ describe('reserveSpot — idempotency', () => {
   it('re-registering a confirmed guest is a no-op, not a duplicate', async () => {
     await event();
     const first = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'ada@e.com', name: 'Ada' },
       'confirm',
     );
 
     const second = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: ' ADA@e.com ', name: 'Ada Again' },
       'confirm',
@@ -203,34 +228,44 @@ describe('reserveSpot — idempotency', () => {
     // sitting in their inbox.
     expect(second.guest.cancelToken).toBe(first.guest.cancelToken);
     expect(second.guest.name).toBe('Ada');
-    expect(await listEventGuests('evt-1')).toHaveLength(1);
-    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 1 });
+    expect(await listEventGuests('org-7', 'evt-1')).toHaveLength(1);
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 1,
+    });
   });
 
   it('re-registering a held guest does not double-count the hold', async () => {
     await event();
-    await reserveSpot('evt-1', { email: 'b@e.com', name: 'B' }, 'hold');
+    await reserveSpot(
+      'org-7',
+      'evt-1',
+      { email: 'b@e.com', name: 'B' },
+      'hold',
+    );
 
     const second = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'b@e.com', name: 'B' },
       'hold',
     );
 
     expect(second).toMatchObject({ outcome: 'held', alreadyRegistered: true });
-    expect(await getEvent('evt-1')).toMatchObject({ heldCount: 1 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({ heldCount: 1 });
   });
 
   it('re-registering a waitlisted guest keeps their original position', async () => {
     await event({ maxGuests: 1, confirmedCount: 1, pendingCount: 3 });
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'queued@e.com',
       status: 'pending',
       waitlistPosition: 3,
     });
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'queued@e.com', name: 'Q' },
       'confirm',
@@ -242,13 +277,14 @@ describe('reserveSpot — idempotency', () => {
     });
     expect(result.guest.waitlistPosition).toBe(3);
     // No second queue ticket.
-    expect(await getEvent('evt-1')).toMatchObject({ pendingCount: 3 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({ pendingCount: 3 });
   });
 
   it('lets a cancelled guest register again as a fresh reservation', async () => {
     await event();
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'back@e.com',
       status: 'cancelled',
       cancelledAt: at(5),
@@ -256,6 +292,7 @@ describe('reserveSpot — idempotency', () => {
     });
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'back@e.com', name: 'Back' },
       'confirm',
@@ -265,10 +302,12 @@ describe('reserveSpot — idempotency', () => {
       outcome: 'confirmed',
       alreadyRegistered: false,
     });
-    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 1 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 1,
+    });
 
     // The full overwrite clears the residue of the previous registration.
-    const stored = await getGuest('evt-1', 'back@e.com');
+    const stored = await getGuest('org-7', 'evt-1', 'back@e.com');
     expect(stored?.cancelledAt).toBeUndefined();
     expect(stored?.cancelToken).not.toBe('old-token');
   });
@@ -277,29 +316,36 @@ describe('reserveSpot — idempotency', () => {
     await event();
     await seedGuest({
       eventId: 'evt-1',
+      orgId: 'org-7',
       email: 'retry@e.com',
       status: 'expired',
       holdExpiresAt: at(-1),
     });
 
     const result = await reserveSpot(
+      'org-7',
       'evt-1',
       { email: 'retry@e.com', name: 'Retry' },
       'hold',
     );
 
     expect(result).toMatchObject({ outcome: 'held', alreadyRegistered: false });
-    expect(await getEvent('evt-1')).toMatchObject({ heldCount: 1 });
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({ heldCount: 1 });
   });
 });
 
 describe('reserveSpot — bad input', () => {
   it('throws EventNotFoundError rather than writing an orphan guest', async () => {
     await expect(
-      reserveSpot('evt-missing', { email: 'a@e.com', name: 'A' }, 'confirm'),
+      reserveSpot(
+        'org-7',
+        'evt-missing',
+        { email: 'a@e.com', name: 'A' },
+        'confirm',
+      ),
     ).rejects.toBeInstanceOf(EventNotFoundError);
 
-    expect(await listEventGuests('evt-missing')).toEqual([]);
+    expect(await listEventGuests('org-7', 'evt-missing')).toEqual([]);
   });
 
   it.each<WorkshopEvent['status']>(['draft', 'cancelled'])(
@@ -308,12 +354,19 @@ describe('reserveSpot — bad input', () => {
       await event({ status });
 
       await expect(
-        reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+        reserveSpot(
+          'org-7',
+          'evt-1',
+          { email: 'a@e.com', name: 'A' },
+          'confirm',
+        ),
       ).rejects.toBeInstanceOf(EventNotRegisterableError);
 
       // Nothing was written: no guest, and the counter did not move.
-      expect(await listEventGuests('evt-1')).toEqual([]);
-      expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 0 });
+      expect(await listEventGuests('org-7', 'evt-1')).toEqual([]);
+      expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+        confirmedCount: 0,
+      });
     },
   );
 
@@ -321,7 +374,7 @@ describe('reserveSpot — bad input', () => {
     await event({ status: 'cancelled' });
 
     await expect(
-      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
     ).rejects.toMatchObject({ eventId: 'evt-1', status: 'cancelled' });
   });
 
@@ -329,18 +382,20 @@ describe('reserveSpot — bad input', () => {
     await event({ price: 2500 });
 
     await expect(
-      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
     ).rejects.toBeInstanceOf(PaymentRequiredError);
 
-    expect(await listEventGuests('evt-1')).toEqual([]);
-    expect(await getEvent('evt-1')).toMatchObject({ confirmedCount: 0 });
+    expect(await listEventGuests('org-7', 'evt-1')).toEqual([]);
+    expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+      confirmedCount: 0,
+    });
   });
 
   it('still allows a hold on a priced event — that is the paid path', async () => {
     await event({ price: 2500 });
 
     await expect(
-      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
     ).resolves.toMatchObject({ outcome: 'held' });
   });
 
@@ -351,7 +406,7 @@ describe('reserveSpot — bad input', () => {
     await event({ status: 'draft', price: 2500 });
 
     await expect(
-      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'confirm'),
     ).rejects.toBeInstanceOf(EventNotRegisterableError);
   });
 
@@ -361,7 +416,7 @@ describe('reserveSpot — bad input', () => {
     await event({ status: 'draft' });
 
     await expect(
-      reserveSpot('evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
+      reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
     ).rejects.toBeInstanceOf(EventNotRegisterableError);
   });
 });

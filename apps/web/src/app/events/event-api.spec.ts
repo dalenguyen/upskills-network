@@ -111,8 +111,14 @@ describe('apiErrorCode', () => {
 
 describe('eventDetailEndpoint', () => {
   it('escapes the slug so a path segment cannot be smuggled in', () => {
-    expect(eventDetailEndpoint('../orgs/secret')).toBe(
-      '/api/v1/events/..%2Forgs%2Fsecret',
+    expect(eventDetailEndpoint('acme', '../orgs/secret')).toBe(
+      '/api/v1/orgs/acme/events/..%2Forgs%2Fsecret',
+    );
+  });
+
+  it('escapes the organizer segment too', () => {
+    expect(eventDetailEndpoint('../../admin', 'react-basics')).toBe(
+      '/api/v1/orgs/..%2F..%2Fadmin/events/react-basics',
     );
   });
 });

@@ -24,7 +24,7 @@ describe('runTransaction retry policy', () => {
     await expect(
       runTransaction(async (transaction) => {
         attempts++;
-        await transaction.get(eventRef('evt-policy'));
+        await transaction.get(eventRef('org-1', 'evt-policy'));
         throw new BusinessRuleError('not contention');
       }),
     ).rejects.toThrow(BusinessRuleError);
@@ -47,7 +47,7 @@ describe('runTransaction retry policy', () => {
     await expect(
       runTransaction(async (transaction) => {
         attempts++;
-        await transaction.get(eventRef('evt-policy-2'));
+        await transaction.get(eventRef('org-1', 'evt-policy-2'));
         throw bug;
       }),
     ).rejects.toThrow('some other invalid argument');

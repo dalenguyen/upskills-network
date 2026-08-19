@@ -39,7 +39,18 @@ import type { Currency, Organizer, WorkshopEvent } from '@upskills/models';
 export interface PublicEvent {
   eventId: string;
   orgId: string;
+  /**
+   * The owning organizer's slug — the first segment of this event's URL,
+   * `/{orgSlug}/{eventSlug}`.
+   *
+   * Passed in rather than read off the event, because it is not stored on the
+   * event document: denormalizing it would make renaming an organizer a
+   * rewrite of every event they own. The browse listing resolves it in one
+   * batched lookup per page; the detail routes already hold the organizer.
+   */
+  orgSlug: string;
   title: string;
+  /** The event's own slug — the second segment of `/{orgSlug}/{eventSlug}`. */
   slug: string;
   description: string;
   /** ISO-8601 — a Firestore `Timestamp` does not survive JSON intact. */
@@ -81,12 +92,16 @@ function spotsRemaining(event: WorkshopEvent): number | null {
   return Math.max(0, event.maxGuests - event.confirmedCount - event.heldCount);
 }
 
-export function toPublicEvent(event: WorkshopEvent): PublicEvent {
+export function toPublicEvent(
+  event: WorkshopEvent,
+  orgSlug: string,
+): PublicEvent {
   const remaining = spotsRemaining(event);
 
   return {
     eventId: event.eventId,
     orgId: event.orgId,
+    orgSlug,
     title: event.title,
     slug: event.slug,
     description: event.description,

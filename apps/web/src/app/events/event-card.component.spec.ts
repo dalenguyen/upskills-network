@@ -7,6 +7,7 @@ import { EventCardComponent } from './event-card.component';
 const baseEvent: PublicEvent = {
   eventId: 'evt_1',
   orgId: 'org_1',
+  orgSlug: 'acme',
   title: 'Intro to Kubernetes',
   slug: 'intro-to-kubernetes',
   description: 'A hands-on afternoon.',
@@ -38,7 +39,7 @@ describe('EventCardComponent', () => {
     const fixture = render();
     const anchor = fixture.nativeElement.querySelector('a');
 
-    expect(anchor.getAttribute('href')).toBe('/events/intro-to-kubernetes');
+    expect(anchor.getAttribute('href')).toBe('/acme/intro-to-kubernetes');
     expect(fixture.nativeElement.textContent).toContain('Intro to Kubernetes');
     expect(fixture.nativeElement.textContent).toContain('September 10, 2026');
     expect(fixture.nativeElement.textContent).toContain('MaRS Centre, Toronto');

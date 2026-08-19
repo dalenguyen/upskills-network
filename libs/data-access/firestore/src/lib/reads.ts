@@ -14,9 +14,11 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
 import {
+  COLLECTIONS,
   eventRef,
   eventSlugRef,
   eventsCol,
+  eventsGroup,
   guestRef,
   guestsCol,
   guestsGroup,
@@ -26,7 +28,11 @@ import {
   userRef,
   usersCol,
 } from './collections';
-import { decodeEventCursor, encodeEventCursor } from './cursor';
+import {
+  decodeEventCursor,
+  encodeEventCursor,
+  type EventCursor,
+} from './cursor';
 import { getDb } from './db';
 
 /**
@@ -65,24 +71,48 @@ function eventFrom(
   snapshot: DocumentSnapshot<WorkshopEvent>,
 ): WorkshopEvent | null {
   const data = snapshot.data();
-  return data ? { ...data, eventId: snapshot.id } : null;
+  return data ? eventFromParts(snapshot, data) : null;
 }
 
 function eventFromQueryDoc(
   snapshot: QueryDocumentSnapshot<WorkshopEvent>,
 ): WorkshopEvent {
-  return { ...snapshot.data(), eventId: snapshot.id };
+  return eventFromParts(snapshot, snapshot.data());
+}
+
+/**
+ * Stamp the ids the *path* carries back onto the event.
+ *
+ * `organizers/{orgId}/events/{eventId}` — both ids are in the reference, so both
+ * are taken from it rather than trusted from the body. This matters most for
+ * {@link listPublishedEvents}, a collection-group query whose results come from
+ * organizers the caller never named: `orgId` is the only way the browse page can
+ * build a `/{orgSlug}/{eventSlug}` link, and reading it from the path means a
+ * document with a stale or missing `orgId` field still resolves correctly.
+ */
+function eventFromParts(
+  snapshot: DocumentSnapshot<WorkshopEvent>,
+  data: WorkshopEvent,
+): WorkshopEvent {
+  return {
+    ...data,
+    eventId: snapshot.id,
+    orgId: snapshot.ref.parent.parent?.id ?? data.orgId,
+  };
 }
 
 function guestFromQueryDoc(snapshot: QueryDocumentSnapshot<Guest>): Guest {
   const data = snapshot.data();
+  const event = snapshot.ref.parent.parent;
 
   return {
     ...data,
     guestId: snapshot.id,
-    // `events/{eventId}/guests/{guestId}` — the path is authoritative, which
-    // matters for collection-group hits where the caller never named the event.
-    eventId: snapshot.ref.parent.parent?.id ?? data.eventId,
+    // `organizers/{orgId}/events/{eventId}/guests/{guestId}` — the path is
+    // authoritative, which matters for collection-group hits where the caller
+    // named neither the event nor the organizer.
+    eventId: event?.id ?? data.eventId,
+    orgId: event?.parent.parent?.id ?? data.orgId,
   };
 }
 
@@ -190,6 +220,43 @@ export async function listOrgs(): Promise<Organizer[]> {
 }
 
 /**
+ * Slug for each of `orgIds`, keyed by orgId — the browse listing's "how do I
+ * link to this?" lookup.
+ *
+ * A public event URL is `/{orgSlug}/{eventSlug}`, and {@link listPublishedEvents}
+ * returns events from organizers the caller never named. The alternative would
+ * be denormalizing `orgSlug` onto every event document, which turns renaming an
+ * organizer into a fan-out write across their whole back catalogue — and leaves
+ * every event carrying a slug that can silently go stale.
+ *
+ * One `getAll` for the whole page, deduplicated by the caller: a page of twenty
+ * events from three organizers costs three reads, not twenty. Organizers with no
+ * document are simply absent from the result.
+ */
+export async function getOrgSlugs(
+  orgIds: string[],
+): Promise<Record<string, string>> {
+  const unique = [...new Set(orgIds)];
+
+  if (unique.length === 0) {
+    return {};
+  }
+
+  const snapshots = await getDb().getAll(...unique.map((id) => orgRef(id)));
+  const slugs: Record<string, string> = {};
+
+  for (const snapshot of snapshots) {
+    const slug = (snapshot.data() as Organizer | undefined)?.slug;
+
+    if (slug !== undefined && slug !== '') {
+      slugs[snapshot.id] = slug;
+    }
+  }
+
+  return slugs;
+}
+
+/**
  * Two indexed `get()`s: the `orgSlugs/{slug}` reservation doc, then the
  * organizer it points at. Never a `where('slug', '==', …)` query.
  *
@@ -201,23 +268,62 @@ export async function getOrgBySlug(slug: string): Promise<Organizer | null> {
   return reservation ? getOrg(reservation.orgId) : null;
 }
 
-/** `events/{eventId}` */
-export async function getEvent(eventId: string): Promise<WorkshopEvent | null> {
-  return eventFrom(await eventRef(eventId).get());
+/** `organizers/{orgId}/events/{eventId}` */
+export async function getEvent(
+  orgId: string,
+  eventId: string,
+): Promise<WorkshopEvent | null> {
+  return eventFrom(await eventRef(orgId, eventId).get());
+}
+
+/** What `/{orgSlug}/{eventSlug}` resolves to: both documents behind the URL. */
+export interface EventPage {
+  organizer: Organizer;
+  event: WorkshopEvent;
 }
 
 /**
- * The public event page's lookup: `eventSlugs/{slug}` → `events/{eventId}`.
+ * The public event page's lookup: `/{orgSlug}/{eventSlug}` → both documents.
  *
- * Two key reads rather than a `where('slug', '==', …)` query — the same doc
- * count, but no query planning, no extra index, and the reservation doc is what
- * guarantees slug uniqueness in the first place.
+ * Three key reads in two round trips, all `get()`s on document ids — never a
+ * `where('slug', '==', …)`:
+ *
+ * 1. `orgSlugs/{orgSlug}` → `orgId`.
+ * 2. In parallel, `organizers/{orgId}` and
+ *    `organizers/{orgId}/eventSlugs/{eventSlug}` → the organizer and `eventId`.
+ * 3. `organizers/{orgId}/events/{eventId}`.
+ *
+ * The organizer is fetched alongside the reservation rather than after it
+ * because the page renders the organizer's name either way — a lookup that
+ * returned only the event would just make its caller pay for a fourth read.
+ *
+ * Returns `null` if any link in the chain is missing. A reservation pointing at
+ * a deleted event is a data problem, not a caller problem, and reads the same as
+ * a URL nobody ever published.
  */
-export async function getEventBySlug(
-  slug: string,
-): Promise<WorkshopEvent | null> {
-  const reservation = (await eventSlugRef(slug).get()).data();
-  return reservation ? getEvent(reservation.eventId) : null;
+export async function getEventByPath(
+  orgSlug: string,
+  eventSlug: string,
+): Promise<EventPage | null> {
+  const orgReservation = (await orgSlugRef(orgSlug).get()).data();
+  if (!orgReservation) {
+    return null;
+  }
+
+  const { orgId } = orgReservation;
+  const [organizer, eventReservation] = await Promise.all([
+    getOrg(orgId),
+    eventSlugRef(orgId, eventSlug)
+      .get()
+      .then((snapshot) => snapshot.data()),
+  ]);
+
+  if (!organizer || !eventReservation) {
+    return null;
+  }
+
+  const event = await getEvent(orgId, eventReservation.eventId);
+  return event ? { organizer, event } : null;
 }
 
 export interface ListPublishedEventsOptions {
@@ -235,21 +341,34 @@ export interface PublishedEventsPage {
 
 /**
  * Public browse: every org's published events, soonest first, one page at a
- * time. Backed by the `events (status ASC, startsAt ASC)` composite index.
+ * time.
+ *
+ * The one read that genuinely spans organizers, so the one that pays for the
+ * subcollection: a **collection-group** query backed by the
+ * `events (status ASC, startsAt ASC)` **COLLECTION_GROUP** index. Same fields as
+ * the top-level index it replaced — only the scope changed.
  */
 export async function listPublishedEvents(
   options: ListPublishedEventsOptions = {},
 ): Promise<PublishedEventsPage> {
-  return pageOfEvents(eventsCol().where('status', '==', 'published'), options);
+  return pageOfEvents(
+    eventsGroup().where('status', '==', 'published'),
+    options,
+    'group',
+  );
 }
 
 /**
  * The public organizer page: one org's published events, soonest first.
  *
- * Backed by the `events (orgId ASC, status ASC, startsAt ASC)` composite index,
- * which exists only for this query — the dashboard's
- * `(orgId ASC, startsAt DESC)` index cannot serve it, because adding the
- * `status` equality filter changes the required index prefix.
+ * Reads `organizers/{orgId}/events` directly, so the organizer is the path
+ * rather than an equality filter. Backed by the **COLLECTION**-scoped
+ * `events (status ASC, startsAt ASC)` index.
+ *
+ * That is a second declaration with the same fields as the COLLECTION_GROUP one
+ * {@link listPublishedEvents} uses, and both are required: Firestore treats the
+ * two scopes as different indexes, and a collection-group index does not serve a
+ * query against a single collection. `firestore.indexes.json` declares each.
  *
  * Deliberately separate from {@link listOrgEvents} rather than a `status`
  * option on it. The dashboard lists every status newest-first so an organizer
@@ -263,8 +382,9 @@ export async function listPublishedOrgEvents(
   options: ListPublishedEventsOptions = {},
 ): Promise<PublishedEventsPage> {
   return pageOfEvents(
-    eventsCol().where('orgId', '==', orgId).where('status', '==', 'published'),
+    eventsCol(orgId).where('status', '==', 'published'),
     options,
+    'collection',
   );
 }
 
@@ -277,9 +397,33 @@ export async function listPublishedOrgEvents(
  * and lets the cursor address an exact position rather than a `startsAt` that
  * several events may share.
  */
+/**
+ * Which form of query a page is being read from — they take different
+ * `__name__` cursor values. See {@link documentIdCursor}.
+ */
+type EventQueryScope = 'collection' | 'group';
+
+/**
+ * The `__name__` value for a cursor, in the form its query will accept.
+ *
+ * A query over one collection takes a bare document id. A **collection-group**
+ * query does not: Firestore rejects anything that is not a full document path
+ * ("must result in a valid document path, but 'evt-1' … contains an odd number
+ * of segments"), because an id alone is ambiguous across the organizers the
+ * group spans. This is the one place the two query shapes genuinely differ, and
+ * getting it wrong fails only on the *second* page — which is why the paging
+ * tests are the ones that catch it.
+ */
+function documentIdCursor(cursor: EventCursor, scope: EventQueryScope): string {
+  return scope === 'group'
+    ? `${COLLECTIONS.organizers}/${cursor.orgId}/${COLLECTIONS.events}/${cursor.eventId}`
+    : cursor.eventId;
+}
+
 async function pageOfEvents(
   filtered: Query<WorkshopEvent>,
   options: ListPublishedEventsOptions,
+  scope: EventQueryScope,
 ): Promise<PublishedEventsPage> {
   const limit = Math.min(
     Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE),
@@ -294,7 +438,7 @@ async function pageOfEvents(
     const cursor = decodeEventCursor(options.cursor);
     query = query.startAfter(
       Timestamp.fromMillis(cursor.startsAtMs),
-      cursor.eventId,
+      documentIdCursor(cursor, scope),
     );
   }
 
@@ -317,15 +461,21 @@ export interface ListOrgEventsOptions {
 
 /**
  * Organizer dashboard: every event owned by one org, newest first, regardless
- * of status. Backed by the `events (orgId ASC, startsAt DESC)` index.
+ * of status.
+ *
+ * Now a plain read of `organizers/{orgId}/events` with no filter at all —
+ * ownership is the path. That also means **no composite index**: a single
+ * `orderBy` on a collection is served by the automatic single-field index, so
+ * the `(orgId ASC, startsAt DESC)` declaration this query used to need is gone.
  */
 export async function listOrgEvents(
   orgId: string,
   options: ListOrgEventsOptions = {},
 ): Promise<WorkshopEvent[]> {
-  let query: Query<WorkshopEvent> = eventsCol()
-    .where('orgId', '==', orgId)
-    .orderBy('startsAt', 'desc');
+  let query: Query<WorkshopEvent> = eventsCol(orgId).orderBy(
+    'startsAt',
+    'desc',
+  );
 
   if (options.limit !== undefined) {
     query = query.limit(options.limit);
@@ -348,10 +498,11 @@ export interface ListEventGuestsOptions {
  * composite index.
  */
 export async function listEventGuests(
+  orgId: string,
   eventId: string,
   options: ListEventGuestsOptions = {},
 ): Promise<Guest[]> {
-  let query: Query<Guest> = guestsCol(eventId);
+  let query: Query<Guest> = guestsCol(orgId, eventId);
 
   if (options.status !== undefined) {
     query = query.where('status', '==', options.status);
@@ -371,10 +522,11 @@ export async function listEventGuests(
  * email — `email` is normalized here so callers can pass raw user input.
  */
 export async function getGuest(
+  orgId: string,
   eventId: string,
   email: string,
 ): Promise<Guest | null> {
-  return guestFrom(await guestRef(eventId, email).get());
+  return guestFrom(await guestRef(orgId, eventId, email).get());
 }
 
 /**

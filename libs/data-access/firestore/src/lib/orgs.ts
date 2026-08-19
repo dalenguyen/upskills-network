@@ -1,7 +1,12 @@
 import type { OrgRole, Organizer } from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
-import { orgRef, orgsCol, userRef } from './collections';
-import { asSlugTaken, reserveSlugInTransaction } from './slugs';
+import { eventsCol, orgRef, orgsCol, userRef } from './collections';
+import {
+  ORG_SLUGS,
+  asSlugTaken,
+  releaseSlugInTransaction,
+  reserveSlugInTransaction,
+} from './slugs';
 import { runTransaction } from './transactions';
 
 /**
@@ -74,6 +79,25 @@ export class OrgLimitExceededError extends Error {
   }
 }
 
+/**
+ * Raised when deleting an organizer would strand the events it owns.
+ *
+ * Events live at `organizers/{orgId}/events/{eventId}`, and Firestore does not
+ * delete a subcollection when its parent goes: the events would survive as
+ * unreachable orphans while their slugs kept resolving to nothing. Rather than
+ * cascade — a recursive delete that can partially fail, taking guest documents
+ * and payment records with it — this path refuses, and the organizer deals with
+ * their events first.
+ *
+ * A route maps this to **409**.
+ */
+export class OrgNotEmptyError extends Error {
+  constructor(readonly orgId: string) {
+    super(`Organizer "${orgId}" still owns events and cannot be deleted.`);
+    this.name = 'OrgNotEmptyError';
+  }
+}
+
 /** The caller-supplied half of a new organizer document. */
 export interface CreateOrgDraft {
   name: string;
@@ -123,7 +147,7 @@ export async function createOrg({
 
     reservedSlug = await reserveSlugInTransaction(
       transaction,
-      'orgSlugs',
+      ORG_SLUGS,
       slug,
       doc.id,
     );
@@ -154,7 +178,76 @@ export async function createOrg({
     }
 
     return organizer;
-  }).catch((error: unknown) => asSlugTaken('orgSlugs', reservedSlug)(error));
+  }).catch((error: unknown) => asSlugTaken(ORG_SLUGS, reservedSlug)(error));
+}
+
+/**
+ * Delete an organizer that owns no events, releasing its slug.
+ *
+ * Three things have to move together, which is why they are one transaction:
+ * the organizer document, the `orgSlugs/{slug}` reservation, and the `orgIds`
+ * entry on every member's user document. Leave the reservation behind and the
+ * name is unusable forever; leave `orgIds` behind and the member can never
+ * create another org, because `createOrg` reads exactly that field to enforce
+ * one-org-per-user.
+ *
+ * The emptiness check reads `organizers/{orgId}/events` with `limit(1)` inside
+ * the transaction, so an event created concurrently joins the read set and
+ * forces the retry that then refuses. Checking outside the transaction would
+ * leave a window in which an event lands under an organizer being deleted.
+ *
+ * @throws OrgNotFoundError when `orgId` names no organizer.
+ * @throws OrgNotEmptyError when the organizer still owns any event, of any
+ *   status — cancelled events count, because their guest documents are still
+ *   the payment record.
+ */
+export async function deleteOrg(orgId: string): Promise<void> {
+  return runTransaction(async (transaction) => {
+    const doc = orgRef(orgId);
+
+    // Every read before any write: the organizer, the event probe, and each
+    // member's user document.
+    const existing = orgFromSnapshot(await transaction.get(doc));
+    if (!existing) {
+      throw new OrgNotFoundError(orgId);
+    }
+
+    const anyEvent = await transaction.get(eventsCol(orgId).limit(1));
+    if (!anyEvent.empty) {
+      throw new OrgNotEmptyError(orgId);
+    }
+
+    const memberDocs = await Promise.all(
+      existing.memberUids.map(async (uid) => ({
+        ref: userRef(uid),
+        user: (await transaction.get(userRef(uid))).data(),
+      })),
+    );
+
+    // Reads the reservation and then deletes it, so it straddles the boundary —
+    // and has to run here, while nothing has been written yet.
+    await releaseSlugInTransaction(
+      transaction,
+      ORG_SLUGS,
+      existing.slug,
+      orgId,
+    );
+
+    for (const { ref, user } of memberDocs) {
+      if (!user) {
+        continue;
+      }
+
+      // Merge rather than overwrite: the user document carries fields this path
+      // must not touch.
+      transaction.set(ref, {
+        ...user,
+        orgIds: user.orgIds.filter((id) => id !== orgId),
+      });
+    }
+
+    transaction.delete(doc);
+  });
 }
 
 /**

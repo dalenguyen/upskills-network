@@ -25,23 +25,37 @@ import { getDb } from './db';
  * ```
  * users/{uid}
  * organizers/{orgId}
+ *   ├─ events/{eventId}
+ *   │    └─ guests/{guestId}     # guestId = normalizeEmail(email)
+ *   └─ eventSlugs/{slug}  → { eventId }
  * orgInvites/{inviteId}          # pending staff invitations
- * events/{eventId}
- *   └─ guests/{guestId}          # guestId = normalizeEmail(email)
- * orgSlugs/{slug}      → { orgId }
- * eventSlugs/{slug}    → { eventId }
+ * orgSlugs/{slug}       → { orgId }
  * stripeEvents/{stripeEventId}   # webhook idempotency ledger
  * waitlist/{normalizedEmail}     # landing-page waitlist signups
  * ```
+ *
+ * ## Why events hang off the organizer
+ *
+ * Ownership is the path. An event cannot be written into the wrong org without
+ * addressing a different collection, "every event this org owns" is a plain
+ * collection read with no filter, and — the reason the slug work started —
+ * `eventSlugs` becomes a subcollection too, so `react-basics` is claimable once
+ * *per organizer* rather than once across the whole product.
+ *
+ * The price is that anything reading across orgs must use a collection-group
+ * query ({@link eventsGroup}) with a COLLECTION_GROUP index behind it. Two
+ * queries pay it: the public browse and the reminder sweep.
  */
 export const COLLECTIONS = {
   users: 'users',
   organizers: 'organizers',
   orgInvites: 'orgInvites',
+  /** Subcollection of `organizers/{orgId}`. */
   events: 'events',
-  /** Subcollection of `events/{eventId}`. */
+  /** Subcollection of `organizers/{orgId}/events/{eventId}`. */
   guests: 'guests',
   orgSlugs: 'orgSlugs',
+  /** Subcollection of `organizers/{orgId}`. */
   eventSlugs: 'eventSlugs',
   stripeEvents: 'stripeEvents',
   waitlist: 'waitlist',
@@ -52,7 +66,13 @@ export interface OrgSlugReservation {
   orgId: string;
 }
 
-/** `eventSlugs/{slug}` — the uniqueness reservation for an event slug. */
+/**
+ * `organizers/{orgId}/eventSlugs/{slug}` — the uniqueness reservation for an
+ * event slug, scoped to one organizer.
+ *
+ * No `orgId` field: the organizer is the document's grandparent, so storing it
+ * would be a second copy of the path that could disagree with it.
+ */
 export interface EventSlugReservation {
   eventId: string;
 }
@@ -126,16 +146,40 @@ export function orgInviteRef(inviteId: string): DocumentReference<OrgInvite> {
   return orgInvitesCol().doc(inviteId);
 }
 
-export function eventsCol(): CollectionReference<WorkshopEvent> {
-  return getDb().collection(COLLECTIONS.events).withConverter(eventConverter);
+/** `organizers/{orgId}/events` — one organizer's events. */
+export function eventsCol(orgId: string): CollectionReference<WorkshopEvent> {
+  return orgRef(orgId)
+    .collection(COLLECTIONS.events)
+    .withConverter(eventConverter);
 }
 
-export function eventRef(eventId: string): DocumentReference<WorkshopEvent> {
-  return eventsCol().doc(eventId);
+export function eventRef(
+  orgId: string,
+  eventId: string,
+): DocumentReference<WorkshopEvent> {
+  return eventsCol(orgId).doc(eventId);
 }
 
-export function guestsCol(eventId: string): CollectionReference<Guest> {
-  return eventRef(eventId)
+/**
+ * Every event doc across every organizer — for the two queries that genuinely
+ * span orgs: the public browse and the reminder sweep.
+ *
+ * Needs a **COLLECTION_GROUP** index for anything beyond a single equality
+ * filter; see `firestore.indexes.json`. Reach for {@link eventsCol} instead
+ * whenever the organizer is known — a scoped read needs no such index and
+ * cannot accidentally return somebody else's event.
+ */
+export function eventsGroup(): Query<WorkshopEvent> {
+  return getDb()
+    .collectionGroup(COLLECTIONS.events)
+    .withConverter(eventConverter);
+}
+
+export function guestsCol(
+  orgId: string,
+  eventId: string,
+): CollectionReference<Guest> {
+  return eventRef(orgId, eventId)
     .collection(COLLECTIONS.guests)
     .withConverter(guestConverter);
 }
@@ -147,10 +191,11 @@ export function guestsCol(eventId: string): CollectionReference<Guest> {
  * registration impossible without a query. Never build this path by hand.
  */
 export function guestRef(
+  orgId: string,
   eventId: string,
   email: string,
 ): DocumentReference<Guest> {
-  return guestsCol(eventId).doc(normalizeEmail(email));
+  return guestsCol(orgId, eventId).doc(normalizeEmail(email));
 }
 
 /** Every guest doc across every event — for the cross-event email lookup. */
@@ -169,10 +214,18 @@ export function orgSlugRef(
     .doc(slug);
 }
 
+/**
+ * `organizers/{orgId}/eventSlugs/{slug}` — an event slug reservation, scoped to
+ * the organizer that holds it.
+ *
+ * The `orgId` argument is what makes event slugs per-org: the same `slug` under
+ * two different organizers is two different documents, and neither collides.
+ */
 export function eventSlugRef(
+  orgId: string,
   slug: string,
 ): DocumentReference<EventSlugReservation> {
-  return getDb()
+  return orgRef(orgId)
     .collection(COLLECTIONS.eventSlugs)
     .withConverter(eventSlugConverter)
     .doc(slug);

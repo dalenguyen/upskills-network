@@ -16,6 +16,7 @@ import {
 const freeEvent: PublicEvent = {
   eventId: 'evt_1',
   orgId: 'org_1',
+  orgSlug: 'acme',
   title: 'Intro to Kubernetes',
   slug: 'intro-to-kubernetes',
   description: 'A hands-on afternoon.',
@@ -59,7 +60,7 @@ describe('RegistrationFormComponent', () => {
     const pending = component.submit();
     fixture.detectChanges();
 
-    const request = http.expectOne(registerEndpoint('evt_1'));
+    const request = http.expectOne(registerEndpoint('org_1', 'evt_1'));
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({
       email: 'ada@example.com',
@@ -85,7 +86,7 @@ describe('RegistrationFormComponent', () => {
 
     const pending = component.submit();
     fixture.detectChanges();
-    http.expectOne(registerEndpoint('evt_1')).flush({
+    http.expectOne(registerEndpoint('org_1', 'evt_1')).flush({
       status: 'confirmed',
       alreadyRegistered: true,
       emailSent: true,
@@ -107,7 +108,7 @@ describe('RegistrationFormComponent', () => {
 
     const pending = component.submit();
     fixture.detectChanges();
-    http.expectOne(registerEndpoint('evt_1')).flush({
+    http.expectOne(registerEndpoint('org_1', 'evt_1')).flush({
       status: 'waitlisted',
       alreadyRegistered: false,
       waitlistPosition: 3,
@@ -143,7 +144,7 @@ describe('RegistrationFormComponent', () => {
 
     const pending = component.submit();
     fixture.detectChanges();
-    http.expectOne(registerEndpoint('evt_1')).flush({
+    http.expectOne(registerEndpoint('org_1', 'evt_1')).flush({
       status: 'confirmed',
       alreadyRegistered: false,
       emailSent: false,
@@ -190,7 +191,7 @@ describe('RegistrationFormComponent', () => {
     const pending = component.submit();
     fixture.detectChanges();
     http
-      .expectOne(registerEndpoint('evt_1'))
+      .expectOne(registerEndpoint('org_1', 'evt_1'))
       .flush(
         { data: { error: 'event-cancelled' } },
         { status: 409, statusText: 'Conflict' },

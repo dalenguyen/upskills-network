@@ -35,10 +35,11 @@ export {
   findRegistrationsByEmail,
   findUserByEmail,
   getEvent,
-  getEventBySlug,
+  getEventByPath,
   getGuest,
   getOrg,
   getOrgBySlug,
+  getOrgSlugs,
   getUser,
   getUserEmails,
   listEventGuests,
@@ -48,6 +49,7 @@ export {
   listPublishedOrgEvents,
 } from './lib/reads';
 export type {
+  EventPage,
   ListEventGuestsOptions,
   ListOrgEventsOptions,
   ListPublishedEventsOptions,
@@ -71,8 +73,10 @@ export type { CreateUserResult } from './lib/users';
 export {
   LastOrgAdminError,
   OrgLimitExceededError,
+  OrgNotEmptyError,
   OrgNotFoundError,
   createOrg,
+  deleteOrg,
   removeOrgMember,
   setOrgMember,
 } from './lib/orgs';
@@ -107,15 +111,18 @@ export type {
 
 export {
   InvalidSlugError,
+  ORG_SLUGS,
   SlugTakenError,
   asSlugTaken,
+  eventSlugsOf,
   releaseSlug,
+  releaseSlugInTransaction,
   renameSlug,
   renameSlugInTransaction,
   reserveSlug,
   reserveSlugInTransaction,
 } from './lib/slugs';
-export type { SlugCollection, SlugRename, SlugReservation } from './lib/slugs';
+export type { SlugRename, SlugReservation, SlugTarget } from './lib/slugs';
 
 export {
   isStripeEventProcessed,
@@ -141,7 +148,13 @@ export type {
   TransitionResult,
 } from './lib/transitions';
 
-export { cancelEvent, createEvent, updateEvent } from './lib/events-write';
+export {
+  EventNotDeletableError,
+  cancelEvent,
+  createEvent,
+  deleteDraftEvent,
+  updateEvent,
+} from './lib/events-write';
 export type {
   CancelEventResult,
   CreateEventDraft,

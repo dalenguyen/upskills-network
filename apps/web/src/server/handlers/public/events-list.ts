@@ -31,6 +31,14 @@ export interface EventsListDeps {
     cursor?: string | null;
     limit?: number;
   }): Promise<PublishedEventsPage>;
+  /**
+   * `getOrgSlugs` from `@upskills/firestore` — orgId → slug for one page.
+   *
+   * This listing spans organizers, and every card links to
+   * `/{orgSlug}/{eventSlug}`, so the slugs have to come from somewhere. One
+   * batched read per page, deduplicated by organizer.
+   */
+  getOrgSlugs(orgIds: string[]): Promise<Record<string, string>>;
 }
 
 /**
@@ -70,8 +78,18 @@ export function createEventsListHandler(deps: EventsListDeps): EventHandler {
         })
         .catch(rethrowAsBadCursor);
 
+      const orgSlugs = await deps.getOrgSlugs(
+        page.events.map((published) => published.orgId),
+      );
+
       return {
-        events: page.events.map(toPublicEvent),
+        // An event whose organizer document has gone missing is dropped rather
+        // than rendered: without an org slug there is no URL to link it to, and
+        // a card that cannot be clicked is worse than one that is absent.
+        events: page.events.flatMap((published) => {
+          const orgSlug = orgSlugs[published.orgId];
+          return orgSlug ? [toPublicEvent(published, orgSlug)] : [];
+        }),
         nextCursor: page.nextCursor,
       } satisfies EventsListResponse;
     } catch (error) {

@@ -47,7 +47,7 @@ describe('createEvent', () => {
     expect(created.createdAt.toDate()).toBeInstanceOf(Date);
     expect(created.updatedAt.toMillis()).toBe(created.createdAt.toMillis());
 
-    const stored = await getEvent(created.eventId);
+    const stored = await getEvent('org-1', created.eventId);
     expect(stored).toMatchObject({
       eventId: created.eventId,
       orgId: 'org-1',
@@ -59,7 +59,7 @@ describe('createEvent', () => {
       heldCount: 0,
       pendingCount: 0,
     });
-    expect((await eventSlugRef('react-basics').get()).data()).toEqual({
+    expect((await eventSlugRef('org-1', 'react-basics').get()).data()).toEqual({
       eventId: created.eventId,
     });
   });
@@ -72,7 +72,7 @@ describe('createEvent', () => {
     });
 
     expect(published.status).toBe('published');
-    expect(await getEvent(published.eventId)).toMatchObject({
+    expect(await getEvent('org-1', published.eventId)).toMatchObject({
       status: 'published',
     });
   });
@@ -84,12 +84,12 @@ describe('createEvent', () => {
       createEvent('org-1', { ...draft, slug: 'taken' }),
     ).rejects.toBeInstanceOf(SlugTakenError);
 
-    const docs = (await eventsCol().get()).docs.map((snapshot) =>
+    const docs = (await eventsCol('org-1').get()).docs.map((snapshot) =>
       snapshot.data(),
     );
     expect(docs).toHaveLength(1);
     expect(docs[0]).toMatchObject({ eventId: 'evt-existing', slug: 'taken' });
-    expect((await eventSlugRef('taken').get()).data()).toEqual({
+    expect((await eventSlugRef('org-1', 'taken').get()).data()).toEqual({
       eventId: 'evt-existing',
     });
   });
@@ -98,9 +98,9 @@ describe('createEvent', () => {
 describe('updateEvent', () => {
   it('applies the patch, bumps updatedAt, and stores the result', async () => {
     await seedEvent({ eventId: 'evt-1' });
-    const before = await getEvent('evt-1');
+    const before = await getEvent('org-1', 'evt-1');
 
-    const updated = await updateEvent('evt-1', {
+    const updated = await updateEvent('org-1', 'evt-1', {
       title: '  Advanced React  ',
       maxGuests: 5,
     });
@@ -113,7 +113,7 @@ describe('updateEvent', () => {
     });
     expect(updated.updatedAt.toMillis()).not.toBe(before?.updatedAt.toMillis());
 
-    const stored = await getEvent('evt-1');
+    const stored = await getEvent('org-1', 'evt-1');
     expect(stored).toMatchObject({
       eventId: 'evt-1',
       title: 'Advanced React',
@@ -125,12 +125,16 @@ describe('updateEvent', () => {
   it('releases the old slug and takes the new one atomically', async () => {
     await seedEvent({ eventId: 'evt-1', slug: 'old-slug' });
 
-    const updated = await updateEvent('evt-1', { slug: '  new-slug  ' });
+    const updated = await updateEvent('org-1', 'evt-1', {
+      slug: '  new-slug  ',
+    });
 
     expect(updated.slug).toBe('new-slug');
-    expect(await getEvent('evt-1')).toMatchObject({ slug: 'new-slug' });
-    expect((await eventSlugRef('old-slug').get()).exists).toBe(false);
-    expect((await eventSlugRef('new-slug').get()).data()).toEqual({
+    expect(await getEvent('org-1', 'evt-1')).toMatchObject({
+      slug: 'new-slug',
+    });
+    expect((await eventSlugRef('org-1', 'old-slug').get()).exists).toBe(false);
+    expect((await eventSlugRef('org-1', 'new-slug').get()).data()).toEqual({
       eventId: 'evt-1',
     });
   });
@@ -138,29 +142,29 @@ describe('updateEvent', () => {
   it('keeps the original slug intact when the new slug collides', async () => {
     await seedEvent({ eventId: 'evt-1', slug: 'one' });
     await seedEvent({ eventId: 'evt-2', slug: 'two' });
-    const before = await getEvent('evt-1');
+    const before = await getEvent('org-1', 'evt-1');
 
     await expect(
-      updateEvent('evt-1', { slug: 'two', title: 'Should Not Land' }),
+      updateEvent('org-1', 'evt-1', { slug: 'two', title: 'Should Not Land' }),
     ).rejects.toBeInstanceOf(SlugTakenError);
 
-    const stored = await getEvent('evt-1');
+    const stored = await getEvent('org-1', 'evt-1');
     expect(stored).toMatchObject({
       slug: 'one',
       title: 'Intro to Networking',
     });
     expect(stored?.updatedAt.toMillis()).toBe(before?.updatedAt.toMillis());
-    expect((await eventSlugRef('one').get()).data()).toEqual({
+    expect((await eventSlugRef('org-1', 'one').get()).data()).toEqual({
       eventId: 'evt-1',
     });
-    expect((await eventSlugRef('two').get()).data()).toEqual({
+    expect((await eventSlugRef('org-1', 'two').get()).data()).toEqual({
       eventId: 'evt-2',
     });
   });
 
   it('throws EventNotFoundError for a missing event', async () => {
     await expect(
-      updateEvent('evt-gone', { title: 'Nope' }),
+      updateEvent('org-1', 'evt-gone', { title: 'Nope' }),
     ).rejects.toBeInstanceOf(EventNotFoundError);
   });
 });
@@ -190,7 +194,7 @@ describe('cancelEvent', () => {
       waitlistPosition: 1,
     });
 
-    const result = await cancelEvent('evt-1');
+    const result = await cancelEvent('org-1', 'evt-1');
 
     expect(result.event).toMatchObject({
       eventId: 'evt-1',
@@ -202,19 +206,19 @@ describe('cancelEvent', () => {
     ]);
 
     // The document stays in place; only its status changed.
-    const stored = await getEvent('evt-1');
+    const stored = await getEvent('org-1', 'evt-1');
     expect(stored).toMatchObject({
       eventId: 'evt-1',
       title: 'Intro to Networking',
       status: 'cancelled',
     });
     expect(
-      await listEventGuests('evt-1', { status: 'confirmed' }),
+      await listEventGuests('org-1', 'evt-1', { status: 'confirmed' }),
     ).toHaveLength(2);
   });
 
   it('throws EventNotFoundError for a missing event', async () => {
-    await expect(cancelEvent('evt-gone')).rejects.toBeInstanceOf(
+    await expect(cancelEvent('org-1', 'evt-gone')).rejects.toBeInstanceOf(
       EventNotFoundError,
     );
   });

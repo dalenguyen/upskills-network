@@ -18,11 +18,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService, type AuthUser } from '../../auth/auth-service';
 import type { PublicEvent } from '../../events/event-api';
 import { eventDetailEndpoint } from '../../events/event-api';
-import EventPageComponent from './[slug].page';
+import EventPageComponent from './[eventSlug].page';
 
 const event: PublicEvent = {
   eventId: 'evt_1',
   orgId: 'org_1',
+  orgSlug: 'acme',
   title: 'Intro to Kubernetes',
   slug: 'intro-to-kubernetes',
   description: 'A hands-on afternoon.',
@@ -45,7 +46,10 @@ function authServiceStub() {
 describe('EventPageComponent', () => {
   let http: HttpTestingController;
 
-  async function setup(slug: string | null) {
+  async function setup(
+    eventSlug: string | null,
+    orgSlug: string | null = 'acme',
+  ) {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [EventPageComponent],
@@ -57,7 +61,10 @@ describe('EventPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap(slug === null ? {} : { slug }),
+              paramMap: convertToParamMap({
+                ...(orgSlug === null ? {} : { orgSlug }),
+                ...(eventSlug === null ? {} : { eventSlug }),
+              }),
             },
           },
         },
@@ -79,7 +86,9 @@ describe('EventPageComponent', () => {
   it('loads the event named by the route and renders it with the form', async () => {
     const fixture = await setup('intro-to-kubernetes');
 
-    const request = http.expectOne(eventDetailEndpoint('intro-to-kubernetes'));
+    const request = http.expectOne(
+      eventDetailEndpoint('acme', 'intro-to-kubernetes'),
+    );
     expect(request.request.method).toBe('GET');
     request.flush({ event });
 
@@ -97,7 +106,9 @@ describe('EventPageComponent', () => {
 
   it('sets the document title from the loaded event', async () => {
     const fixture = await setup('intro-to-kubernetes');
-    http.expectOne(eventDetailEndpoint('intro-to-kubernetes')).flush({ event });
+    http
+      .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
+      .flush({ event });
 
     await fixture.whenStable();
 
@@ -108,7 +119,9 @@ describe('EventPageComponent', () => {
 
   it('publishes the event description and canonical URL for SEO', async () => {
     const fixture = await setup('intro-to-kubernetes');
-    http.expectOne(eventDetailEndpoint('intro-to-kubernetes')).flush({ event });
+    http
+      .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
+      .flush({ event });
 
     await fixture.whenStable();
 
@@ -127,11 +140,13 @@ describe('EventPageComponent', () => {
   it('escapes the slug so a path segment cannot be smuggled into the URL', async () => {
     const fixture = await setup('../orgs/secret');
 
-    http.expectOne(eventDetailEndpoint('../orgs/secret')).flush({ event });
+    http
+      .expectOne(eventDetailEndpoint('acme', '../orgs/secret'))
+      .flush({ event });
     await fixture.whenStable();
 
-    expect(eventDetailEndpoint('../orgs/secret')).toBe(
-      '/api/v1/events/..%2Forgs%2Fsecret',
+    expect(eventDetailEndpoint('acme', '../orgs/secret')).toBe(
+      '/api/v1/orgs/acme/events/..%2Forgs%2Fsecret',
     );
   });
 
@@ -139,7 +154,7 @@ describe('EventPageComponent', () => {
     const fixture = await setup('no-such-workshop');
 
     http
-      .expectOne(eventDetailEndpoint('no-such-workshop'))
+      .expectOne(eventDetailEndpoint('acme', 'no-such-workshop'))
       .flush(
         { data: { error: 'event-not-found' } },
         { status: 404, statusText: 'Not Found' },
@@ -157,7 +172,7 @@ describe('EventPageComponent', () => {
     const fixture = await setup('intro-to-kubernetes');
 
     http
-      .expectOne(eventDetailEndpoint('intro-to-kubernetes'))
+      .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
       .flush({}, { status: 500, statusText: 'Server Error' });
 
     await fixture.whenStable();

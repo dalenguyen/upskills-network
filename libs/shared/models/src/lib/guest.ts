@@ -13,7 +13,7 @@ export type GuestStatus =
   'confirmed' | 'held' | 'pending' | 'cancelled' | 'expired';
 
 /**
- * Guest document: `events/{eventId}/guests/{guestId}`.
+ * Guest document: `organizers/{orgId}/events/{eventId}/guests/{guestId}`.
  *
  * `guestId` is the normalized email, which makes double-registration impossible
  * without a query and turns cancel/lookup into an O(1) `get()`. Derive it only

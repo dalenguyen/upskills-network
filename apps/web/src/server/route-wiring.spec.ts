@@ -37,7 +37,8 @@ const firestore = vi.hoisted(() => ({
   listPublishedEvents: vi.fn(async () => ({ events: [], nextCursor: null })),
   listPublishedOrgEvents: vi.fn(async () => ({ events: [], nextCursor: null })),
   listOrgEvents: vi.fn(async () => []),
-  getEventBySlug: vi.fn(async () => null),
+  getEventByPath: vi.fn(async () => null),
+  getOrgSlugs: vi.fn(async () => ({})),
   getOrgBySlug: vi.fn(async () => null),
   getEvent: vi.fn(async () => null),
   getGuest: vi.fn(async () => null),
@@ -146,11 +147,11 @@ import { createTestEvent } from './testing/h3-event';
 import meGetRoute from './routes/api/v1/auth/me.get';
 import sessionDeleteRoute from './routes/api/v1/auth/session.delete';
 import sessionPostRoute from './routes/api/v1/auth/session.post';
-import cancelRoute from './routes/api/v1/registration/[eventId]/cancel.post';
-import eventDetailRoute from './routes/api/v1/events/[slug].get';
+import cancelRoute from './routes/api/v1/registration/[orgId]/[eventId]/cancel.post';
+import eventDetailRoute from './routes/api/v1/orgs/[orgSlug]/events/[eventSlug].get';
 import eventsListRoute from './routes/api/v1/events/index.get';
 import orgDetailRoute from './routes/api/v1/orgs/[orgSlug].get';
-import registerRoute from './routes/api/v1/registration/[eventId]/register.post';
+import registerRoute from './routes/api/v1/registration/[orgId]/[eventId]/register.post';
 import waitlistPostRoute from './routes/api/v1/waitlist.post';
 
 import adminOrgsListRoute from './routes/api/v1/admin/orgs/index.get';
@@ -203,14 +204,19 @@ describe('public route wiring', () => {
     });
   });
 
-  it('GET /events/:slug forwards the slug to getEventBySlug', async () => {
+  it('GET /orgs/:orgSlug/events/:eventSlug forwards both slugs, in order', async () => {
     await run(eventDetailRoute, {
       method: 'GET',
-      url: '/api/v1/events/some-slug',
-      params: { slug: 'some-slug' },
+      url: '/api/v1/orgs/some-org/events/some-slug',
+      params: { orgSlug: 'some-org', eventSlug: 'some-slug' },
     });
 
-    expect(firestore.getEventBySlug).toHaveBeenCalledWith('some-slug');
+    // Order matters and nothing else checks it: swapping the two arguments
+    // would still typecheck, and would resolve every event to nothing.
+    expect(firestore.getEventByPath).toHaveBeenCalledWith(
+      'some-org',
+      'some-slug',
+    );
   });
 
   it('GET /orgs/:orgSlug forwards the org slug to getOrgBySlug', async () => {
@@ -233,14 +239,15 @@ describe('registration route wiring', () => {
 
     await run(registerRoute, {
       method: 'POST',
-      url: '/api/v1/registration/evt-1/register',
-      params: { eventId: 'evt-1' },
+      url: '/api/v1/registration/org-1/evt-1/register',
+      params: { orgId: 'org-1', eventId: 'evt-1' },
       body: { email: 'ada@example.com', name: 'Ada' },
     });
 
     // The literal that separates a free confirmation from a Stripe hold. No
     // handler spec can see it: they inject their own reserveSpot.
     expect(firestore.reserveSpot).toHaveBeenCalledWith(
+      'org-1',
       'evt-1',
       { email: 'ada@example.com', name: 'Ada' },
       'confirm',
@@ -255,16 +262,17 @@ describe('registration route wiring', () => {
 
     await run(cancelRoute, {
       method: 'POST',
-      url: '/api/v1/registration/evt-1/cancel',
-      params: { eventId: 'evt-1' },
+      url: '/api/v1/registration/org-1/evt-1/cancel',
+      params: { orgId: 'org-1', eventId: 'evt-1' },
       body: { email: 'Ada@Example.com', cancelToken: 'tok-1' },
     });
 
     expect(firestore.cancelGuest).toHaveBeenCalledWith(
+      'org-1',
       'evt-1',
       'ada@example.com',
     );
-    expect(firestore.promoteNextPending).toHaveBeenCalledWith('evt-1');
+    expect(firestore.promoteNextPending).toHaveBeenCalledWith('org-1', 'evt-1');
   });
 });
 
@@ -461,7 +469,7 @@ describe('dashboard event route wiring', () => {
     );
   });
 
-  it('GET /dashboard/events/:eventId reads the event then authorizes its org', async () => {
+  it('GET /dashboard/events/:eventId authorizes the ?orgId= org, then reads', async () => {
     firestore.getEvent.mockResolvedValueOnce({
       eventId: 'evt-1',
       orgId: 'org-1',
@@ -469,11 +477,11 @@ describe('dashboard event route wiring', () => {
 
     await run(dashboardEventDetailRoute, {
       method: 'GET',
-      url: '/api/v1/dashboard/events/evt-1',
+      url: '/api/v1/dashboard/events/evt-1?orgId=org-1',
       params: { eventId: 'evt-1' },
     });
 
-    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(firestore.getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(auth.requireOrgRole).toHaveBeenCalledWith(
       expect.anything(),
       'org-1',
@@ -482,7 +490,7 @@ describe('dashboard event route wiring', () => {
     );
   });
 
-  it('PUT /dashboard/events/:eventId updates after reading the event', async () => {
+  it('PUT /dashboard/events/:eventId authorizes, reads, then updates', async () => {
     firestore.getEvent.mockResolvedValueOnce({
       eventId: 'evt-1',
       orgId: 'org-1',
@@ -490,24 +498,24 @@ describe('dashboard event route wiring', () => {
 
     await run(dashboardEventUpdateRoute, {
       method: 'PUT',
-      url: '/api/v1/dashboard/events/evt-1',
+      url: '/api/v1/dashboard/events/evt-1?orgId=org-1',
       params: { eventId: 'evt-1' },
       body: { title: 'New title' },
     });
 
-    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(firestore.getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(auth.requireOrgRole).toHaveBeenCalledWith(
       expect.anything(),
       'org-1',
       'admin',
       'manager',
     );
-    expect(firestore.updateEvent).toHaveBeenCalledWith('evt-1', {
+    expect(firestore.updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
       title: 'New title',
     });
   });
 
-  it('DELETE /dashboard/events/:eventId cancels after reading the event', async () => {
+  it('DELETE /dashboard/events/:eventId authorizes, reads, then cancels', async () => {
     firestore.getEvent.mockResolvedValueOnce({
       eventId: 'evt-1',
       orgId: 'org-1',
@@ -519,18 +527,18 @@ describe('dashboard event route wiring', () => {
 
     await run(dashboardEventCancelRoute, {
       method: 'DELETE',
-      url: '/api/v1/dashboard/events/evt-1',
+      url: '/api/v1/dashboard/events/evt-1?orgId=org-1',
       params: { eventId: 'evt-1' },
     });
 
-    expect(firestore.getEvent).toHaveBeenCalledWith('evt-1');
+    expect(firestore.getEvent).toHaveBeenCalledWith('org-1', 'evt-1');
     expect(auth.requireOrgRole).toHaveBeenCalledWith(
       expect.anything(),
       'org-1',
       'admin',
       'manager',
     );
-    expect(firestore.cancelEvent).toHaveBeenCalledWith('evt-1');
+    expect(firestore.cancelEvent).toHaveBeenCalledWith('org-1', 'evt-1');
   });
 });
 

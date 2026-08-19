@@ -1,13 +1,21 @@
 import { z } from 'zod';
-import { EmailSchema, IdSchema, OrgRoleSchema, SlugSchema } from './primitives';
+import {
+  EmailSchema,
+  IdSchema,
+  OrgRoleSchema,
+  OrgSlugSchema,
+} from './primitives';
 
 /**
  * New organizer. `slug` must be free — uniqueness is enforced by the
- * `orgSlugs/{slug}` reservation doc, not by this schema.
+ * `orgSlugs/{slug}` reservation doc, not by this schema. What the schema *can*
+ * decide on its own is whether the slug is reserved: `OrgSlugSchema` rejects the
+ * words that would shadow a top-level route, which is a property of the string
+ * rather than of what is already in the database.
  */
 export const CreateOrgSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  slug: SlugSchema,
+  slug: OrgSlugSchema,
 });
 
 /**

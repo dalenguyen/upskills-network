@@ -8,6 +8,16 @@ export interface EventCursor {
   /** `startsAt` in epoch milliseconds. */
   startsAtMs: number;
   eventId: string;
+  /**
+   * Owning organizer of the cursor's event.
+   *
+   * Needed because events live at `organizers/{orgId}/events/{eventId}` and the
+   * public browse is a **collection-group** query. Firestore requires the
+   * `__name__` value of such a query's cursor to be a full document path — a
+   * bare id is rejected outright ("must result in a valid document path"), so
+   * the organizer has to travel in the cursor to rebuild it.
+   */
+  orgId: string;
 }
 
 /**
@@ -19,11 +29,12 @@ export interface EventCursor {
  * the encoding is free to change.
  */
 export function encodeEventCursor(
-  event: Pick<WorkshopEvent, 'eventId' | 'startsAt'>,
+  event: Pick<WorkshopEvent, 'eventId' | 'orgId' | 'startsAt'>,
 ): string {
   const cursor: EventCursor = {
     startsAtMs: event.startsAt.toMillis(),
     eventId: event.eventId,
+    orgId: event.orgId,
   };
 
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
@@ -45,7 +56,9 @@ export function decodeEventCursor(cursor: string): EventCursor {
     typeof (parsed as EventCursor).startsAtMs !== 'number' ||
     !Number.isFinite((parsed as EventCursor).startsAtMs) ||
     typeof (parsed as EventCursor).eventId !== 'string' ||
-    (parsed as EventCursor).eventId === ''
+    (parsed as EventCursor).eventId === '' ||
+    typeof (parsed as EventCursor).orgId !== 'string' ||
+    (parsed as EventCursor).orgId === ''
   ) {
     throw new Error('Invalid cursor');
   }
@@ -53,5 +66,6 @@ export function decodeEventCursor(cursor: string): EventCursor {
   return {
     startsAtMs: (parsed as EventCursor).startsAtMs,
     eventId: (parsed as EventCursor).eventId,
+    orgId: (parsed as EventCursor).orgId,
   };
 }
