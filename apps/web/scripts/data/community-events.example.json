@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Example: Monthly Frontend Meetup",
+    "slug": "example-monthly-frontend-meetup",
+    "description": "Replace this file's contents with real events.\n\nEvery field below is required except endsAt, location and imageUrl. The slug is the identity: re-running the seed updates the event that already holds it, so keep the slug stable and edit anything else freely.",
+    "startsAt": "2026-09-04T18:30:00-04:00",
+    "endsAt": "2026-09-04T21:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Toronto, ON",
+    "externalUrl": "https://example.com/events/monthly-frontend-meetup",
+    "sourceName": "Meetup",
+    "imageUrl": "https://example.com/images/frontend-meetup.jpg"
+  },
+  {
+    "title": "Example: Online Data Engineering Workshop",
+    "slug": "example-online-data-engineering-workshop",
+    "description": "The minimum viable row: no endsAt, no location, no imageUrl. An online event still needs a timezone, because that is what the page renders the local start time from.",
+    "startsAt": "2026-09-17T13:00:00Z",
+    "timezone": "UTC",
+    "externalUrl": "https://example.com/events/data-engineering-workshop",
+    "sourceName": "Eventbrite"
+  }
+]

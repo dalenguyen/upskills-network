@@ -19,7 +19,11 @@ import {
 import { apiErrorStatus } from '../../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
-import { dollarsToCents, toIsoWithOffset } from '../../new/index.page';
+import {
+  dollarsToCents,
+  imageUrlError,
+  toIsoWithOffset,
+} from '../../new/index.page';
 
 /**
  * `/dashboard/events/[eventId]/edit` — edit one event for the caller's first org.
@@ -49,6 +53,8 @@ interface EditEventForm {
   endsAt: string;
   timezone: string;
   location: string;
+  /** Absolute https URL of a hero image. Cleared by emptying the field. */
+  imageUrl: string;
   /** Entered in dollars, e.g. `49.50`. Converted to cents before posting. */
   price: string;
   maxGuests: string;
@@ -331,6 +337,28 @@ export function centsToDollars(cents: number): string {
 
                 <div>
                   <label
+                    for="imageUrl"
+                    class="block text-sm font-medium leading-6 text-zinc-900"
+                  >
+                    Image URL
+                  </label>
+                  <input
+                    id="imageUrl"
+                    name="imageUrl"
+                    type="url"
+                    maxlength="2000"
+                    placeholder="https://example.com/poster.jpg"
+                    [(ngModel)]="form.imageUrl"
+                    class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  />
+                  <p class="mt-2 text-xs text-zinc-500">
+                    Optional. Must start with https://. Clear the field to
+                    remove the image.
+                  </p>
+                </div>
+
+                <div>
+                  <label
                     for="price"
                     class="block text-sm font-medium leading-6 text-zinc-900"
                   >
@@ -429,6 +457,7 @@ export default class DashboardEventsEditPageComponent implements OnInit {
     endsAt: '',
     timezone: 'America/Toronto',
     location: '',
+    imageUrl: '',
     price: '0',
     maxGuests: '0',
   };
@@ -497,6 +526,7 @@ export default class DashboardEventsEditPageComponent implements OnInit {
         : toLocalDatetimeValue(workshop.endsAt, workshop.timezone);
     this.form.timezone = workshop.timezone;
     this.form.location = workshop.location ?? '';
+    this.form.imageUrl = workshop.imageUrl ?? '';
     this.form.price = centsToDollars(workshop.price);
     this.form.maxGuests = String(workshop.maxGuests);
   }
@@ -513,6 +543,12 @@ export default class DashboardEventsEditPageComponent implements OnInit {
 
     const state = this.state();
     if (state.status !== 'ready') {
+      return;
+    }
+
+    const imageProblem = imageUrlError(this.form.imageUrl);
+    if (imageProblem !== null) {
+      this.submitError.set(imageProblem);
       return;
     }
 
@@ -552,7 +588,17 @@ export default class DashboardEventsEditPageComponent implements OnInit {
         ? {}
         : { endsAt: toIsoWithOffset(endsAt, this.form.timezone) }),
       timezone: this.form.timezone,
-      ...(location === '' ? {} : { location }),
+      // Both always sent, empty string included, because this is an *edit*:
+      // omitting a field means "leave it as it was", so an emptied input that
+      // is then omitted silently keeps the old value — the field looks cleared
+      // on screen and is not cleared in the database. The empty string is what
+      // says "remove it", and `applyOptionalText` in `events-write.ts` deletes
+      // the key rather than storing `''`.
+      //
+      // The create form is different, and correctly omits both: there is no
+      // previous value there for an absent field to preserve.
+      location,
+      imageUrl: this.form.imageUrl.trim(),
       price: dollarsToCents(Number(this.form.price)),
       currency: 'cad',
       maxGuests: Number(this.form.maxGuests),

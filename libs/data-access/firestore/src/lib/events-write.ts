@@ -35,6 +35,16 @@ export interface CreateEventDraft {
   endsAt?: string;
   timezone: string;
   location?: string;
+  /**
+   * Marks the event as listed-only: registration is refused and the page sends
+   * people here instead. Set by the community-events seed script; there is no
+   * form that produces it.
+   */
+  externalUrl?: string;
+  /** Whose listing `externalUrl` points at, e.g. `'Meetup'`. */
+  sourceName?: string;
+  /** Hero image, absolute https URL. */
+  imageUrl?: string;
   /** Price in **minor units** (cents). `0` means free. */
   price: number;
   currency: WorkshopEvent['currency'];
@@ -61,6 +71,15 @@ export interface UpdateEventPatch {
   endsAt?: string;
   timezone?: string;
   location?: string;
+  /**
+   * Present so the seed script can re-point a listing whose source URL moved.
+   * Passing an empty string clears it, which turns a listed event back into a
+   * registerable one — the seed script never does that, but the field behaves
+   * like `location` rather than growing a special case.
+   */
+  externalUrl?: string;
+  sourceName?: string;
+  imageUrl?: string;
   price?: number;
   currency?: WorkshopEvent['currency'];
   maxGuests?: number;
@@ -124,6 +143,18 @@ export async function createEvent(
       timezone: input.timezone.trim(),
       ...(input.location !== undefined
         ? { location: input.location.trim() }
+        : {}),
+      ...(input.externalUrl !== undefined
+        ? { externalUrl: input.externalUrl.trim() }
+        : {}),
+      // Only alongside the URL it describes — see the matching rule in
+      // `updateEvent`. A source name with nothing to name is not a partial
+      // record, it is a wrong one.
+      ...(input.externalUrl !== undefined && input.sourceName !== undefined
+        ? { sourceName: input.sourceName.trim() }
+        : {}),
+      ...(input.imageUrl !== undefined
+        ? { imageUrl: input.imageUrl.trim() }
         : {}),
       price: input.price,
       currency: input.currency,
@@ -209,14 +240,22 @@ export async function updateEvent(
     if (patch.timezone !== undefined) {
       next.timezone = patch.timezone.trim();
     }
-    if (Object.hasOwn(patch, 'location')) {
-      const location = patch.location?.trim();
-      if (location) {
-        next.location = location;
-      } else {
-        delete next.location;
-      }
+    applyOptionalText(next, patch, 'location');
+    applyOptionalText(next, patch, 'externalUrl');
+    applyOptionalText(next, patch, 'sourceName');
+    applyOptionalText(next, patch, 'imageUrl');
+
+    // `sourceName` answers "whose listing is `externalUrl`?", so it cannot
+    // outlive the field it describes. Clearing the URL without clearing the
+    // name would leave an event that takes registrations here while still
+    // publishing "Meetup" as its source — not rendered today, because the card
+    // gates the badge on `externalUrl`, but the projection ships the field on
+    // its own and the next reader of it would have no reason to distrust it.
+    // Enforced here rather than at the caller: this is the only write path.
+    if (next.externalUrl === undefined) {
+      delete next.sourceName;
     }
+
     if (patch.price !== undefined) {
       next.price = patch.price;
     }
@@ -355,6 +394,38 @@ export async function deleteDraftEvent(
 
     transaction.delete(doc);
   });
+}
+
+/** The optional free-text fields that all share one update rule. */
+type OptionalTextField = 'location' | 'externalUrl' | 'sourceName' | 'imageUrl';
+
+/**
+ * Apply one optional string field from a patch, treating "" as "remove it".
+ *
+ * The three-way distinction matters and is easy to get wrong: **absent** from
+ * the patch means leave it alone, a **non-empty** value means set it, and an
+ * **empty** one means delete the key outright rather than storing `''`. Storing
+ * the empty string would make `if (event.location)` and
+ * `if (event.location !== undefined)` disagree — and for `externalUrl`, whose
+ * mere presence is what refuses registrations, that disagreement decides
+ * whether an event takes signups.
+ */
+function applyOptionalText(
+  next: WorkshopEvent,
+  patch: UpdateEventPatch,
+  field: OptionalTextField,
+): void {
+  if (!Object.hasOwn(patch, field)) {
+    return;
+  }
+
+  const value = patch[field]?.trim();
+
+  if (value) {
+    next[field] = value;
+  } else {
+    delete next[field];
+  }
 }
 
 /** The event as it now stands, with both ids stamped on from the path. */

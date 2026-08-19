@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   CurrencySchema,
   EventStatusSchema,
+  HttpsUrlSchema,
   IsoDateTimeSchema,
   MaxGuestsSchema,
   PriceSchema,
@@ -25,6 +26,17 @@ const eventFields = {
   endsAt: IsoDateTimeSchema.optional(),
   timezone: TimezoneSchema,
   location: z.string().trim().max(300).optional(),
+  /**
+   * Hero image URL. Present here, and so editable from the dashboard, because
+   * an image is something every organizer wants for their own events.
+   *
+   * `externalUrl` and `sourceName` are deliberately **not** in this object.
+   * Marking an event as "listed elsewhere, register over there" is a curation
+   * decision, and the seed script is the only path to it — a dashboard form
+   * that could set `externalUrl` would let an organizer publish an event on
+   * Upskills that silently refuses every registration.
+   */
+  imageUrl: HttpsUrlSchema.optional(),
   price: PriceSchema,
   currency: CurrencySchema,
   maxGuests: MaxGuestsSchema,
@@ -59,7 +71,29 @@ export const CreateEventSchema = z
  * an event never moves between organizers.
  */
 export const UpdateEventSchema = z
-  .object({ ...eventFields, status: EventStatusSchema })
+  .object({
+    ...eventFields,
+    /**
+     * On update, `''` is a legal value for the optional text fields and means
+     * "remove this".
+     *
+     * A patch has three states where a create has two. Absent means "leave it
+     * alone", a value means "set it", and without a third spelling there is no
+     * way to say "clear it" — an organizer who pasted the wrong image URL could
+     * overwrite it but never get back to having none, and an event that moved
+     * online would keep its old address forever. The data layer deletes the key
+     * rather than storing the empty string; see `applyOptionalText` in
+     * `events-write.ts`.
+     *
+     * `location` is spelled out here even though `eventFields.location` happens
+     * to admit `''` already, because it does so only by not having a `.min(1)`
+     * — an accident that the next person tightening the field would remove
+     * without ever learning it was load-bearing.
+     */
+    imageUrl: z.union([z.literal(''), eventFields.imageUrl.unwrap()]),
+    location: z.union([z.literal(''), eventFields.location.unwrap()]),
+    status: EventStatusSchema,
+  })
   .partial()
   .superRefine((value, ctx) => {
     if (Object.keys(value).length === 0) {

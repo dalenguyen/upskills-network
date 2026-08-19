@@ -72,6 +72,24 @@
         "command": "tsc -p apps/web/tsconfig.editor.json --noEmit"
       }
     },
+    "seed-events": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx --tsconfig tsconfig.base.json apps/web/scripts/seed-community-events.ts",
+        "cwd": "{workspaceRoot}",
+        "forwardAllArgs": true
+      }
+    },
+    "backfill-user-emails": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx --tsconfig tsconfig.base.json apps/web/scripts/backfill-user-emails.ts",
+        "cwd": "{workspaceRoot}",
+        "forwardAllArgs": true
+      }
+    },
     "deploy-docker": {
       "executor": "nx:run-commands",
       "dependsOn": ["build"],

@@ -3,6 +3,7 @@ import { normalizeEmail } from '@upskills/validation';
 import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
 import { eventRef, guestRef } from './collections';
 import {
+  EventIsExternalError,
   EventNotFoundError,
   EventNotRegisterableError,
   PaymentRequiredError,
@@ -103,6 +104,8 @@ function outcomeFor(status: GuestStatus): ReserveOutcome {
  *
  * @throws EventNotFoundError if `eventId` names no event.
  * @throws EventNotRegisterableError if the event is a draft or cancelled.
+ * @throws EventIsExternalError if the event is only *listed* here and takes its
+ *   registrations on someone else's site.
  * @throws PaymentRequiredError in `confirm` mode if the event has a price.
  */
 export async function reserveSpot(
@@ -139,6 +142,14 @@ export async function reserveSpot(
     // unannounced event exists leaks through the difference.
     if (event.status !== 'published') {
       throw new EventNotRegisterableError(eventId, event.status);
+    }
+
+    // After the status check, for the same leak argument: a *draft* listing
+    // must answer 404 like any other draft, not reveal itself by pointing at
+    // the source. Before the price check, because "register on Meetup" is the
+    // more useful answer than "this costs money" when both are true.
+    if (event.externalUrl) {
+      throw new EventIsExternalError(eventId, event.externalUrl);
     }
 
     if (mode === 'confirm' && event.price > 0) {

@@ -56,6 +56,30 @@ export const OrgSlugSchema = SlugSchema.refine(
   },
 );
 
+/**
+ * Absolute `https:` URL, for values that end up in an `href` or an `<img src>`
+ * on a public page.
+ *
+ * `https:` only, checked by parsing rather than by pattern. `z.url()` alone
+ * accepts any scheme the URL parser does, which includes `javascript:` and
+ * `data:` — both of which become script execution the moment the string is
+ * bound to an anchor. Plain `http:` is rejected too: the site is served over
+ * TLS, and a mixed-content image silently fails to load anyway.
+ *
+ * The 2000-character cap is the practical URL limit browsers and Firestore
+ * indexes agree on, and it stops a pasted data URI from being stored whole.
+ */
+export const HttpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .pipe(
+    z.url({
+      protocol: /^https$/,
+      message: 'Enter an https:// URL',
+    }),
+  );
+
 /** Price in **minor units** (cents). `0` is free; negatives are never valid. */
 export const PriceSchema = z
   .number()
