@@ -8,7 +8,8 @@
     "location": "Microsoft Toronto, Suite 4400, 81 Bay St, Toronto, ON M5J 0E7",
     "externalUrl": "https://sessionize.com/difinity-conference-toronto-2026/",
     "sourceName": "Sessionize",
-    "startTimeTbd": true
+    "startTimeTbd": true,
+    "imageUrl": "https://cdn.sessionize.com/image/09b7-1140o400o3-sWj93enMpegrdBE3USf9W7.png"
   },
   {
     "title": "TechTO: Together Toronto",
@@ -19,7 +20,8 @@
     "timezone": "America/Toronto",
     "location": "Schwartz Reisman Innovation Campus, 108 College St, Toronto, ON M5G 0C6",
     "externalUrl": "https://www.techto.org/event/together-toronto-september-14-2026",
-    "sourceName": "TechTO"
+    "sourceName": "TechTO",
+    "imageUrl": "https://cdn.prod.website-files.com/66f471a7d49762e49a5e0e33/6a698172cc24456128d6605f_Screenshot%202026-07-29%20at%2012.28.15%E2%80%AFAM.png"
   },
   {
     "title": "Toronto Tech Mixer and Social",
@@ -29,7 +31,8 @@
     "timezone": "America/Toronto",
     "location": "Paupers Pub, 539 Bloor St W, Toronto, ON",
     "externalUrl": "https://www.eventbrite.com/e/toronto-tech-mixer-and-social-tech-ai-data-it-tickets-1986019204904",
-    "sourceName": "Eventbrite"
+    "sourceName": "Eventbrite",
+    "imageUrl": "https://cdn.evbuc.com/images/1180782470/2996277132930/1/original.20260326-190839"
   },
   {
     "title": "AI Summit 2026 - Toronto AI Meetup",
@@ -40,7 +43,8 @@
     "timezone": "America/Toronto",
     "location": "OneEleven, 345 Front St W, 4th Floor, Toronto, ON",
     "externalUrl": "https://www.meetup.com/torontoai/events/315764602/",
-    "sourceName": "Meetup"
+    "sourceName": "Meetup",
+    "imageUrl": "https://secure.meetupstatic.com/photos/event/7/1/6/b/event_531389035.jpeg"
   },
   {
     "title": "Elevate Festival 2026",
@@ -51,7 +55,8 @@
     "location": "Downtown Toronto, ON",
     "externalUrl": "https://elevatefestival.ca/",
     "sourceName": "Elevate Festival",
-    "startTimeTbd": true
+    "startTimeTbd": true,
+    "imageUrl": "https://elevatefestival.ca/wp-content/uploads/2025/10/elevate-2026.jpg"
   },
   {
     "title": "M365 Toronto 2026",
@@ -61,7 +66,8 @@
     "timezone": "America/Toronto",
     "location": "Microsoft Canada Headquarters, 4400-81 Bay St, Toronto, ON",
     "externalUrl": "https://www.communitydays.org/event/2026-10-02/m365-toronto-2026",
-    "sourceName": "Community Days"
+    "sourceName": "Community Days",
+    "imageUrl": "https://communitydaysstorage.blob.core.windows.net/events/2025/5b5e9c69-dde8-4a5c-a25c-101459bfc86a/ab4383e3M365%20Toronto%20Background%20-%20Square.jpg"
   },
   {
     "title": "MCP Dev Summit Toronto",
@@ -72,7 +78,8 @@
     "location": "Toronto, ON",
     "externalUrl": "https://events.linuxfoundation.org/mcp-dev-summit-toronto/",
     "sourceName": "Linux Foundation",
-    "startTimeTbd": true
+    "startTimeTbd": true,
+    "imageUrl": "https://events.linuxfoundation.org/wp-content/uploads/2026/03/mcp-devsummit-toronto-26-Social-Snackable.png"
   },
   {
     "title": "Generative AI Summit Toronto",
@@ -83,7 +90,8 @@
     "timezone": "America/Toronto",
     "location": "Marriott Downtown at CF Toronto Eaton Centre, 525 Bay St, Toronto, ON",
     "externalUrl": "https://world.aiacceleratorinstitute.com/location/toronto/",
-    "sourceName": "AI Accelerator Institute"
+    "sourceName": "AI Accelerator Institute",
+    "imageUrl": "https://assetsacara.com/production/organizations/62876e3d645e9fcb6e40225e/1783608380710-META-GenerativeAISummit2.webp"
   },
   {
     "title": "Product-Led Summit Toronto",
@@ -93,7 +101,8 @@
     "timezone": "America/Toronto",
     "location": "Marriott Downtown at CF Toronto Eaton Centre, 525 Bay St, Toronto, ON",
     "externalUrl": "https://world.productledalliance.com/location/toronto",
-    "sourceName": "Product-Led Alliance"
+    "sourceName": "Product-Led Alliance",
+    "imageUrl": "https://assetsacara.com/production/organizations/628726c0645e9fcb6e3fee28/1734540667992-PL-Summit-Meta-2025-17.webp"
   },
   {
     "title": "MongoDB.local Toronto",
@@ -104,6 +113,7 @@
     "location": "Toronto, ON",
     "externalUrl": "https://www.mongodb.com/events/mongodb-local/toronto",
     "sourceName": "MongoDB",
-    "startTimeTbd": true
+    "startTimeTbd": true,
+    "imageUrl": "https://webimages.mongodb.com/_com_assets/cms/mm3tm73hm7ynrfc0w-MongoDBlocal2026-624%201.png?auto=format%252Ccompress"
   }
 ]
