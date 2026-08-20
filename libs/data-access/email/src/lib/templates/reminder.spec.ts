@@ -24,13 +24,19 @@ afterEach(() => {
 
 describe('event reminder', () => {
   it('names the event and the day in the subject', () => {
-    expect(renderEventReminder(guestFixture(), eventFixture()).subject).toBe(
+    expect(
+      renderEventReminder(guestFixture(), eventFixture(), 'upskills').subject,
+    ).toBe(
       'Reminder: TypeScript for Working Developers is on Thursday, September 3',
     );
   });
 
   it('gives the time in the event zone and the location, in both bodies', () => {
-    const message = renderEventReminder(guestFixture(), eventFixture());
+    const message = renderEventReminder(
+      guestFixture(),
+      eventFixture(),
+      'upskills',
+    );
 
     for (const body of [message.html, message.text]) {
       expect(body).toContain('Thursday, September 3, 2026 at 6:30 p.m. EDT');
@@ -41,14 +47,14 @@ describe('event reminder', () => {
   it('uses the event zone rather than the process zone', () => {
     const vancouver = eventFixture({ timezone: 'America/Vancouver' });
 
-    expect(renderEventReminder(guestFixture(), vancouver).text).toContain(
-      '3:30 p.m. PDT',
-    );
+    expect(
+      renderEventReminder(guestFixture(), vancouver, 'upskills').text,
+    ).toContain('3:30 p.m. PDT');
   });
 
   it("carries the guest's own cancel link", () => {
     const guest = guestFixture();
-    const message = renderEventReminder(guest, eventFixture());
+    const message = renderEventReminder(guest, eventFixture(), 'upskills');
     const link = cancelUrl(guest);
 
     expect(message.text).toContain(link);
@@ -59,6 +65,7 @@ describe('event reminder', () => {
     const message = renderEventReminder(
       guestFixture(),
       eventFixture({ location: undefined }),
+      'upskills',
     );
 
     for (const body of [message.html, message.text]) {

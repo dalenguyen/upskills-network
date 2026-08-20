@@ -100,9 +100,10 @@ describe('formatMoney', () => {
 });
 
 describe('cancelUrl', () => {
-  it('carries the event, the normalized address, and the token', () => {
+  it('carries the org, the event, the normalized address, and the token', () => {
     expect(cancelUrl(guestFixture())).toBe(
-      `https://upskills.test${CANCEL_PATH}?event=evt-typescript-101` +
+      `https://upskills.test${CANCEL_PATH}?org=org-upskills` +
+        '&event=evt-typescript-101' +
         '&email=priya.raman%40example.com' +
         '&token=H1nQ8wZ3rTgKpLm2vXbA9fJd',
     );
@@ -144,9 +145,7 @@ describe('cancelUrl', () => {
   it('falls back to the local origin when SITE_URL is unset', () => {
     vi.stubEnv('SITE_URL', '');
 
-    expect(cancelUrl(guestFixture())).toMatch(
-      /^http:\/\/localhost:4200\//,
-    );
+    expect(cancelUrl(guestFixture())).toMatch(/^http:\/\/localhost:4200\//);
   });
 
   it('does not double the slash when SITE_URL has a trailing one', () => {
@@ -161,9 +160,9 @@ describe('cancelUrl', () => {
 });
 
 describe('links', () => {
-  it('points at the event by slug', () => {
-    expect(eventUrl(eventFixture())).toBe(
-      'https://upskills.test/events/typescript-for-working-developers',
+  it('points at the event by org slug and event slug', () => {
+    expect(eventUrl(eventFixture(), 'upskills')).toBe(
+      'https://upskills.test/upskills/typescript-for-working-developers',
     );
   });
 

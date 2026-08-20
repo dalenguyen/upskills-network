@@ -130,6 +130,7 @@ export const CANCEL_PATH = '/r/cancel';
  */
 export function cancelUrl(guest: Guest): string {
   const query = new URLSearchParams({
+    org: guest.orgId,
     event: guest.eventId,
     email: guest.guestId,
     token: guest.cancelToken,
@@ -154,9 +155,18 @@ export function inviteUrl(token: string): string {
   return `${siteUrl()}${INVITE_PATH}/${encodeURIComponent(token)}`;
 }
 
-/** The public event page. */
-export function eventUrl(event: WorkshopEvent): string {
-  return `${siteUrl()}/events/${encodeURIComponent(event.slug)}`;
+/**
+ * The public event page: `/{orgSlug}/{eventSlug}`.
+ *
+ * `orgSlug` is passed in rather than read off the event, the same reason
+ * `PublicEvent.orgSlug` is: it is not stored on the event document, so the
+ * caller resolves it once (usually alongside the `getOrg` it already needs for
+ * the notification fan-out) and hands it here.
+ */
+export function eventUrl(event: WorkshopEvent, orgSlug: string): string {
+  return `${siteUrl()}/${encodeURIComponent(orgSlug)}/${encodeURIComponent(
+    event.slug,
+  )}`;
 }
 
 /** The organizer-facing guest list for an event. */

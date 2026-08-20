@@ -1,6 +1,6 @@
 import { requireAuth, requireOrgRole } from '@upskills/auth';
 import { sendCancellationEmail } from '@upskills/email';
-import { cancelEvent, getEvent } from '@upskills/firestore';
+import { cancelEvent, getEvent, getOrg } from '@upskills/firestore';
 import { createDashboardEventsCancelHandler } from '../../../../../../handlers/dashboard/events-cancel';
 
 /**
@@ -13,6 +13,7 @@ export default createDashboardEventsCancelHandler({
   requireAuth,
   requireOrgRole,
   getEvent,
+  getOrg,
   cancelEvent,
   sendCancellationEmail,
 });

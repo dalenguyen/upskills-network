@@ -1,6 +1,6 @@
 import type { SendResult } from '@upskills/email';
 import type { TransitionResult } from '@upskills/firestore';
-import type { Guest, WorkshopEvent } from '@upskills/models';
+import type { Guest, Organizer, WorkshopEvent } from '@upskills/models';
 import { CancelGuestSchema } from '@upskills/validation';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import {
@@ -77,6 +77,8 @@ export interface CancelDeps {
   ): Promise<Guest | null>;
   /** `getEvent` from `@upskills/firestore`. */
   getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
+  /** `getOrg` from `@upskills/firestore`. Resolves the org slug the cancellation and spot-opened emails link to. */
+  getOrg(orgId: string): Promise<Organizer | null>;
   /** `cancelGuest` from `@upskills/firestore`. */
   cancelGuest(
     orgId: string,
@@ -89,9 +91,14 @@ export interface CancelDeps {
   sendCancellationEmail(
     guest: Guest,
     event: WorkshopEvent,
+    orgSlug: string,
   ): Promise<SendResult>;
   /** `sendSpotOpenedEmail` from `@upskills/email`. Never throws. */
-  sendSpotOpenedEmail(guest: Guest, event: WorkshopEvent): Promise<SendResult>;
+  sendSpotOpenedEmail(
+    guest: Guest,
+    event: WorkshopEvent,
+    orgSlug: string,
+  ): Promise<SendResult>;
   /**
    * Tell the org's staff a spot was released — the one party who can act on it.
    * See `handlers/organizer-notify.ts`; it swallows its own failures.
@@ -176,6 +183,12 @@ export function createCancelHandler(deps: CancelDeps): EventHandler {
         throw notFound('event-not-found', 'No such event.');
       }
 
+      const org = await deps.getOrg(orgId);
+
+      if (org === null) {
+        throw notFound('event-not-found', 'No such event.');
+      }
+
       const result = await deps.cancelGuest(orgId, eventId, email);
       const promoted = await deps.promoteNextPending(orgId, eventId);
 
@@ -183,7 +196,7 @@ export function createCancelHandler(deps: CancelDeps): EventHandler {
         cancelled: true,
         alreadyCancelled: !result.changed,
         promoted: promoted !== null,
-        emailSent: await notify(result, promoted, workshop, deps),
+        emailSent: await notify(result, promoted, workshop, org.slug, deps),
       } satisfies CancelResponse;
     } catch (error) {
       throw toHttpError(error);
@@ -207,10 +220,11 @@ async function notify(
   result: TransitionResult,
   promoted: Guest | null,
   workshop: WorkshopEvent,
+  orgSlug: string,
   deps: CancelDeps,
 ): Promise<boolean> {
   if (promoted !== null) {
-    await deps.sendSpotOpenedEmail(promoted, workshop);
+    await deps.sendSpotOpenedEmail(promoted, workshop, orgSlug);
   }
 
   if (!result.changed || result.guest === null) {
@@ -220,7 +234,9 @@ async function notify(
   // The guest's own copy first, matching `register.ts`: the leaver is the one
   // waiting on it and the one who can act on it. `sendCancellationEmail` does
   // not throw, so its result decides `emailSent` regardless of what follows.
-  const sent = (await deps.sendCancellationEmail(result.guest, workshop)).sent;
+  const sent = (
+    await deps.sendCancellationEmail(result.guest, workshop, orgSlug)
+  ).sent;
 
   // Tell the organizer after the leaver has been emailed. Guarded here as well
   // as inside the notifier, for the reason `register.ts` gives: an accepted
