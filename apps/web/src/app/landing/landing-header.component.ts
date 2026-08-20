@@ -1,5 +1,12 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -81,7 +88,6 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
             <button
               type="button"
               (click)="toggleMenu()"
-              (keydown.escape)="closeMenu()"
               [attr.aria-expanded]="menuOpen() ? 'true' : 'false'"
               aria-controls="mobile-menu"
               aria-label="Menu"
@@ -218,6 +224,18 @@ export class LandingHeaderComponent {
 
   closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  /**
+   * A document-level listener rather than a template `(keydown.escape)` on
+   * `#mobile-menu`: focus can be on the toggle button or on any link inside
+   * the menu, and a handler scoped to one element would miss Escape from the
+   * other. This also sidesteps making a plain wrapper `div` focusable just to
+   * host a keydown handler.
+   */
+  @HostListener('document:keydown.escape')
+  onDocumentEscape(): void {
+    this.closeMenu();
   }
 
   private async refreshPlatformRole(): Promise<void> {
