@@ -22,18 +22,38 @@ export const CANADIAN_TIME_ZONES = [
   'UTC',
 ] as const;
 
-/** `2026-09-01T18:00` + `America/Toronto` → `2026-09-01T18:00:00-04:00`. */
+/**
+ * `2026-09-01T18:00` + `America/Toronto` → `2026-09-01T18:00:00-04:00`.
+ *
+ * Resolved in two passes. The first reads the wall time as if it were UTC,
+ * which is only an approximation: on a DST change day it can land on the wrong
+ * side of the transition, so `2026-03-08T03:30` in Toronto — half an hour after
+ * the clocks go forward — would be stamped `-05:00` and reload an hour early.
+ * The second pass re-reads the offset at the instant the first one implies,
+ * which is the offset actually in force at that wall time.
+ *
+ * A wall time inside the spring-forward gap does not exist in the zone at all.
+ * There is no right answer for it; both passes agree on the post-transition
+ * offset, which is the same choice `Date` makes.
+ */
 export function toIsoWithOffset(localValue: string, timeZone: string): string {
-  const asUtc = new Date(`${localValue}:00Z`);
+  const approximate = offsetAt(new Date(`${localValue}:00Z`), timeZone);
+  const offset = offsetAt(new Date(`${localValue}:00${approximate}`), timeZone);
+
+  return `${localValue}:00${offset}`;
+}
+
+/** The UTC offset in force in `timeZone` at `instant`, e.g. `-04:00`. */
+function offsetAt(instant: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     timeZoneName: 'longOffset',
-  }).formatToParts(asUtc);
+  }).formatToParts(instant);
   const name =
     parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
   const match = /GMT([+-])(\d{2}):(\d{2})/.exec(name);
-  const offset = match ? `${match[1]}${match[2]}:${match[3]}` : '+00:00';
-  return `${localValue}:00${offset}`;
+
+  return match ? `${match[1]}${match[2]}:${match[3]}` : '+00:00';
 }
 
 /** `49.50` → `4950`; `19.99` → `1999` rather than `1998.9999…`. */

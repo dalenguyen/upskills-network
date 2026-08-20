@@ -111,6 +111,21 @@ describe('EventFormComponent', () => {
     http.verify();
   });
 
+  it('names the missing start date instead of issuing a doomed request', async () => {
+    const { fixture, http } = await setup();
+
+    const publish = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find((button) => button.textContent?.trim() === 'Publish');
+    publish?.click();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Choose when the event starts.',
+    );
+    http.verify();
+  });
+
   it('offers a Cancel button only when the host asks for one', async () => {
     const { fixture, http } = await setup();
 

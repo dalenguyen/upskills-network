@@ -52,7 +52,7 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
       >
         <h2 class="text-lg font-semibold text-zinc-900">No events yet</h2>
         <p class="mt-2 text-sm text-zinc-600">
-          This organizer hasn't created any events yet.
+          No events have been created for this organizer yet.
         </p>
       </section>
     } @else {
@@ -100,6 +100,7 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                     @if (editLinkBase(); as base) {
                       <a
                         [href]="base + '/' + workshop.eventId + '/edit'"
+                        [attr.aria-label]="'Edit ' + workshop.title"
                         class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
                       >
                         Edit
@@ -108,6 +109,7 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                       <button
                         type="button"
                         [disabled]="busy()"
+                        [attr.aria-label]="'Edit ' + workshop.title"
                         (click)="edit.emit(workshop)"
                         class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -122,6 +124,7 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                     <button
                       type="button"
                       [disabled]="busy()"
+                      [attr.aria-label]="'Cancel ' + workshop.title"
                       (click)="cancel(workshop)"
                       class="ml-3 text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -132,6 +135,7 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                     <button
                       type="button"
                       [disabled]="busy()"
+                      [attr.aria-label]="'Delete ' + workshop.title"
                       (click)="remove(workshop)"
                       class="ml-3 text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -214,10 +218,8 @@ export class EventListComponent {
 
       this.notice.set(this.notificationMessage(response.notification));
       this.changed.emit();
-    } catch {
-      this.error.set(
-        'Something went wrong while cancelling the event. Please try again.',
-      );
+    } catch (error) {
+      this.error.set(this.describeCancelError(error));
     } finally {
       this.busy.set(false);
     }
@@ -261,6 +263,14 @@ export class EventListComponent {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private describeCancelError(error: unknown): string {
+    if (apiErrorStatus(error) === 403) {
+      return 'You do not have permission to cancel this event.';
+    }
+
+    return 'Something went wrong while cancelling the event. Please try again.';
   }
 
   private describeDeleteError(error: unknown): string {

@@ -169,7 +169,11 @@ export class LandingHeaderComponent {
       const me = await firstValueFrom(
         this.http.get<MeGetResponse>(meEndpoint(), { withCredentials: true }),
       );
-      this.isPlatformAdmin.set(me.user.role === 'admin');
+      // Re-checked after the await: a sign-out during the request already set
+      // this to false, and a late answer must not put the link back.
+      this.isPlatformAdmin.set(
+        this.auth.user() !== null && me.user.role === 'admin',
+      );
     } catch {
       // Signed out on the server (stale or missing cookie), or the request
       // failed. Least privilege: keep the admin link hidden.

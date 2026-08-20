@@ -412,6 +412,14 @@ export class EventFormComponent {
       return;
     }
 
+    // Both buttons are `type="button"`, so the native `required` never runs.
+    // Without this the empty value reaches `toIsoWithOffset`, which throws a
+    // RangeError on an invalid date and reports as a generic failure.
+    if (this.form.startsAt.trim() === '') {
+      this.submitError.set('Choose when the event starts.');
+      return;
+    }
+
     const imageProblem = imageUrlError(this.form.imageUrl);
     if (imageProblem !== null) {
       this.submitError.set(imageProblem);
