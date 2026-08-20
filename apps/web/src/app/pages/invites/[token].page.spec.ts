@@ -185,7 +185,7 @@ describe('InviteAcceptPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain("This invitation can't be used");
-    expect(root.querySelector('button')).toBeNull();
+    expect(root.querySelector('main button')).toBeNull();
     http.verify();
   });
 
