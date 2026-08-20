@@ -5,16 +5,15 @@ import { firstValueFrom } from 'rxjs';
 
 import { authGuard } from '../../../auth/auth-guard';
 import {
-  dashboardEventCancelEndpoint,
   dashboardEventsEndpoint,
   meEndpoint,
-  type DashboardEventsCancelResponse,
   type DashboardEventsListResponse,
   type MeGetResponse,
   type MeOrg,
   type MeUser,
   type DashboardEvent,
 } from '../../../dashboard/dashboard-api';
+import { EventListComponent } from '../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
 
@@ -28,6 +27,10 @@ import { LandingHeaderComponent } from '../../../landing/landing-header.componen
  *
  * Sort order comes from the API (newest first). This page renders the response
  * in the order it arrives and never re-sorts client-side.
+ *
+ * The table itself is {@link EventListComponent}, shared with the
+ * platform-admin console. It owns Cancel and reports back with `changed`, which
+ * this page answers by re-fetching the list.
  */
 
 type PageState =
@@ -42,7 +45,7 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-dashboard-events-page',
-  imports: [LandingHeaderComponent, LandingFooterComponent],
+  imports: [EventListComponent, LandingHeaderComponent, LandingFooterComponent],
   template: `
     <app-landing-header />
 
@@ -105,121 +108,13 @@ export const routeMeta: RouteMeta = {
                 </div>
               </div>
 
-              @if (notice(); as message) {
-                <div class="mt-6" role="status">
-                  <p
-                    class="rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700 ring-1 ring-inset ring-green-200"
-                  >
-                    {{ message }}
-                  </p>
-                </div>
-              }
-
-              @if (cancelError(); as message) {
-                <div class="mt-6" role="alert">
-                  <p
-                    class="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-200"
-                  >
-                    {{ message }}
-                  </p>
-                </div>
-              }
-
-              @if (events().length === 0) {
-                <section
-                  class="mt-12 rounded-xl border border-dashed border-zinc-300 py-12 text-center"
-                >
-                  <h2 class="text-lg font-semibold text-zinc-900">
-                    No events yet
-                  </h2>
-                  <p class="mt-2 text-sm text-zinc-600">
-                    This organizer hasn't created any events yet.
-                  </p>
-                </section>
-              } @else {
-                <div
-                  class="mt-8 overflow-x-auto rounded-xl border border-zinc-200"
-                >
-                  <table class="min-w-full divide-y divide-zinc-200 text-left">
-                    <thead class="bg-zinc-50">
-                      <tr>
-                        <th
-                          scope="col"
-                          class="px-4 py-3 text-sm font-semibold text-zinc-900"
-                        >
-                          Title
-                        </th>
-                        <th
-                          scope="col"
-                          class="px-4 py-3 text-sm font-semibold text-zinc-900"
-                        >
-                          Status
-                        </th>
-                        <th
-                          scope="col"
-                          class="px-4 py-3 text-sm font-semibold text-zinc-900"
-                        >
-                          Start date
-                        </th>
-                        <th
-                          scope="col"
-                          class="px-4 py-3 text-sm font-semibold text-zinc-900"
-                        >
-                          Capacity
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-100">
-                      @for (workshop of events(); track workshop.eventId) {
-                        <tr>
-                          <td class="px-4 py-3">
-                            <a
-                              [href]="publicEventPath(workshop)"
-                              class="font-medium text-indigo-600 transition hover:text-indigo-500"
-                            >
-                              {{ workshop.title }}
-                            </a>
-                            @if (workshop.status !== 'cancelled') {
-                              <a
-                                [href]="
-                                  '/dashboard/events/' +
-                                  workshop.eventId +
-                                  '/edit'
-                                "
-                                class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
-                              >
-                                Edit
-                              </a>
-                            }
-                            @if (
-                              workshop.status === 'draft' ||
-                              workshop.status === 'published'
-                            ) {
-                              <button
-                                type="button"
-                                [disabled]="cancelling()"
-                                (click)="cancel(workshop)"
-                                class="ml-3 text-sm font-medium text-red-600 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                Cancel
-                              </button>
-                            }
-                          </td>
-                          <td class="px-4 py-3 capitalize text-zinc-700">
-                            {{ workshop.status }}
-                          </td>
-                          <td class="px-4 py-3 text-zinc-700">
-                            {{ startDate(workshop) }}
-                          </td>
-                          <td class="px-4 py-3 text-zinc-700">
-                            {{ capacity(workshop) }}
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              }
+              <app-event-list
+                [events]="events()"
+                [orgId]="currentOrg.orgId"
+                [orgSlug]="currentOrg.slug"
+                editLinkBase="/dashboard/events"
+                (changed)="onChanged()"
+              />
             }
           }
         }
@@ -233,34 +128,12 @@ export default class DashboardEventsPageComponent implements OnInit {
   private readonly http = inject(HttpClient);
 
   readonly state = signal<PageState>({ status: 'loading' });
-  readonly cancelling = signal(false);
-  readonly notice = signal<string | null>(null);
-  readonly cancelError = signal<string | null>(null);
-
-  /**
-   * The public URL of one of this org's events: `/{orgSlug}/{eventSlug}`.
-   *
-   * A method rather than a template expression because the org slug lives in
-   * the `ready` branch of the state union, which the template's `@switch`
-   * narrows but does not bind to a name. Returns `''` — an inert link — if
-   * called before the state is ready, which the template's own guard prevents.
-   */
-  protected publicEventPath(workshop: DashboardEvent): string {
-    const state = this.state();
-
-    return state.status === 'ready'
-      ? `/${encodeURIComponent(state.org.slug)}/${encodeURIComponent(workshop.slug)}`
-      : '';
-  }
 
   async ngOnInit(): Promise<void> {
     await this.load();
   }
 
   private async load(): Promise<void> {
-    this.notice.set(null);
-    this.cancelError.set(null);
-
     try {
       const me = await firstValueFrom(
         this.http.get<MeGetResponse>(meEndpoint(), { withCredentials: true }),
@@ -301,100 +174,32 @@ export default class DashboardEventsPageComponent implements OnInit {
     return state.status === 'ready' ? state.events : [];
   }
 
-  async cancel(workshop: DashboardEvent): Promise<void> {
-    if (this.cancelling()) {
-      return;
-    }
-
+  /**
+   * Re-fetch after the table cancelled or deleted something.
+   *
+   * A re-fetch rather than a local edit, because a cancel can change more than
+   * the row it started from — the server is the only place that knows what the
+   * list looks like now.
+   */
+  protected async onChanged(): Promise<void> {
     const state = this.state();
+
     if (state.status !== 'ready') {
       return;
     }
 
-    if (!window.confirm('Cancel this event and notify confirmed guests?')) {
-      return;
-    }
-
-    this.cancelling.set(true);
-    this.notice.set(null);
-    this.cancelError.set(null);
-
     try {
       const response = await firstValueFrom(
-        this.http.delete<DashboardEventsCancelResponse>(
-          dashboardEventCancelEndpoint(state.org.orgId, workshop.eventId),
+        this.http.get<DashboardEventsListResponse>(
+          dashboardEventsEndpoint(state.org.orgId),
           { withCredentials: true },
         ),
       );
 
-      await this.reloadEvents(state.org.orgId);
-      this.notice.set(this.notificationMessage(response.notification));
+      this.state.set({ ...state, events: response.events });
     } catch {
-      this.cancelError.set(
-        'Something went wrong while cancelling the event. Please try again.',
-      );
-    } finally {
-      this.cancelling.set(false);
+      // The table already shows what went wrong with the write itself. Leaving
+      // the previous rows on screen beats replacing the page with an error.
     }
-  }
-
-  private async reloadEvents(orgId: string): Promise<void> {
-    const response = await firstValueFrom(
-      this.http.get<DashboardEventsListResponse>(
-        dashboardEventsEndpoint(orgId),
-        { withCredentials: true },
-      ),
-    );
-
-    const state = this.state();
-    if (state.status !== 'ready') {
-      return;
-    }
-
-    this.state.set({
-      status: 'ready',
-      user: state.user,
-      org: state.org,
-      events: response.events,
-    });
-  }
-
-  private notificationMessage(
-    notification: DashboardEventsCancelResponse['notification'],
-  ): string {
-    if (notification.attempted === 0) {
-      return 'Event cancelled. 0 guests to notify.';
-    }
-
-    if (notification.failed > 0) {
-      return `Event cancelled. ${notification.sent} of ${notification.attempted} guests notified; ${notification.failed} could not be emailed.`;
-    }
-
-    return `Event cancelled. ${notification.sent} guests notified.`;
-  }
-
-  startDate(workshop: DashboardEvent): string {
-    // `startsAt` is an ISO-8601 string, not a `Timestamp`: the route serializes
-    // it because a Firestore `Timestamp` does not survive JSON.
-    const date = new Date(workshop.startsAt);
-
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        dateStyle: 'medium',
-        timeZone: workshop.timezone,
-      }).format(date);
-    } catch {
-      // An unknown IANA zone throws a RangeError. The UTC instant is a worse
-      // answer than the organizer's local date, but it is still readable.
-      return new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium' }).format(
-        date,
-      );
-    }
-  }
-
-  capacity(workshop: DashboardEvent): string {
-    return workshop.maxGuests === 0
-      ? 'Unlimited'
-      : `${workshop.maxGuests} guests`;
   }
 }

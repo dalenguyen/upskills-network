@@ -6,6 +6,11 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 
 import {
+  dashboardEventsEndpoint,
+  type DashboardEvent,
+  type DashboardEventsListResponse,
+} from '../../../../dashboard/dashboard-api';
+import {
   adminOrgDetailEndpoint,
   adminOrgInviteConfirmEndpoint,
   adminOrgInvitesEndpoint,
@@ -20,6 +25,8 @@ import {
 } from '../../../../admin/orgs-api';
 import { authGuard } from '../../../../auth/auth-guard';
 import { apiErrorCode, apiErrorStatus } from '../../../../events/event-api';
+import { EventFormComponent } from '../../../../events/event-form.component';
+import { EventListComponent } from '../../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
 
@@ -74,7 +81,13 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-admin-org-detail-page',
-  imports: [FormsModule, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    EventFormComponent,
+    EventListComponent,
+    FormsModule,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -176,6 +189,64 @@ export const routeMeta: RouteMeta = {
                   </dd>
                 </div>
               </dl>
+
+              <section class="mt-12" aria-labelledby="events-heading">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                  <h2
+                    id="events-heading"
+                    class="text-lg font-semibold text-zinc-900"
+                  >
+                    Events
+                  </h2>
+
+                  @if (!formOpen()) {
+                    <button
+                      type="button"
+                      (click)="startCreate()"
+                      class="inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                    >
+                      New event
+                    </button>
+                  }
+                </div>
+
+                @if (eventsError(); as message) {
+                  <div class="mt-6" role="alert">
+                    <p
+                      class="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-200"
+                    >
+                      {{ message }}
+                    </p>
+                  </div>
+                }
+
+                @if (formOpen()) {
+                  <div class="mt-6 rounded-xl border border-zinc-200 p-6">
+                    <h3 class="text-base font-semibold text-zinc-900">
+                      {{ editing() === null ? 'New event' : 'Edit event' }}
+                    </h3>
+
+                    <div class="mt-6">
+                      <app-event-form
+                        [orgId]="currentOrg.orgId"
+                        [event]="editing()"
+                        [showCancel]="true"
+                        (saved)="onEventSaved()"
+                        (cancelled)="closeForm()"
+                      />
+                    </div>
+                  </div>
+                } @else {
+                  <app-event-list
+                    [events]="events()"
+                    [orgId]="currentOrg.orgId"
+                    [orgSlug]="currentOrg.slug"
+                    [allowDelete]="true"
+                    (edit)="startEdit($event)"
+                    (changed)="loadEvents()"
+                  />
+                }
+              </section>
 
               <section class="mt-12" aria-labelledby="members-heading">
                 <h2
@@ -466,6 +537,12 @@ export default class AdminOrgDetailPageComponent implements OnInit {
   readonly submitNotice = signal<string | null>(null);
   readonly pendingRoles = signal<Record<string, OrgRole>>({});
 
+  readonly events = signal<DashboardEvent[]>([]);
+  readonly eventsError = signal<string | null>(null);
+  /** The event the inline form is editing, or `null` when it is creating. */
+  readonly editing = signal<DashboardEvent | null>(null);
+  readonly formOpen = signal(false);
+
   readonly roles: OrgRole[] = ['admin', 'manager', 'check_in', 'volunteer'];
 
   readonly form: MemberForm = {
@@ -493,6 +570,7 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       );
 
       this.setOrg(response.org, response.invites);
+      await this.loadEvents();
     } catch (error) {
       const status = apiErrorStatus(error);
 
@@ -513,6 +591,60 @@ export default class AdminOrgDetailPageComponent implements OnInit {
   private setOrg(org: AdminOrg, invites: OrgInviteView[]): void {
     this.state.set({ status: 'ready', org, invites });
     this.members.set(toMemberRows(org));
+  }
+
+  /**
+   * Read this org's events through the **dashboard** route.
+   *
+   * No admin route of its own, because it would be the same handler: a platform
+   * admin passes `requireOrgRole` for any existing org, so the dashboard event
+   * routes already answer for the console. The same reasoning lets
+   * {@link EventFormComponent} and {@link EventListComponent} write here.
+   */
+  async loadEvents(): Promise<void> {
+    const org = this.org();
+
+    if (org === null) {
+      return;
+    }
+
+    this.eventsError.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<DashboardEventsListResponse>(
+          dashboardEventsEndpoint(org.orgId),
+          { withCredentials: true },
+        ),
+      );
+
+      this.events.set(response.events);
+    } catch {
+      this.eventsError.set(
+        "We couldn't load this organizer's events. Please refresh to try again.",
+      );
+    }
+  }
+
+  startCreate(): void {
+    this.editing.set(null);
+    this.formOpen.set(true);
+  }
+
+  startEdit(workshop: DashboardEvent): void {
+    this.editing.set(workshop);
+    this.formOpen.set(true);
+  }
+
+  closeForm(): void {
+    this.formOpen.set(false);
+    this.editing.set(null);
+  }
+
+  /** Close the inline form and re-read the list the server now holds. */
+  async onEventSaved(): Promise<void> {
+    this.closeForm();
+    await this.loadEvents();
   }
 
   org(): AdminOrg | null {

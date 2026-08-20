@@ -23,10 +23,11 @@ import {
   meResponse,
   workshop,
 } from '../../../../../dashboard/testing/dashboard-fixtures';
-import DashboardEventsEditPageComponent, {
+import {
   centsToDollars,
   toLocalDatetimeValue,
-} from './index.page';
+} from '../../../../../events/event-form-helpers';
+import DashboardEventsEditPageComponent from './index.page';
 
 describe('DashboardEventsEditPageComponent', () => {
   beforeEach(() => {
@@ -408,6 +409,7 @@ describe('DashboardEventsEditPageComponent', () => {
     request.flush({ event: workshop({ slug: 'rust-for-the-web' }) });
 
     await fixture.whenStable();
+    await fixture.whenStable();
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
     http.verify();
   });
@@ -436,6 +438,7 @@ describe('DashboardEventsEditPageComponent', () => {
     });
 
     await fixture.whenStable();
+    await fixture.whenStable();
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
     http.verify();
   });
@@ -452,6 +455,7 @@ describe('DashboardEventsEditPageComponent', () => {
       .expectOne(dashboardEventUpdateEndpoint('org_1', 'evt_1'))
       .flush({}, { status: 409, statusText: 'Conflict' });
 
+    await fixture.whenStable();
     await fixture.whenStable();
     fixture.detectChanges();
 

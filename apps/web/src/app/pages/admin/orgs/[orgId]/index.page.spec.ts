@@ -21,6 +21,12 @@ import {
   type OrgInviteView,
   type OrgRole,
 } from '../../../../admin/orgs-api';
+import {
+  dashboardEventCreateEndpoint,
+  dashboardEventsEndpoint,
+  type DashboardEvent,
+} from '../../../../dashboard/dashboard-api';
+import { workshop } from '../../../../dashboard/testing/dashboard-fixtures';
 import AdminOrgDetailPageComponent from './index.page';
 
 /** One organizer as the admin org routes serialize it. */
@@ -126,11 +132,22 @@ describe('AdminOrgDetailPageComponent', () => {
     http: HttpTestingController,
     org: AdminOrg = adminOrg(),
     invites: OrgInviteView[] = [],
+    events: DashboardEvent[] = [],
   ): Promise<void> {
     const request = http.expectOne(adminOrgDetailEndpoint('org_1'));
     expect(request.request.method).toBe('GET');
     expect(request.request.withCredentials).toBe(true);
     request.flush({ org, invites });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // The org detail route answers members and invites; the events section
+    // reads the dashboard list route, which a platform admin may call for any
+    // org.
+    const eventsRequest = http.expectOne(dashboardEventsEndpoint('org_1'));
+    expect(eventsRequest.request.withCredentials).toBe(true);
+    eventsRequest.flush({ events });
 
     await fixture.whenStable();
     fixture.detectChanges();
@@ -596,6 +613,106 @@ describe('AdminOrgDetailPageComponent', () => {
 
     expect(root.textContent).toContain('must keep at least one admin');
     expect(root.textContent).not.toContain('Invitation revoked.');
+    http.verify();
+  });
+  it('lists the organizer events, all statuses, with the platform admin extras', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(
+      fixture,
+      http,
+      adminOrg(),
+      [],
+      [
+        workshop({ title: 'Intro to Kubernetes', status: 'draft' }),
+        workshop({
+          eventId: 'evt_2',
+          title: 'Rust for the web',
+          slug: 'rust-for-the-web',
+          status: 'cancelled',
+        }),
+      ],
+    );
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Intro to Kubernetes');
+    expect(root.textContent).toContain('Rust for the web');
+    // Delete is the admin-only extra, and only a draft may be deleted.
+    expect(
+      Array.from(root.querySelectorAll('button')).filter(
+        (button) => button.textContent?.trim() === 'Delete',
+      ),
+    ).toHaveLength(1);
+    http.verify();
+  });
+
+  it('creates an event inline and re-reads the list from the server', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http);
+
+    buttonByText(fixture, 'New event').click();
+    fixture.detectChanges();
+    // `ngModel` inside a `<form>` registers its control on a microtask, and
+    // writes nothing back to the model until it has. Let that settle before
+    // typing, or every field posts empty.
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    setValue(fixture, '#title', 'Rust for the web');
+    setValue(fixture, '#description', 'A hands-on afternoon.');
+    setValue(fixture, '#startsAt', '2026-09-01T18:00');
+    setValue(fixture, '#price', '0');
+    setValue(fixture, '#maxGuests', '20');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    buttonByText(fixture, 'Publish').click();
+    fixture.detectChanges();
+
+    const create = http.expectOne(dashboardEventCreateEndpoint('org_1'));
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toMatchObject({
+      title: 'Rust for the web',
+      // Derived from the title, the same rule the dashboard form follows.
+      slug: 'rust-for-the-web',
+      status: 'published',
+    });
+    create.flush({ event: workshop({ slug: 'rust-for-the-web' }) });
+
+    await fixture.whenStable();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    http
+      .expectOne(dashboardEventsEndpoint('org_1'))
+      .flush({ events: [workshop({ title: 'Rust for the web' })] });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Rust for the web',
+    );
+    http.verify();
+  });
+
+  it('opens the inline edit form pre-filled from the row', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [], [workshop()]);
+
+    buttonByText(fixture, 'Edit').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Edit event');
+    expect(root.querySelector<HTMLInputElement>('#title')?.value).toBe(
+      'Intro to Kubernetes',
+    );
+    expect(root.querySelector<HTMLInputElement>('#slug')?.value).toBe(
+      'intro-to-kubernetes',
+    );
     http.verify();
   });
 });

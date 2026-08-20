@@ -17,10 +17,11 @@ import {
   meResponse,
   workshop,
 } from '../../../../dashboard/testing/dashboard-fixtures';
-import DashboardEventsNewPageComponent, {
+import {
   dollarsToCents,
   toIsoWithOffset,
-} from './index.page';
+} from '../../../../events/event-form-helpers';
+import DashboardEventsNewPageComponent from './index.page';
 
 describe('DashboardEventsNewPageComponent', () => {
   beforeEach(() => {
