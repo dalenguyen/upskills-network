@@ -54,7 +54,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-3xl">
         @switch (state().status) {
           @case ('loading') {
-            <app-loading-state label="Loading…" />
+            <app-loading-state label="Loading organizer…" />
           }
 
           @case ('no-orgs') {
