@@ -136,8 +136,28 @@ describe('POST /api/v1/dashboard/events', () => {
     ).rejects.toMatchObject({
       statusCode: 400,
       data: { error: 'invalid-event' },
+      message: expect.stringContaining('slug'),
     });
     expect(d.requireOrgRole).toHaveBeenCalledOnce();
+    expect(d.createEvent).not.toHaveBeenCalled();
+  });
+
+  it('names the endsAt/startsAt ordering violation in the 400 message', async () => {
+    const d = deps();
+
+    await expect(
+      createDashboardEventsCreateHandler(d)(
+        request({
+          ...CREATE_BODY,
+          startsAt: '2026-09-01T18:00:00Z',
+          endsAt: '2026-09-01T17:00:00Z',
+        }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-event' },
+      message: expect.stringContaining('endsAt'),
+    });
     expect(d.createEvent).not.toHaveBeenCalled();
   });
 

@@ -9,6 +9,7 @@ import {
   type EventHandler,
   type H3Event,
 } from 'h3';
+import { z } from 'zod';
 import { badRequest, toHttpError } from '../http-error';
 import { eventForbidden, readOrgId } from './dashboard-access';
 import { toDashboardEvent, type DashboardEvent } from './events-list';
@@ -87,7 +88,7 @@ export function createDashboardEventsUpdateHandler(
       if (!parsed.success) {
         throw badRequest(
           'invalid-event',
-          'Expected a JSON body with at least one of title, slug, description, startsAt, endsAt, timezone, location, price, currency, maxGuests, or status.',
+          `Expected a JSON body with at least one of title, slug, description, startsAt, endsAt, timezone, location, price, currency, maxGuests, or status. ${z.prettifyError(parsed.error)}`,
         );
       }
 

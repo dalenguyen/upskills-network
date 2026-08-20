@@ -420,6 +420,14 @@ export class EventFormComponent {
       return;
     }
 
+    if (
+      this.form.endsAt.trim() !== '' &&
+      this.form.endsAt < this.form.startsAt
+    ) {
+      this.submitError.set('End time must be at or after the start time.');
+      return;
+    }
+
     const imageProblem = imageUrlError(this.form.imageUrl);
     if (imageProblem !== null) {
       this.submitError.set(imageProblem);

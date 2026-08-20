@@ -126,6 +126,24 @@ describe('EventFormComponent', () => {
     http.verify();
   });
 
+  it('rejects an end time before the start time instead of issuing a doomed request', async () => {
+    const { fixture, http } = await setup();
+
+    setValue(fixture, '#startsAt', '2026-09-01T18:00');
+    setValue(fixture, '#endsAt', '2026-09-01T17:00');
+
+    const publish = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find((button) => button.textContent?.trim() === 'Publish');
+    publish?.click();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'End time must be at or after the start time.',
+    );
+    http.verify();
+  });
+
   it('offers a Cancel button only when the host asks for one', async () => {
     const { fixture, http } = await setup();
 

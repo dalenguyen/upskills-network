@@ -8,6 +8,7 @@ import {
   type EventHandler,
   type H3Event,
 } from 'h3';
+import { z } from 'zod';
 import { badRequest, toHttpError } from '../http-error';
 import { readOrgId } from './dashboard-access';
 import { toDashboardEvent, type DashboardEvent } from './events-list';
@@ -56,7 +57,7 @@ export function createDashboardEventsCreateHandler(
       if (!parsed.success) {
         throw badRequest(
           'invalid-event',
-          'Expected a JSON body with title, slug, description, startsAt, timezone, price, currency, and maxGuests.',
+          `Expected a JSON body with title, slug, description, startsAt, timezone, price, currency, and maxGuests. ${z.prettifyError(parsed.error)}`,
         );
       }
 

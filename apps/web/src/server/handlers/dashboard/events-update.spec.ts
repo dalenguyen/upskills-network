@@ -189,6 +189,7 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
     ).rejects.toMatchObject({
       statusCode: 400,
       data: { error: 'invalid-event' },
+      message: expect.stringContaining('At least one field'),
     });
     expect(d.requireOrgRole).toHaveBeenCalledOnce();
     expect(d.updateEvent).not.toHaveBeenCalled();
