@@ -20,7 +20,11 @@ describe('EventListComponent', () => {
 
   async function setup(
     events: DashboardEvent[],
-    options: { editLinkBase?: string | null; allowDelete?: boolean } = {},
+    options: {
+      editLinkBase?: string | null;
+      guestsLinkBase?: string | null;
+      allowDelete?: boolean;
+    } = {},
   ) {
     await TestBed.configureTestingModule({
       imports: [EventListComponent],
@@ -34,6 +38,10 @@ describe('EventListComponent', () => {
     fixture.componentRef.setInput('orgId', 'org_1');
     fixture.componentRef.setInput('orgSlug', 'upskills-toronto');
     fixture.componentRef.setInput('editLinkBase', options.editLinkBase ?? null);
+    fixture.componentRef.setInput(
+      'guestsLinkBase',
+      options.guestsLinkBase ?? null,
+    );
     fixture.componentRef.setInput('allowDelete', options.allowDelete ?? false);
     fixture.detectChanges();
 
@@ -64,6 +72,25 @@ describe('EventListComponent', () => {
 
     expect(hrefs).toContain('/dashboard/events/evt_1/edit');
     expect(hrefs).toContain('/upskills-toronto/intro-to-kubernetes');
+    http.verify();
+  });
+
+  it('links to the guest list with an org id when only a guests base is given', async () => {
+    const { fixture, http } = await setup([workshop()], {
+      guestsLinkBase: '/dashboard/events',
+    });
+
+    const root = fixture.nativeElement as HTMLElement;
+    const guestsLink = Array.from(root.querySelectorAll('a')).find(
+      (link) => link.textContent?.trim() === 'Guests',
+    );
+
+    expect(guestsLink?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_1/guests?orgId=org_1',
+    );
+    expect(
+      root.querySelector('a[href="/dashboard/events/evt_1/edit"]'),
+    ).toBeNull();
     http.verify();
   });
 

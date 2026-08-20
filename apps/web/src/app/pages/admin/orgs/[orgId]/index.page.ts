@@ -241,6 +241,7 @@ export const routeMeta: RouteMeta = {
                     [events]="events()"
                     [orgId]="currentOrg.orgId"
                     [orgSlug]="currentOrg.slug"
+                    guestsLinkBase="/dashboard/events"
                     [allowDelete]="true"
                     (edit)="startEdit($event)"
                     (changed)="loadEvents()"
