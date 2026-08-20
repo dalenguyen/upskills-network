@@ -101,7 +101,7 @@ describe('EventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('No events yet');
     expect(root.querySelector('app-event-card')).toBeNull();
-    expect(root.querySelector('button')).toBeNull();
+    expect(root.querySelector('main button')).toBeNull();
     http.verify();
   });
 
@@ -161,7 +161,7 @@ describe('EventsPageComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    const button = root.querySelector<HTMLButtonElement>('button');
+    const button = root.querySelector<HTMLButtonElement>('main button');
     expect(button?.textContent?.trim()).toBe('Try again');
 
     button?.click();
@@ -191,7 +191,7 @@ describe('EventsPageComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    const button = root.querySelector<HTMLButtonElement>('button');
+    const button = root.querySelector<HTMLButtonElement>('main button');
     expect(button?.textContent?.trim()).toBe('Load more');
 
     button?.click();
@@ -208,7 +208,7 @@ describe('EventsPageComponent', () => {
 
     expect(root.querySelectorAll('app-event-card').length).toBe(2);
     expect(root.textContent).toContain('Rust for the web');
-    expect(root.querySelector('button')).toBeNull();
+    expect(root.querySelector('main button')).toBeNull();
     http.verify();
   });
 
@@ -224,7 +224,7 @@ describe('EventsPageComponent', () => {
     fixture.detectChanges();
 
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('button'),
+      (fixture.nativeElement as HTMLElement).querySelector('main button'),
     ).toBeNull();
     http.verify();
   });
