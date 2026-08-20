@@ -24,13 +24,15 @@ import { EventImageComponent } from './event-image.component';
   imports: [Badge, Icon, EventImageComponent],
   template: `
     <article>
-      @if (event().imageUrl) {
-        <!-- No alt: the <h1> below already names the event. -->
-        <app-event-image
-          [src]="event().imageUrl"
-          imageClass="mb-8 aspect-[2/1] w-full rounded-2xl object-cover"
-        />
-      }
+      <!-- Unconditional: without an image this renders a coloured block bearing
+           the event's initials. No alt either way — the <h1> below already
+           names the event. -->
+      <app-event-image
+        [src]="event().imageUrl"
+        [title]="event().title"
+        [seed]="event().slug"
+        imageClass="mb-8 aspect-[2/1] w-full rounded-2xl object-cover"
+      />
 
       <div class="flex flex-wrap items-center gap-2">
         @if (isExternal()) {
