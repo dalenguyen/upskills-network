@@ -11,7 +11,10 @@ import { AuthService } from '../auth/auth-service';
  * is the one thing a returning visitor cannot do any other way — the header is
  * the only place in the app that links to it, so it has to survive the mobile
  * breakpoint. The signed-in controls live in the same spot, so signing out
- * never collapses behind the small-screen nav either.
+ * never collapses behind the small-screen nav either. "Events" gets the same
+ * treatment: it's a real route, not a same-page anchor, so a duplicate
+ * `md:hidden` link keeps it reachable on mobile while the `md:flex` copy
+ * covers desktop.
  *
  * Every link here is a plain `href` rather than a `routerLink`, matching the
  * rest of the header. The section links are same-page fragments that must work
@@ -59,6 +62,12 @@ import { AuthService } from '../auth/auth-service';
         </nav>
 
         <div class="flex items-center gap-4 sm:gap-5">
+          <a
+            href="/events"
+            class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 md:hidden"
+          >
+            Events
+          </a>
           @if (auth.user(); as user) {
             <span
               class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
