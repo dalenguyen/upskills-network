@@ -65,6 +65,10 @@ describe('LandingHeaderComponent', () => {
     );
   }
 
+  function menuButton(root: HTMLElement): HTMLButtonElement | null {
+    return root.querySelector<HTMLButtonElement>('button[aria-label="Menu"]');
+  }
+
   it('renders the wordmark and a waitlist call-to-action anchor', async () => {
     const { fixture } = await setup();
 
@@ -96,8 +100,8 @@ describe('LandingHeaderComponent', () => {
   });
 
   // `/events` is a real route, not a same-page anchor, so it must stay
-  // reachable when the `md:flex` nav collapses. It gets a duplicate `md:hidden`
-  // link outside the nav, exactly like sign-in.
+  // reachable when the `md:flex` nav collapses. The mobile copy now lives in
+  // the hamburger menu, still outside the desktop nav.
   it('keeps an Events link outside the nav that hides on small screens', async () => {
     const { fixture } = await setup();
 
@@ -241,5 +245,56 @@ describe('LandingHeaderComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(signOutButton(root)?.closest('nav')).toBeNull();
+  });
+
+  // The mobile-only Events and Admin links used to sit directly in the
+  // always-visible row. They now live in a collapsed menu so the row cannot
+  // overflow a 360px viewport.
+  it('collapses the mobile Events and Admin links into a hidden menu', async () => {
+    const { fixture } = await setup(signedInUser, 'admin');
+
+    const root = fixture.nativeElement as HTMLElement;
+    const menu = root.querySelector<HTMLElement>('#mobile-menu');
+
+    expect(menu).toBeTruthy();
+    expect(menu?.hidden).toBe(true);
+    expect(menu?.querySelector('a[href="/events"]')).toBeTruthy();
+    expect(menu?.querySelector('a[href="/admin/orgs"]')).toBeTruthy();
+  });
+
+  it('toggles the mobile menu from the menu button', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const button = menuButton(root);
+    const menu = root.querySelector<HTMLElement>('#mobile-menu');
+
+    expect(button?.getAttribute('aria-expanded')).toBe('false');
+    expect(menu?.hidden).toBe(true);
+
+    button?.click();
+    fixture.detectChanges();
+
+    expect(button?.getAttribute('aria-expanded')).toBe('true');
+    expect(menu?.hidden).toBe(false);
+
+    button?.click();
+    fixture.detectChanges();
+
+    expect(button?.getAttribute('aria-expanded')).toBe('false');
+    expect(menu?.hidden).toBe(true);
+  });
+
+  it('keeps sign-in and the primary CTA outside the mobile menu', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(
+      root.querySelector('a[href="/auth/login"]')?.closest('#mobile-menu'),
+    ).toBeNull();
+    expect(
+      root.querySelector('a[href="/#waitlist"]')?.closest('#mobile-menu'),
+    ).toBeNull();
   });
 });
