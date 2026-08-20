@@ -80,6 +80,21 @@ describe('LandingHeaderComponent', () => {
     expect(signIn?.closest('nav')).toBeNull();
   });
 
+  // `/events` is a real route, not a same-page anchor, so it must stay
+  // reachable when the `md:flex` nav collapses. It gets a duplicate `md:hidden`
+  // link outside the nav, exactly like sign-in.
+  it('keeps an Events link outside the nav that hides on small screens', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    const eventsLinks = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href="/events"]'),
+    );
+    expect(eventsLinks).toHaveLength(2);
+    expect(eventsLinks.some((link) => link.closest('nav') === null)).toBe(true);
+  });
+
   it('shows the sign-in link and no sign-out button when signed out', async () => {
     const { fixture } = await setup();
 
