@@ -58,44 +58,42 @@ const LOCATION_TBA = 'To be announced';
 export function renderWelcomeEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   const paid = (guest.amountPaid ?? 0) > 0;
 
-  return composeMessage(
-    guest.email,
-    `You're registered for ${event.title}`,
-    {
-      preheader: `Your spot is confirmed for ${formatEventDay(event)}.`,
-      heading: `You're in, ${greetingName(guest)}`,
-      paragraphs: [
-        `Your spot at ${event.title} is confirmed. Here are the details.`,
-      ],
-      facts: [
-        { label: 'Event', value: event.title },
-        { label: 'When', value: formatEventWhen(event) },
-        { label: 'Where', value: event.location ?? LOCATION_TBA },
-        paid
-          ? {
-              label: 'Paid',
-              value: formatMoney(guest.amountPaid ?? 0, event.currency),
-            }
-          : { label: 'Cost', value: formatPrice(event) },
-      ],
-      action: { label: 'View event details', url: eventUrl(event) },
-      notes: [
-        { text: "Can't make it? Release your spot here:", url: cancelUrl(guest) },
-        ...(paid ? [{ text: REFUND_POLICY }] : []),
-      ],
-    },
-  );
+  return composeMessage(guest.email, `You're registered for ${event.title}`, {
+    preheader: `Your spot is confirmed for ${formatEventDay(event)}.`,
+    heading: `You're in, ${greetingName(guest)}`,
+    paragraphs: [
+      `Your spot at ${event.title} is confirmed. Here are the details.`,
+    ],
+    facts: [
+      { label: 'Event', value: event.title },
+      { label: 'When', value: formatEventWhen(event) },
+      { label: 'Where', value: event.location ?? LOCATION_TBA },
+      paid
+        ? {
+            label: 'Paid',
+            value: formatMoney(guest.amountPaid ?? 0, event.currency),
+          }
+        : { label: 'Cost', value: formatPrice(event) },
+    ],
+    action: { label: 'View event details', url: eventUrl(event, orgSlug) },
+    notes: [
+      { text: "Can't make it? Release your spot here:", url: cancelUrl(guest) },
+      ...(paid ? [{ text: REFUND_POLICY }] : []),
+    ],
+  });
 }
 
 /** {@link renderWelcomeEmail}, sent. Returns a result; never throws. */
 export function sendWelcomeEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderWelcomeEmail(guest, event));
+  return sendEmail(renderWelcomeEmail(guest, event, orgSlug));
 }
 
 /**
@@ -117,6 +115,7 @@ export function renderWaitlistEmail(
   guest: Guest,
   event: WorkshopEvent,
   position: number,
+  orgSlug: string,
 ): EmailMessage {
   return composeMessage(
     guest.email,
@@ -134,7 +133,7 @@ export function renderWaitlistEmail(
         { label: 'Where', value: event.location ?? LOCATION_TBA },
         { label: 'Waitlist position', value: `${position}` },
       ],
-      action: { label: 'View event details', url: eventUrl(event) },
+      action: { label: 'View event details', url: eventUrl(event, orgSlug) },
       notes: [
         {
           text: 'Changed your mind? Leave the waitlist here:',
@@ -150,8 +149,9 @@ export function sendWaitlistEmail(
   guest: Guest,
   event: WorkshopEvent,
   position: number,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderWaitlistEmail(guest, event, position));
+  return sendEmail(renderWaitlistEmail(guest, event, position, orgSlug));
 }
 
 /**
@@ -166,6 +166,7 @@ export function sendWaitlistEmail(
 export function renderSpotOpenedEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   return composeMessage(
     guest.email,
@@ -187,7 +188,7 @@ export function renderSpotOpenedEmail(
         { label: 'When', value: formatEventWhen(event) },
         { label: 'Where', value: event.location ?? LOCATION_TBA },
       ],
-      action: { label: 'View event details', url: eventUrl(event) },
+      action: { label: 'View event details', url: eventUrl(event, orgSlug) },
       notes: [
         {
           text: 'If your plans have changed, release the spot here so it can go to the next person:',
@@ -202,8 +203,9 @@ export function renderSpotOpenedEmail(
 export function sendSpotOpenedEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderSpotOpenedEmail(guest, event));
+  return sendEmail(renderSpotOpenedEmail(guest, event, orgSlug));
 }
 
 /**
@@ -227,6 +229,7 @@ export function sendSpotOpenedEmail(
 export function renderCancellationEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   const amountPaid = guest.amountPaid ?? 0;
   const involvedMoney = amountPaid > 0 || event.price > 0;
@@ -250,32 +253,37 @@ export function renderCancellationEmail(
     'If this was a mistake, you can register again from the event page — though the spot may already have gone to someone on the waitlist.',
   );
 
-  return composeMessage(guest.email, `Your registration for ${event.title} is cancelled`, {
-    preheader: `Your spot at ${event.title} has been released.`,
-    heading: 'Your registration is cancelled',
-    paragraphs,
-    facts: [
-      { label: 'Event', value: event.title },
-      { label: 'When', value: formatEventWhen(event) },
-      ...(amountPaid > 0
-        ? [
-            {
-              label: 'Paid',
-              value: `${formatMoney(amountPaid, event.currency)} (not refunded)`,
-            },
-          ]
-        : []),
-    ],
-    action: { label: 'View event details', url: eventUrl(event) },
-  });
+  return composeMessage(
+    guest.email,
+    `Your registration for ${event.title} is cancelled`,
+    {
+      preheader: `Your spot at ${event.title} has been released.`,
+      heading: 'Your registration is cancelled',
+      paragraphs,
+      facts: [
+        { label: 'Event', value: event.title },
+        { label: 'When', value: formatEventWhen(event) },
+        ...(amountPaid > 0
+          ? [
+              {
+                label: 'Paid',
+                value: `${formatMoney(amountPaid, event.currency)} (not refunded)`,
+              },
+            ]
+          : []),
+      ],
+      action: { label: 'View event details', url: eventUrl(event, orgSlug) },
+    },
+  );
 }
 
 /** {@link renderCancellationEmail}, sent. Returns a result; never throws. */
 export function sendCancellationEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderCancellationEmail(guest, event));
+  return sendEmail(renderCancellationEmail(guest, event, orgSlug));
 }
 
 /**
@@ -292,6 +300,7 @@ export function sendCancellationEmail(
 export function renderPaymentReceiptEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   const amountPaid = guest.amountPaid ?? event.price;
   const reference = guest.stripePaymentIntentId ?? guest.stripeSessionId;
@@ -314,7 +323,7 @@ export function renderPaymentReceiptEmail(
       { label: 'Billed to', value: guest.email },
       ...(reference ? [{ label: 'Reference', value: reference }] : []),
     ],
-    action: { label: 'View event details', url: eventUrl(event) },
+    action: { label: 'View event details', url: eventUrl(event, orgSlug) },
     notes: [
       { text: REFUND_POLICY },
       { text: 'To release your spot, use this link:', url: cancelUrl(guest) },
@@ -326,8 +335,9 @@ export function renderPaymentReceiptEmail(
 export function sendPaymentReceiptEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderPaymentReceiptEmail(guest, event));
+  return sendEmail(renderPaymentReceiptEmail(guest, event, orgSlug));
 }
 
 /**
@@ -345,6 +355,7 @@ export function sendPaymentReceiptEmail(
 export function renderSoldOutRefundEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   const amountPaid = guest.amountPaid ?? event.price;
 
@@ -375,7 +386,7 @@ export function renderSoldOutRefundEmail(
           value: formatMoney(amountPaid, event.currency),
         },
       ],
-      action: { label: 'View event details', url: eventUrl(event) },
+      action: { label: 'View event details', url: eventUrl(event, orgSlug) },
     },
   );
 }
@@ -384,8 +395,9 @@ export function renderSoldOutRefundEmail(
 export function sendSoldOutRefundEmail(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderSoldOutRefundEmail(guest, event));
+  return sendEmail(renderSoldOutRefundEmail(guest, event, orgSlug));
 }
 
 /**

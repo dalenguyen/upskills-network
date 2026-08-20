@@ -22,10 +22,13 @@ import { createCancelHandler } from '../../../../../../handlers/registration/can
 export default createCancelHandler({
   getGuest: (orgId, eventId, email) => getGuest(orgId, eventId, email),
   getEvent: (orgId, eventId) => getEvent(orgId, eventId),
+  getOrg: (orgId) => getOrg(orgId),
   cancelGuest: (orgId, eventId, email) => cancelGuest(orgId, eventId, email),
   promoteNextPending: (orgId, eventId) => promoteNextPending(orgId, eventId),
-  sendCancellationEmail: (guest, event) => sendCancellationEmail(guest, event),
-  sendSpotOpenedEmail: (guest, event) => sendSpotOpenedEmail(guest, event),
+  sendCancellationEmail: (guest, event, orgSlug) =>
+    sendCancellationEmail(guest, event, orgSlug),
+  sendSpotOpenedEmail: (guest, event, orgSlug) =>
+    sendSpotOpenedEmail(guest, event, orgSlug),
   notifyOrganizers: createOrganizerNotifier({
     getOrg: (orgId) => getOrg(orgId),
     getUserEmails: (uids) => getUserEmails(uids),

@@ -1,6 +1,6 @@
 import type { SendResult } from '@upskills/email';
 import type { ReserveSpotResult } from '@upskills/firestore';
-import type { Guest, WorkshopEvent } from '@upskills/models';
+import type { Guest, Organizer, WorkshopEvent } from '@upskills/models';
 import { RegisterGuestSchema } from '@upskills/validation';
 import {
   defineEventHandler,
@@ -86,6 +86,8 @@ export interface RegisterResponse {
 export interface RegisterDeps {
   /** `getEvent` from `@upskills/firestore`. */
   getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
+  /** `getOrg` from `@upskills/firestore`. Resolves the org slug the confirmation email links to. */
+  getOrg(orgId: string): Promise<Organizer | null>;
   /** `reserveSpot` from `@upskills/firestore`, in `confirm` mode. */
   reserveSpot(
     orgId: string,
@@ -93,12 +95,17 @@ export interface RegisterDeps {
     draft: { email: string; name: string },
   ): Promise<ReserveSpotResult>;
   /** `sendWelcomeEmail` from `@upskills/email`. Never throws. */
-  sendWelcomeEmail(guest: Guest, event: WorkshopEvent): Promise<SendResult>;
+  sendWelcomeEmail(
+    guest: Guest,
+    event: WorkshopEvent,
+    orgSlug: string,
+  ): Promise<SendResult>;
   /** `sendWaitlistEmail` from `@upskills/email`. Never throws. */
   sendWaitlistEmail(
     guest: Guest,
     event: WorkshopEvent,
     position: number,
+    orgSlug: string,
   ): Promise<SendResult>;
   /**
    * Tell the org's staff someone signed up. See `handlers/organizer-notify.ts`
@@ -192,6 +199,12 @@ export function createRegisterHandler(deps: RegisterDeps): EventHandler {
         throw eventNotFound();
       }
 
+      const org = await deps.getOrg(orgId);
+
+      if (org === null) {
+        throw eventNotFound();
+      }
+
       const result = await deps
         .reserveSpot(orgId, eventId, {
           email: parsed.data.email,
@@ -204,7 +217,7 @@ export function createRegisterHandler(deps: RegisterDeps): EventHandler {
       return {
         ...outcomeOf(result),
         alreadyRegistered: result.alreadyRegistered,
-        emailSent: await notify(result, workshop, deps),
+        emailSent: await notify(result, workshop, org.slug, deps),
       } satisfies RegisterResponse;
     } catch (error) {
       throw toHttpError(error);
@@ -247,6 +260,7 @@ function outcomeOf(
 async function notify(
   result: ReserveSpotResult,
   workshop: WorkshopEvent,
+  orgSlug: string,
   deps: RegisterDeps,
 ): Promise<boolean> {
   if (result.alreadyRegistered) {
@@ -260,8 +274,9 @@ async function notify(
         result.guest,
         workshop,
         result.guest.waitlistPosition ?? 0,
+        orgSlug,
       )
-    : await deps.sendWelcomeEmail(result.guest, workshop);
+    : await deps.sendWelcomeEmail(result.guest, workshop, orgSlug);
 
   // Guarded here as well as inside the notifier. A committed registration
   // answering 200 is this handler's own guarantee, and borrowing it from the

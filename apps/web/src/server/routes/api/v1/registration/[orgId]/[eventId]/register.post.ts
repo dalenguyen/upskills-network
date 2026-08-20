@@ -19,11 +19,13 @@ import { createRegisterHandler } from '../../../../../../handlers/registration/r
  */
 export default createRegisterHandler({
   getEvent: (orgId, eventId) => getEvent(orgId, eventId),
+  getOrg: (orgId) => getOrg(orgId),
   reserveSpot: (orgId, eventId, draft) =>
     reserveSpot(orgId, eventId, draft, 'confirm'),
-  sendWelcomeEmail: (guest, event) => sendWelcomeEmail(guest, event),
-  sendWaitlistEmail: (guest, event, position) =>
-    sendWaitlistEmail(guest, event, position),
+  sendWelcomeEmail: (guest, event, orgSlug) =>
+    sendWelcomeEmail(guest, event, orgSlug),
+  sendWaitlistEmail: (guest, event, position, orgSlug) =>
+    sendWaitlistEmail(guest, event, position, orgSlug),
   notifyOrganizers: createOrganizerNotifier({
     getOrg: (orgId) => getOrg(orgId),
     getUserEmails: (uids) => getUserEmails(uids),

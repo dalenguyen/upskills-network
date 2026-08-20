@@ -57,6 +57,7 @@ function deps(
     requireAuth: vi.fn(async () => AUTH),
     requireOrgRole: vi.fn(async () => ORG),
     getEvent: vi.fn(async () => fakeEvent({ status: 'published' })),
+    getOrg: vi.fn(async () => fakeOrg()),
     cancelEvent: vi.fn(async () => ({
       event: fakeEvent({ status: 'cancelled' }),
       confirmedGuests: [guest()],
@@ -111,11 +112,13 @@ describe('DELETE /api/v1/dashboard/events/:eventId', () => {
       1,
       first,
       expect.objectContaining({ eventId: 'evt-1', status: 'cancelled' }),
+      fakeOrg().slug,
     );
     expect(sendCancellationEmail).toHaveBeenNthCalledWith(
       2,
       second,
       expect.objectContaining({ eventId: 'evt-1', status: 'cancelled' }),
+      fakeOrg().slug,
     );
     expect(result).toEqual({
       event: expect.objectContaining({ eventId: 'evt-1', status: 'cancelled' }),
@@ -186,6 +189,7 @@ describe('DELETE /api/v1/dashboard/events/:eventId', () => {
     expect(sendCancellationEmail).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'confirmed' }),
       expect.objectContaining({ status: 'cancelled' }),
+      fakeOrg().slug,
     );
     expect(result.notification).toEqual({
       attempted: 1,

@@ -3,7 +3,11 @@ import type { Guest } from '@upskills/models';
 import { describe, expect, it, vi } from 'vitest';
 import { fakeTimestamp } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeEvent } from '../../testing/public-fixtures';
+import {
+  FIXTURE_START,
+  fakeEvent,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import { createCancelHandler, type CancelDeps } from './cancel';
 
 /**
@@ -45,6 +49,7 @@ function deps(overrides: Partial<CancelDeps> = {}): CancelDeps {
   return {
     getGuest: vi.fn(async () => guest()),
     getEvent: vi.fn(async () => fakeEvent()),
+    getOrg: vi.fn(async () => fakeOrg()),
     cancelGuest: vi.fn(async () => cancelled()),
     promoteNextPending: vi.fn(async () => null),
     sendCancellationEmail: vi.fn(async () => ({
@@ -128,6 +133,7 @@ describe('POST /api/v1/registration/:orgId/:eventId/cancel', () => {
       expect(sendSpotOpenedEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'bob@example.com' }),
         expect.objectContaining({ eventId: 'evt-1' }),
+        fakeOrg().slug,
       );
     });
 

@@ -50,6 +50,7 @@ const LOCATION_TBA = 'To be announced — check the event page';
 export function renderEventReminder(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): EmailMessage {
   return composeMessage(
     guest.email,
@@ -71,10 +72,10 @@ export function renderEventReminder(
         { label: 'When', value: formatEventWhen(event) },
         { label: 'Where', value: event.location ?? LOCATION_TBA },
       ],
-      action: { label: 'View event details', url: eventUrl(event) },
+      action: { label: 'View event details', url: eventUrl(event, orgSlug) },
       notes: [
         {
-          text: "If you can no longer make it, please release your spot so someone on the waitlist can take it:",
+          text: 'If you can no longer make it, please release your spot so someone on the waitlist can take it:',
           url: cancelUrl(guest),
         },
       ],
@@ -86,6 +87,7 @@ export function renderEventReminder(
 export function sendEventReminder(
   guest: Guest,
   event: WorkshopEvent,
+  orgSlug: string,
 ): Promise<SendResult> {
-  return sendEmail(renderEventReminder(guest, event));
+  return sendEmail(renderEventReminder(guest, event, orgSlug));
 }

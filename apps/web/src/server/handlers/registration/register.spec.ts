@@ -3,7 +3,11 @@ import type { Guest } from '@upskills/models';
 import { describe, expect, it, vi } from 'vitest';
 import { fakeTimestamp } from '../../testing/fakes';
 import { createTestEvent } from '../../testing/h3-event';
-import { FIXTURE_START, fakeEvent } from '../../testing/public-fixtures';
+import {
+  FIXTURE_START,
+  fakeEvent,
+  fakeOrg,
+} from '../../testing/public-fixtures';
 import { createRegisterHandler, type RegisterDeps } from './register';
 
 /**
@@ -50,6 +54,7 @@ function reserveError(
 function deps(overrides: Partial<RegisterDeps> = {}): RegisterDeps {
   return {
     getEvent: vi.fn(async () => fakeEvent({ price: 0 })),
+    getOrg: vi.fn(async () => fakeOrg()),
     reserveSpot: vi.fn(async () => reserved()),
     sendWelcomeEmail: vi.fn(async () => ({ sent: true as const, id: 'em_1' })),
     sendWaitlistEmail: vi.fn(async () => ({ sent: true as const, id: 'em_2' })),
@@ -155,6 +160,7 @@ describe('POST /api/v1/registration/:orgId/:eventId/register', () => {
         expect.objectContaining({ status: 'pending' }),
         expect.objectContaining({ eventId: 'evt-1' }),
         4,
+        fakeOrg().slug,
       );
       expect(sendWelcomeEmail).not.toHaveBeenCalled();
     });

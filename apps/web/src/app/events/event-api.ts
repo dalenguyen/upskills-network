@@ -1,4 +1,5 @@
 import type { RegisterResponse } from '../../server/handlers/registration/register';
+import type { CancelResponse } from '../../server/handlers/registration/cancel';
 import type {
   PublicEvent,
   PublicOrg,
@@ -16,7 +17,7 @@ import type {
  * adding a case to `RegisterResponse.status`, breaks the type-check here
  * instead of producing an `undefined` on a rendered page.
  */
-export type { PublicEvent, PublicOrg, RegisterResponse };
+export type { PublicEvent, PublicOrg, RegisterResponse, CancelResponse };
 
 /**
  * `GET` — one published event, named the way its URL names it. 404 for anything
@@ -61,6 +62,17 @@ export function eventsEndpoint(cursor?: string): string {
  */
 export function registerEndpoint(orgId: string, eventId: string): string {
   return `/api/v1/registration/${encodeURIComponent(orgId)}/${encodeURIComponent(eventId)}/register`;
+}
+
+/**
+ * `POST` — self-service cancellation, for the link a guest gets by email.
+ *
+ * Same org/event addressing as {@link registerEndpoint}. The email and
+ * cancel token travel in the body, not the URL — see `cancelUrl` in
+ * `@upskills/email` for where they come from.
+ */
+export function cancelEndpoint(orgId: string, eventId: string): string {
+  return `/api/v1/registration/${encodeURIComponent(orgId)}/${encodeURIComponent(eventId)}/cancel`;
 }
 
 /** What `GET /api/v1/orgs/:orgSlug/events/:eventSlug` answers with. */

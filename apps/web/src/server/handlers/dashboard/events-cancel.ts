@@ -5,7 +5,12 @@ import type {
   SendResult,
 } from '@upskills/email';
 import type { CancelEventResult } from '@upskills/firestore';
-import type { Guest, OrgRole, WorkshopEvent } from '@upskills/models';
+import type {
+  Guest,
+  OrgRole,
+  Organizer,
+  WorkshopEvent,
+} from '@upskills/models';
 import {
   defineEventHandler,
   getRouterParam,
@@ -77,12 +82,15 @@ export interface DashboardEventsCancelDeps {
   ): Promise<OrgContext>;
   /** `getEvent` from `@upskills/firestore`. */
   getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
+  /** `getOrg` from `@upskills/firestore`. Resolves the org slug the cancellation email links to. */
+  getOrg(orgId: string): Promise<Organizer | null>;
   /** `cancelEvent` from `@upskills/firestore`. */
   cancelEvent(orgId: string, eventId: string): Promise<CancelEventResult>;
   /** `sendCancellationEmail` from `@upskills/email`. Never throws. */
   sendCancellationEmail(
     guest: Guest,
     event: WorkshopEvent,
+    orgSlug: string,
   ): Promise<SendResult>;
 }
 
@@ -127,6 +135,12 @@ export function createDashboardEventsCancelHandler(
         } satisfies DashboardEventsCancelResponse;
       }
 
+      const org = await deps.getOrg(orgId);
+
+      if (org === null) {
+        throw eventForbidden();
+      }
+
       const cancelled = await deps.cancelEvent(orgId, eventId);
 
       return {
@@ -134,6 +148,7 @@ export function createDashboardEventsCancelHandler(
         notification: await notifyConfirmedGuests(
           cancelled.confirmedGuests,
           cancelled.event,
+          org.slug,
           deps,
         ),
       } satisfies DashboardEventsCancelResponse;
@@ -156,6 +171,7 @@ export function createDashboardEventsCancelHandler(
 async function notifyConfirmedGuests(
   guests: readonly Guest[],
   event: WorkshopEvent,
+  orgSlug: string,
   deps: DashboardEventsCancelDeps,
 ): Promise<DashboardEventsCancelNotification> {
   const confirmed = guests.filter((guest) => guest.status === 'confirmed');
@@ -165,7 +181,7 @@ async function notifyConfirmedGuests(
     const batch = confirmed.slice(index, index + EMAIL_BATCH_SIZE);
     const batchResults = await Promise.all(
       batch.map(async (guest) => {
-        const result = await deps.sendCancellationEmail(guest, event);
+        const result = await deps.sendCancellationEmail(guest, event, orgSlug);
         return { ...result, to: guest.email };
       }),
     );
