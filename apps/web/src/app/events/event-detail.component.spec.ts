@@ -67,7 +67,7 @@ describe('EventDetailComponent', () => {
 
   it('counts down only once spots are scarce', () => {
     expect(render({ spotsRemaining: 3 }).nativeElement.textContent).toContain(
-      '3 spots left',
+      '3/20 spots left',
     );
     expect(
       render({ spotsRemaining: 40 }).nativeElement.textContent,

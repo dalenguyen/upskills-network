@@ -1,4 +1,5 @@
 import type {
+  Guest,
   OrgInvite,
   Organizer,
   User,
@@ -42,6 +43,20 @@ export function fakeEvent(
     status: 'published',
     createdAt: fakeTimestamp(FIXTURE_START),
     updatedAt: fakeTimestamp(FIXTURE_START),
+    ...overrides,
+  };
+}
+
+export function fakeGuest(overrides: Partial<Guest> = {}): Guest {
+  return {
+    guestId: 'guest-1@example.com',
+    eventId: 'evt-1',
+    orgId: 'org-1',
+    email: 'guest-1@example.com',
+    name: 'Guest One',
+    status: 'confirmed',
+    registeredAt: fakeTimestamp(FIXTURE_START),
+    cancelToken: 'token-1',
     ...overrides,
   };
 }

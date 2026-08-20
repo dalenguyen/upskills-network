@@ -96,6 +96,15 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                   >
                     {{ workshop.title }}
                   </a>
+                  @if (editLinkBase(); as base) {
+                    <a
+                      [href]="base + '/' + workshop.eventId + '/guests'"
+                      [attr.aria-label]="'Guests for ' + workshop.title"
+                      class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
+                    >
+                      Guests
+                    </a>
+                  }
                   @if (workshop.status !== 'cancelled') {
                     @if (editLinkBase(); as base) {
                       <a

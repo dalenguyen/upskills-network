@@ -73,22 +73,22 @@ describe('formatEventWhen', () => {
 
 describe('formatSpots', () => {
   it('says nothing when capacity is unlimited', () => {
-    expect(formatSpots(null)).toBeNull();
+    expect(formatSpots(null, 0)).toBeNull();
   });
 
   it('says nothing when the count is not scarce enough to matter', () => {
-    expect(formatSpots(40)).toBeNull();
+    expect(formatSpots(40, 50)).toBeNull();
   });
 
   it('singularises the last spot', () => {
-    expect(formatSpots(1)).toBe('1 spot left');
+    expect(formatSpots(1, 10)).toBe('1/10 spot left');
   });
 
   it('counts down once the number is small enough to create urgency', () => {
-    expect(formatSpots(6)).toBe('6 spots left');
+    expect(formatSpots(6, 10)).toBe('6/10 spots left');
   });
 
   it('says nothing at zero — the sold-out state speaks for itself', () => {
-    expect(formatSpots(0)).toBeNull();
+    expect(formatSpots(0, 10)).toBeNull();
   });
 });

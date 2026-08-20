@@ -146,12 +146,21 @@ export const routeMeta: RouteMeta = {
                   </h1>
                 </div>
 
-                <a
-                  href="/dashboard/events"
-                  class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                >
-                  Back to events
-                </a>
+                <div class="flex gap-3">
+                  <a
+                    [href]="guestsPath()"
+                    class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    View guests
+                  </a>
+
+                  <a
+                    href="/dashboard/events"
+                    class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    Back to events
+                  </a>
+                </div>
               </div>
 
               <div class="mt-10">
@@ -229,6 +238,13 @@ export default class DashboardEventsEditPageComponent implements OnInit {
   org(): MeOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
+  }
+
+  guestsPath(): string {
+    const state = this.state();
+    return state.status === 'ready'
+      ? `/dashboard/events/${state.workshop.eventId}/guests`
+      : '/dashboard/events';
   }
 
   workshop(): DashboardEvent | null {

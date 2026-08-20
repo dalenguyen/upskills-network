@@ -111,5 +111,7 @@ export class EventDetailComponent {
       this.event().startTimeTbd,
     ),
   );
-  readonly spots = computed(() => formatSpots(this.event().spotsRemaining));
+  readonly spots = computed(() =>
+    formatSpots(this.event().spotsRemaining, this.event().maxGuests),
+  );
 }

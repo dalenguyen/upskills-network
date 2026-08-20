@@ -7,6 +7,10 @@ import type { DashboardEventsCancelResponse } from '../../server/handlers/dashbo
 import type { DashboardEventsCreateResponse } from '../../server/handlers/dashboard/events-create';
 import type { DashboardEventsDetailResponse } from '../../server/handlers/dashboard/events-detail';
 import type {
+  DashboardEventsGuestsResponse,
+  GuestView,
+} from '../../server/handlers/dashboard/events-guests';
+import type {
   DashboardEvent,
   DashboardEventsListResponse,
 } from '../../server/handlers/dashboard/events-list';
@@ -44,6 +48,7 @@ export type { MeGetResponse, MeOrg, MeUser };
 export type { DashboardEventsCancelResponse };
 export type { DashboardEventsCreateResponse };
 export type { DashboardEventsDetailResponse };
+export type { DashboardEventsGuestsResponse, GuestView };
 export type { DashboardEventsListResponse };
 export type { DashboardEventsUpdateResponse };
 export type { DashboardEvent };
@@ -89,6 +94,14 @@ export function dashboardEventDetailEndpoint(
   eventId: string,
 ): string {
   return `${dashboardEventPath(eventId)}?orgId=${encodeURIComponent(orgId)}`;
+}
+
+/** `GET` — the guest list for one event owned by one org. No email on the wire. */
+export function dashboardEventGuestsEndpoint(
+  orgId: string,
+  eventId: string,
+): string {
+  return `${dashboardEventPath(eventId)}/guests?orgId=${encodeURIComponent(orgId)}`;
 }
 
 /** `PUT` — update one event owned by one org. */
