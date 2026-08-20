@@ -31,6 +31,7 @@ import {
 import { apiErrorCode, apiErrorStatus } from '../../events/event-api';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 /**
  * `/dashboard` — the organizer overview.
@@ -85,7 +86,12 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-dashboard-overview-page',
-  imports: [FormsModule, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    FormsModule,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -93,9 +99,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">
-              Loading dashboard…
-            </p>
+            <app-loading-state label="Loading dashboard…" />
           }
 
           @case ('no-orgs') {

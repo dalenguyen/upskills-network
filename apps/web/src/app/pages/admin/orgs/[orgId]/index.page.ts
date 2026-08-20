@@ -28,6 +28,7 @@ import { apiErrorCode, apiErrorStatus } from '../../../../events/event-api';
 import { EventFormComponent } from '../../../../events/event-form.component';
 import { EventListComponent } from '../../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
+import { LoadingStateComponent } from '../../../../landing/loading-state.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
 
 /**
@@ -87,6 +88,7 @@ export const routeMeta: RouteMeta = {
     FormsModule,
     LandingHeaderComponent,
     LandingFooterComponent,
+    LoadingStateComponent,
   ],
   template: `
     <app-landing-header />
@@ -95,9 +97,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">
-              Loading organizer…
-            </p>
+            <app-loading-state label="Loading organizer…" />
           }
 
           @case ('forbidden') {

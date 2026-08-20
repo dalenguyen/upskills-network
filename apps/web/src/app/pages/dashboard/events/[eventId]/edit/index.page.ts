@@ -17,6 +17,7 @@ import { apiErrorStatus } from '../../../../../events/event-api';
 import { EventFormComponent } from '../../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../../../../landing/loading-state.component';
 
 /**
  * `/dashboard/events/[eventId]/edit` — edit one event for the caller's first org.
@@ -46,7 +47,12 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-dashboard-events-edit-page',
-  imports: [EventFormComponent, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    EventFormComponent,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -54,7 +60,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-3xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">Loading event…</p>
+            <app-loading-state label="Loading event…" />
           }
 
           @case ('no-orgs') {

@@ -12,6 +12,7 @@ import {
 import { EventCardComponent } from '../../events/event-card.component';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 /**
  * `/events` — the public browse page: every published workshop, soonest first.
@@ -37,7 +38,12 @@ type PageState =
 
 @Component({
   selector: 'app-events-page',
-  imports: [EventCardComponent, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    EventCardComponent,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -62,9 +68,7 @@ type PageState =
 
         @switch (state().status) {
           @case ('loading') {
-            <p class="mt-12 text-sm text-zinc-500" role="status">
-              Loading events…
-            </p>
+            <app-loading-state label="Loading events…" />
           }
 
           @case ('error') {

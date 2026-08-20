@@ -16,6 +16,7 @@ import {
 import { EventListComponent } from '../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../../landing/loading-state.component';
 
 /**
  * `/dashboard/events` — the org's event list.
@@ -45,7 +46,12 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-dashboard-events-page',
-  imports: [EventListComponent, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    EventListComponent,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -53,7 +59,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">Loading events…</p>
+            <app-loading-state label="Loading events…" />
           }
 
           @case ('no-orgs') {

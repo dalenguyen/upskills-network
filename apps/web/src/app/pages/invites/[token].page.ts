@@ -12,6 +12,7 @@ import {
 import { apiErrorCode, apiErrorStatus } from '../../events/event-api';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 /**
  * `/invites/[token]` — where an invitation email lands.
@@ -40,7 +41,12 @@ type PageState =
 
 @Component({
   selector: 'app-invite-accept-page',
-  imports: [RouterLink, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    RouterLink,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -48,9 +54,7 @@ type PageState =
       <div class="mx-auto w-full max-w-lg">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">
-              Loading invitation…
-            </p>
+            <app-loading-state label="Loading invitation…" />
           }
 
           @case ('not-found') {

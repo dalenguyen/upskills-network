@@ -17,6 +17,7 @@ import { ExternalCtaComponent } from '../../events/external-cta.component';
 import { RegistrationFormComponent } from '../../events/registration-form.component';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 /**
  * `/:orgSlug/:eventSlug` — the page that converts.
@@ -65,6 +66,7 @@ type PageState =
     RegistrationFormComponent,
     LandingHeaderComponent,
     LandingFooterComponent,
+    LoadingStateComponent,
   ],
   template: `
     <app-landing-header />
@@ -73,7 +75,7 @@ type PageState =
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">Loading workshop…</p>
+            <app-loading-state label="Loading workshop…" />
           }
 
           @case ('ready') {
