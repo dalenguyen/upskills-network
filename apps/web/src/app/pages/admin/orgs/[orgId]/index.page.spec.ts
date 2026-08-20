@@ -645,6 +645,24 @@ describe('AdminOrgDetailPageComponent', () => {
     http.verify();
   });
 
+  it('links each event to its guest list for the admin console', async () => {
+    const { fixture, http } = await setup();
+    await loadPage(fixture, http, adminOrg(), [], [workshop()]);
+
+    const root = fixture.nativeElement as HTMLElement;
+    const guestsLink = root.querySelector<HTMLAnchorElement>(
+      'a[href="/dashboard/events/evt_1/guests?orgId=org_1"]',
+    );
+
+    expect(guestsLink?.textContent?.trim()).toBe('Guests');
+    expect(
+      root.querySelector<HTMLAnchorElement>(
+        'a[href="/dashboard/events/evt_1/edit"]',
+      ),
+    ).toBeNull();
+    http.verify();
+  });
+
   it('creates an event inline and re-reads the list from the server', async () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
