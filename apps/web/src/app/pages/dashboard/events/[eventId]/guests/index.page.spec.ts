@@ -96,9 +96,11 @@ describe('DashboardEventsGuestsPageComponent', () => {
     http
       .expectOne(dashboardOrgDetailEndpoint('org_9'))
       .flush({ org, invites: [] });
+    await Promise.resolve();
     flushEventAndGuests(http, 'org_9', 'evt_1');
 
     await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
@@ -119,6 +121,7 @@ describe('DashboardEventsGuestsPageComponent', () => {
     flushEventAndGuests(http, 'org_1', 'evt_1');
 
     await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
@@ -139,6 +142,7 @@ describe('DashboardEventsGuestsPageComponent', () => {
       );
 
     await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;

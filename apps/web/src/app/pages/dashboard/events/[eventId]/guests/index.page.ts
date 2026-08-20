@@ -316,13 +316,17 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
    */
   private async loadForOrg(eventId: string, orgId: string): Promise<void> {
     try {
-      const [orgResponse, detail, guestList] = await Promise.all([
-        firstValueFrom(
-          this.http.get<DashboardOrgsDetailResponse>(
-            dashboardOrgDetailEndpoint(orgId),
-            { withCredentials: true },
-          ),
+      // Confirmed first, on its own: a caller forbidden from this org is also
+      // forbidden from its event and guest list, so there is no point firing
+      // those two requests before this one has answered.
+      const orgResponse = await firstValueFrom(
+        this.http.get<DashboardOrgsDetailResponse>(
+          dashboardOrgDetailEndpoint(orgId),
+          { withCredentials: true },
         ),
+      );
+
+      const [detail, guestList] = await Promise.all([
         firstValueFrom(
           this.http.get<DashboardEventsDetailResponse>(
             dashboardEventDetailEndpoint(orgId, eventId),
