@@ -1,7 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../auth/auth-service';
+import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
 
 /**
  * The site header, shared by the landing page, the auth pages, and event pages.
@@ -59,6 +62,11 @@ import { AuthService } from '../auth/auth-service';
           <a href="/events" class="transition-colors hover:text-zinc-900">
             Events
           </a>
+          @if (isPlatformAdmin()) {
+            <a href="/admin/orgs" class="transition-colors hover:text-zinc-900">
+              Admin
+            </a>
+          }
         </nav>
 
         <div class="flex items-center gap-4 sm:gap-5">
@@ -68,6 +76,14 @@ import { AuthService } from '../auth/auth-service';
           >
             Events
           </a>
+          @if (isPlatformAdmin()) {
+            <a
+              href="/admin/orgs"
+              class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 md:hidden"
+            >
+              Admin
+            </a>
+          }
           @if (auth.user(); as user) {
             <span
               class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
@@ -104,6 +120,17 @@ import { AuthService } from '../auth/auth-service';
 })
 export class LandingHeaderComponent {
   readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
+
+  /**
+   * Whether the signed-in user is a platform admin.
+   *
+   * The Firebase user object in {@link AuthService} deliberately carries no
+   * role — see `auth-service.ts`, which points anything needing the platform
+   * role at `GET /api/v1/auth/me`. The header is shared by every page, so it
+   * asks the endpoint itself and defaults to `false` (hidden) on any failure.
+   */
+  readonly isPlatformAdmin = signal(false);
 
   /**
    * A signal rather than a plain field. This app is zoneless — `zone.js` is not
@@ -125,6 +152,34 @@ export class LandingHeaderComponent {
   );
 
   private readonly router = inject(Router);
+
+  constructor() {
+    effect(() => {
+      if (this.auth.user() === null) {
+        this.isPlatformAdmin.set(false);
+        return;
+      }
+
+      void this.refreshPlatformRole();
+    });
+  }
+
+  private async refreshPlatformRole(): Promise<void> {
+    try {
+      const me = await firstValueFrom(
+        this.http.get<MeGetResponse>(meEndpoint(), { withCredentials: true }),
+      );
+      // Re-checked after the await: a sign-out during the request already set
+      // this to false, and a late answer must not put the link back.
+      this.isPlatformAdmin.set(
+        this.auth.user() !== null && me.user.role === 'admin',
+      );
+    } catch {
+      // Signed out on the server (stale or missing cookie), or the request
+      // failed. Least privilege: keep the admin link hidden.
+      this.isPlatformAdmin.set(false);
+    }
+  }
 
   async signOut(): Promise<void> {
     if (this.signingOut()) {

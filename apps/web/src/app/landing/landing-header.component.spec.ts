@@ -1,6 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService, type AuthUser } from '../auth/auth-service';
@@ -18,7 +20,10 @@ describe('LandingHeaderComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  async function setup(user: AuthUser | null = null) {
+  async function setup(
+    user: AuthUser | null = null,
+    meRole: 'admin' | 'user' = 'user',
+  ) {
     TestBed.resetTestingModule();
 
     const auth = {
@@ -26,9 +31,17 @@ describe('LandingHeaderComponent', () => {
       logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
+    const http = {
+      get: vi.fn().mockReturnValue(of({ user: { role: meRole }, orgs: [] })),
+    };
+
     await TestBed.configureTestingModule({
       imports: [LandingHeaderComponent],
-      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: auth },
+        { provide: HttpClient, useValue: http },
+      ],
     }).compileComponents();
 
     const router = TestBed.inject(Router);
@@ -37,6 +50,8 @@ describe('LandingHeaderComponent', () => {
       .mockResolvedValue(true);
 
     const fixture = TestBed.createComponent(LandingHeaderComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     return { auth, fixture, navigateByUrl };
@@ -102,6 +117,34 @@ describe('LandingHeaderComponent', () => {
 
     expect(root.querySelector('a[href="/auth/login"]')).toBeTruthy();
     expect(signOutButton(root)).toBeNull();
+  });
+
+  it('hides the admin link when the signed-in user is not a platform admin', async () => {
+    const { fixture } = await setup(signedInUser, 'user');
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('a[href="/admin/orgs"]')).toBeNull();
+  });
+
+  it('shows the admin link when the signed-in user is a platform admin', async () => {
+    const { fixture } = await setup(signedInUser, 'admin');
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    const adminLinks = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href="/admin/orgs"]'),
+    );
+    expect(adminLinks).toHaveLength(2);
+    expect(adminLinks.some((link) => link.closest('nav') === null)).toBe(true);
+  });
+
+  it('hides the admin link when signed out', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('a[href="/admin/orgs"]')).toBeNull();
   });
 
   it('shows the display name, a sign-out button, and no sign-in link when signed in', async () => {
