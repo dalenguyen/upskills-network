@@ -2,12 +2,13 @@
   {
     "title": "Difinity Conference Toronto 2026",
     "slug": "difinity-conference-toronto-2026",
-    "description": "Start time not published — check the Sessionize page for the schedule. The date and venue below are confirmed.\n\nDifinity is a Microsoft Data, AI, Power BI and Fabric conference that has run in New Zealand since 2017. This is its first Canadian edition.\n\nThe programme runs over two days: a pre-conference day on September 10 and the main conference day on September 11. Speakers come from the Microsoft product team, plus MVPs, Regional Directors and industry practitioners.\n\nIt is aimed at anyone working in data analytics: developers, business analysts, BI professionals, database administrators, architects, IT decision makers and consultants.",
+    "description": "Difinity is a Microsoft Data, AI, Power BI and Fabric conference that has run in New Zealand since 2017. This is its first Canadian edition.\n\nThe programme runs over two days: a pre-conference day on September 10 and the main conference day on September 11. Speakers come from the Microsoft product team, plus MVPs, Regional Directors and industry practitioners.\n\nIt is aimed at anyone working in data analytics: developers, business analysts, BI professionals, database administrators, architects, IT decision makers and consultants.",
     "startsAt": "2026-09-10T09:00:00-04:00",
     "timezone": "America/Toronto",
     "location": "Microsoft Toronto, Suite 4400, 81 Bay St, Toronto, ON M5J 0E7",
     "externalUrl": "https://sessionize.com/difinity-conference-toronto-2026/",
-    "sourceName": "Sessionize"
+    "sourceName": "Sessionize",
+    "startTimeTbd": true
   },
   {
     "title": "TechTO: Together Toronto",
@@ -44,12 +45,13 @@
   {
     "title": "Elevate Festival 2026",
     "slug": "elevate-festival-2026",
-    "description": "Start time not published — check the Elevate Festival page for the schedule. The date and venue below are confirmed.\n\nElevate is Canada's largest tech and innovation festival, running September 22-24, 2026 in downtown Toronto.\n\nThe 2026 edition expects more than 10,000 attendees and over 250 speakers across seven content tracks, with startup and investor programming, curated lounges, roundtables and matchmaking for meetings.\n\nAnnounced speakers include Christian Weedbrook (Xanadu), Mati Staniszewski (ElevenLabs), Vivek Sagi (Bumble), Lior Ron (Waabi) and Michael Pelosi (Cohere).",
+    "description": "Elevate is Canada's largest tech and innovation festival, running September 22-24, 2026 in downtown Toronto.\n\nThe 2026 edition expects more than 10,000 attendees and over 250 speakers across seven content tracks, with startup and investor programming, curated lounges, roundtables and matchmaking for meetings.\n\nAnnounced speakers include Christian Weedbrook (Xanadu), Mati Staniszewski (ElevenLabs), Vivek Sagi (Bumble), Lior Ron (Waabi) and Michael Pelosi (Cohere).",
     "startsAt": "2026-09-22T09:00:00-04:00",
     "timezone": "America/Toronto",
     "location": "Downtown Toronto, ON",
     "externalUrl": "https://elevatefestival.ca/",
-    "sourceName": "Elevate Festival"
+    "sourceName": "Elevate Festival",
+    "startTimeTbd": true
   },
   {
     "title": "M365 Toronto 2026",
@@ -64,12 +66,13 @@
   {
     "title": "MCP Dev Summit Toronto",
     "slug": "mcp-dev-summit-toronto-2026",
-    "description": "Start time not published — check the Linux Foundation page for the schedule. The date and venue below are confirmed.\n\nA Linux Foundation technical summit for engineers building real-world agentic AI systems, with the Model Context Protocol (MCP) as the common foundation.\n\nTalks and case studies cover agent architecture and orchestration, multi-agent systems, MCP protocol development, enterprise integration, and the practical problems of running agents securely and reliably in production.\n\nThe event runs October 5-6, 2026. Each day mixes keynotes, breakout sessions and a solutions showcase, with an attendee reception on the first evening.",
+    "description": "A Linux Foundation technical summit for engineers building real-world agentic AI systems, with the Model Context Protocol (MCP) as the common foundation.\n\nTalks and case studies cover agent architecture and orchestration, multi-agent systems, MCP protocol development, enterprise integration, and the practical problems of running agents securely and reliably in production.\n\nThe event runs October 5-6, 2026. Each day mixes keynotes, breakout sessions and a solutions showcase, with an attendee reception on the first evening.",
     "startsAt": "2026-10-05T09:00:00-04:00",
     "timezone": "America/Toronto",
     "location": "Toronto, ON",
     "externalUrl": "https://events.linuxfoundation.org/mcp-dev-summit-toronto/",
-    "sourceName": "Linux Foundation"
+    "sourceName": "Linux Foundation",
+    "startTimeTbd": true
   },
   {
     "title": "Generative AI Summit Toronto",
@@ -95,11 +98,12 @@
   {
     "title": "MongoDB.local Toronto",
     "slug": "mongodb-local-toronto-2026",
-    "description": "Start time not shown on the MongoDB page — check there for the schedule. The date and venue below are confirmed.\n\nA one-day MongoDB technical event for developers, architects, IT professionals and DevOps engineers building modern applications.\n\nContent covers building and scaling applications in the AI era, reducing operational risk and speeding up delivery, with MongoDB engineers on hand throughout the day.\n\nA full-day pass is $100 CAD and includes all sessions plus food and drink.",
+    "description": "A one-day MongoDB technical event for developers, architects, IT professionals and DevOps engineers building modern applications.\n\nContent covers building and scaling applications in the AI era, reducing operational risk and speeding up delivery, with MongoDB engineers on hand throughout the day.\n\nA full-day pass is $100 CAD and includes all sessions plus food and drink.",
     "startsAt": "2026-11-19T09:00:00-05:00",
     "timezone": "America/Toronto",
     "location": "Toronto, ON",
     "externalUrl": "https://www.mongodb.com/events/mongodb-local/toronto",
-    "sourceName": "MongoDB"
+    "sourceName": "MongoDB",
+    "startTimeTbd": true
   }
 ]
