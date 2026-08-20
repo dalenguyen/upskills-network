@@ -16,6 +16,7 @@ import { authGuard } from '../../../auth/auth-guard';
 import { apiErrorCode, apiErrorStatus } from '../../../events/event-api';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
+import { LoadingStateComponent } from '../../../landing/loading-state.component';
 
 /**
  * `/admin/orgs` — the platform-admin organizer index and create form.
@@ -43,7 +44,12 @@ export const routeMeta: RouteMeta = {
 
 @Component({
   selector: 'app-admin-orgs-page',
-  imports: [FormsModule, LandingHeaderComponent, LandingFooterComponent],
+  imports: [
+    FormsModule,
+    LandingHeaderComponent,
+    LandingFooterComponent,
+    LoadingStateComponent,
+  ],
   template: `
     <app-landing-header />
 
@@ -51,9 +57,7 @@ export const routeMeta: RouteMeta = {
       <div class="mx-auto w-full max-w-6xl">
         @switch (state().status) {
           @case ('loading') {
-            <p class="text-sm text-zinc-500" role="status">
-              Loading organizers…
-            </p>
+            <app-loading-state label="Loading organizers…" />
           }
 
           @case ('forbidden') {
