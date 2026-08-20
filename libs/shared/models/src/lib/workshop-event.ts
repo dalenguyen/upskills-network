@@ -51,6 +51,23 @@ export interface WorkshopEvent {
    * and to render local times — never a UTC offset, which breaks across DST.
    */
   timezone: string;
+  /**
+   * The source published a date but no time of day.
+   *
+   * `startsAt` is a Firestore `Timestamp`: it cannot represent "September 10,
+   * time unknown", so a seeded listing with no published time still has to
+   * store *some* instant to sort by. This flag is what stops that placeholder
+   * being read back as fact — the public pages render the date alone when it is
+   * set, so the site never states a time nobody published.
+   *
+   * Saying it in the description instead was not enough. The browse card shows
+   * the formatted date and time but not the description, so the caveat and the
+   * claim appeared in different places and only the claim was visible.
+   *
+   * Only meaningful with {@link externalUrl}: an organizer creating an event
+   * here picks its start time on the form.
+   */
+  startTimeTbd?: boolean;
   location?: string;
   /**
    * Where the event actually happens, when Upskills is only *listing* it.

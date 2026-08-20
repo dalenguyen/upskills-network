@@ -33,7 +33,13 @@ import {
  * discoverable by reading both.
  */
 
-/** The fields a seeded event is created or updated with. */
+/**
+ * The fields a seeded event is created or updated with.
+ *
+ * Extends the file row, so `startTimeTbd` passes straight through to the write
+ * — a row that declares its start time unknown produces an event whose public
+ * pages render the date alone.
+ */
 export interface CommunityEventDraft extends CommunityEventSeed {
   /**
    * Always `'published'`. A curated listing that is not published is a row you

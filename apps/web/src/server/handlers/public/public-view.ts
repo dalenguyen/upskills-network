@@ -69,6 +69,11 @@ export interface PublicEvent {
   sourceName?: string;
   /** Hero image, absolute https URL. */
   imageUrl?: string;
+  /**
+   * `startsAt` carries a placeholder hour because the source published no time
+   * of day. The UI must render the date alone — see the model field.
+   */
+  startTimeTbd?: boolean;
   /** Minor units (cents). `0` is free. */
   price: number;
   currency: Currency;
@@ -126,6 +131,7 @@ export function toPublicEvent(
       : { externalUrl: event.externalUrl }),
     ...(event.sourceName === undefined ? {} : { sourceName: event.sourceName }),
     ...(event.imageUrl === undefined ? {} : { imageUrl: event.imageUrl }),
+    ...(event.startTimeTbd ? { startTimeTbd: true } : {}),
     price: event.price,
     currency: event.currency,
     maxGuests: event.maxGuests,

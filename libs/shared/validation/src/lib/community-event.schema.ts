@@ -42,6 +42,14 @@ export const CommunityEventSeedSchema = z.object({
   description: z.string().trim().max(5000),
   startsAt: IsoDateTimeSchema,
   endsAt: IsoDateTimeSchema.optional(),
+  /**
+   * Set when the source publishes a date but no time of day.
+   *
+   * `startsAt` still needs a value — it is what the event sorts by — so pick
+   * any hour on the right local date and set this. The public pages then render
+   * the date alone, and the placeholder hour is never shown to anyone.
+   */
+  startTimeTbd: z.boolean().optional(),
   timezone: TimezoneSchema,
   location: z.string().trim().max(300).optional(),
   /** Required — an event with nowhere to send people is not worth listing. */

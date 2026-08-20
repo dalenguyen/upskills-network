@@ -93,6 +93,25 @@ describe('createEvent', () => {
     });
   });
 
+  it('stores startTimeTbd only when true, so absent keeps meaning "time known"', async () => {
+    const flagged = await createEvent('org-1', {
+      ...draft,
+      slug: 'time-unknown',
+      startTimeTbd: true,
+    });
+    expect(await getEvent('org-1', flagged.eventId)).toMatchObject({
+      startTimeTbd: true,
+    });
+
+    const plain = await createEvent('org-1', {
+      ...draft,
+      slug: 'time-known',
+      startTimeTbd: false,
+    });
+    const stored = await getEvent('org-1', plain.eventId);
+    expect(stored && 'startTimeTbd' in stored).toBe(false);
+  });
+
   it('refuses to store a sourceName with no externalUrl to name', async () => {
     const created = await createEvent('org-1', {
       ...draft,
