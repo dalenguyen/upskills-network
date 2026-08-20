@@ -150,6 +150,9 @@ describe('DashboardEventsPageComponent', () => {
       '/upskills-toronto/intro-to-kubernetes',
     );
     expect(firstLinks[1]?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_1/guests',
+    );
+    expect(firstLinks[2]?.getAttribute('href')).toBe(
       '/dashboard/events/evt_1/edit',
     );
 
@@ -158,12 +161,15 @@ describe('DashboardEventsPageComponent', () => {
       '/upskills-toronto/rust-for-the-web',
     );
     expect(secondLinks[1]?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_2/guests',
+    );
+    expect(secondLinks[2]?.getAttribute('href')).toBe(
       '/dashboard/events/evt_2/edit',
     );
     http.verify();
   });
 
-  it('does not offer an Edit link on a cancelled row', async () => {
+  it('does not offer an Edit link on a cancelled row, but still offers Guests', async () => {
     const { fixture, http } = await setup();
 
     http.expectOne(meEndpoint()).flush(meResponse);
@@ -179,9 +185,12 @@ describe('DashboardEventsPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     const row = root.querySelector<HTMLTableRowElement>('tbody tr');
     const links = row?.querySelectorAll<HTMLAnchorElement>('a') ?? [];
-    expect(links.length).toBe(1);
+    expect(links.length).toBe(2);
     expect(links[0]?.getAttribute('href')).toBe(
       '/upskills-toronto/intro-to-kubernetes',
+    );
+    expect(links[1]?.getAttribute('href')).toBe(
+      '/dashboard/events/evt_1/guests',
     );
     expect(row?.textContent).not.toContain('Edit');
     http.verify();

@@ -98,14 +98,21 @@ export function formatEventWhen(
 }
 
 /**
- * "3 spots left", or nothing at all.
+ * "3/10 spots left", or nothing at all.
  *
  * Nothing is the right answer more often than a number is. Unlimited capacity
- * has no count to give; a comfortable count ("40 spots left") tells a guest
+ * has no count to give; a comfortable count ("40/50 spots left") tells a guest
  * they can safely close the tab; and zero is already being said, far more
  * clearly, by the sold-out state that replaces the button.
+ *
+ * The total is shown alongside the remaining count — "3/10", not just "3" —
+ * so scarcity reads as a fraction of the room rather than an unexplained
+ * number a guest has no way to size up.
  */
-export function formatSpots(spotsRemaining: number | null): string | null {
+export function formatSpots(
+  spotsRemaining: number | null,
+  maxGuests: number,
+): string | null {
   if (
     spotsRemaining === null ||
     spotsRemaining === 0 ||
@@ -114,7 +121,9 @@ export function formatSpots(spotsRemaining: number | null): string | null {
     return null;
   }
 
-  return spotsRemaining === 1 ? '1 spot left' : `${spotsRemaining} spots left`;
+  return spotsRemaining === 1
+    ? `1/${maxGuests} spot left`
+    : `${spotsRemaining}/${maxGuests} spots left`;
 }
 
 function intlFormat(
