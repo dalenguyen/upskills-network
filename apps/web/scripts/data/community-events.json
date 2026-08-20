@@ -1,1 +1,109 @@
-[]
+[
+  {
+    "title": "Difinity Conference Toronto 2026",
+    "slug": "difinity-conference-toronto-2026",
+    "description": "Difinity is a Microsoft Data, AI, Power BI and Fabric conference that has run in New Zealand since 2017. This is its first Canadian edition.\n\nThe programme runs over two days: a pre-conference day on September 10 and the main conference day on September 11. Speakers come from the Microsoft product team, plus MVPs, Regional Directors and industry practitioners.\n\nIt is aimed at anyone working in data analytics: developers, business analysts, BI professionals, database administrators, architects, IT decision makers and consultants.",
+    "startsAt": "2026-09-10T09:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Microsoft Toronto, Suite 4400, 81 Bay St, Toronto, ON M5J 0E7",
+    "externalUrl": "https://sessionize.com/difinity-conference-toronto-2026/",
+    "sourceName": "Sessionize",
+    "startTimeTbd": true
+  },
+  {
+    "title": "TechTO: Together Toronto",
+    "slug": "techto-together-toronto-sep-2026",
+    "description": "TechTO is one of Toronto's longest-running tech community events, built around in-depth conversations with local founders, operators and investors.\n\nThis edition runs a community open mic, short speaker talks and a fireside chat, followed by an off-site after party. Hosts include TechTO co-founders Alex Norman and Jason Goldlist, plus general manager Megha Kandoi.\n\nTickets are $30 early bird and free for TechTO members; food and drink are included.",
+    "startsAt": "2026-09-14T18:00:00-04:00",
+    "endsAt": "2026-09-14T21:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Schwartz Reisman Innovation Campus, 108 College St, Toronto, ON M5G 0C6",
+    "externalUrl": "https://www.techto.org/event/together-toronto-september-14-2026",
+    "sourceName": "TechTO"
+  },
+  {
+    "title": "Toronto Tech Mixer and Social",
+    "slug": "toronto-tech-mixer-and-social-sep-18-2026",
+    "description": "A weekly after-work drinks and networking meetup for people working in tech, AI, data and IT, hosted by Toronto Tech Social.\n\nIt runs every Friday from 6:00 PM at Paupers Pub on Bloor Street West. The format is deliberately informal: no talks, just tables of software developers, data and ML people, IT staff, designers and product folks meeting each other.\n\nEntry is $5 and must be booked online in advance; there are no tickets at the door.",
+    "startsAt": "2026-09-18T18:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Paupers Pub, 539 Bloor St W, Toronto, ON",
+    "externalUrl": "https://www.eventbrite.com/e/toronto-tech-mixer-and-social-tech-ai-data-it-tickets-1986019204904",
+    "sourceName": "Eventbrite"
+  },
+  {
+    "title": "AI Summit 2026 - Toronto AI Meetup",
+    "slug": "toronto-ai-meetup-ai-summit-2026",
+    "description": "A one-evening summit run by the Toronto AI Meetup, focused on agentic AI in production rather than model theory.\n\nThe programme includes hands-on workshops on running AI agents in production and on agentic memory, followed by expert panels on what is helping and hurting AI adoption inside companies. An invite-only roundtable for senior leaders runs before the main event.\n\nDoors open at 5:15 PM with registration and networking over light snacks. Attendees must also RSVP and sign the consent form on the organiser's Luma page to get in.",
+    "startsAt": "2026-09-22T17:00:00-04:00",
+    "endsAt": "2026-09-22T20:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "OneEleven, 345 Front St W, 4th Floor, Toronto, ON",
+    "externalUrl": "https://www.meetup.com/torontoai/events/315764602/",
+    "sourceName": "Meetup"
+  },
+  {
+    "title": "Elevate Festival 2026",
+    "slug": "elevate-festival-2026",
+    "description": "Elevate is Canada's largest tech and innovation festival, running September 22-24, 2026 in downtown Toronto.\n\nThe 2026 edition expects more than 10,000 attendees and over 250 speakers across seven content tracks, with startup and investor programming, curated lounges, roundtables and matchmaking for meetings.\n\nAnnounced speakers include Christian Weedbrook (Xanadu), Mati Staniszewski (ElevenLabs), Vivek Sagi (Bumble), Lior Ron (Waabi) and Michael Pelosi (Cohere).",
+    "startsAt": "2026-09-22T09:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Downtown Toronto, ON",
+    "externalUrl": "https://elevatefestival.ca/",
+    "sourceName": "Elevate Festival",
+    "startTimeTbd": true
+  },
+  {
+    "title": "M365 Toronto 2026",
+    "slug": "m365-toronto-2026",
+    "description": "A community-run Microsoft cloud conference held at Microsoft's Canadian headquarters in downtown Toronto.\n\nSessions cover AI, the modern workplace, business applications and the wider Microsoft 365 stack, delivered by Microsoft MVPs and community speakers. The day includes keynotes, breakout sessions and time to meet other practitioners.\n\nDoors open at 8:00 AM. The event is part of the Community Days network of Microsoft community conferences.",
+    "startsAt": "2026-10-02T08:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Microsoft Canada Headquarters, 4400-81 Bay St, Toronto, ON",
+    "externalUrl": "https://www.communitydays.org/event/2026-10-02/m365-toronto-2026",
+    "sourceName": "Community Days"
+  },
+  {
+    "title": "MCP Dev Summit Toronto",
+    "slug": "mcp-dev-summit-toronto-2026",
+    "description": "A Linux Foundation technical summit for engineers building real-world agentic AI systems, with the Model Context Protocol (MCP) as the common foundation.\n\nTalks and case studies cover agent architecture and orchestration, multi-agent systems, MCP protocol development, enterprise integration, and the practical problems of running agents securely and reliably in production.\n\nThe event runs October 5-6, 2026. Each day mixes keynotes, breakout sessions and a solutions showcase, with an attendee reception on the first evening.",
+    "startsAt": "2026-10-05T09:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Toronto, ON",
+    "externalUrl": "https://events.linuxfoundation.org/mcp-dev-summit-toronto/",
+    "sourceName": "Linux Foundation",
+    "startTimeTbd": true
+  },
+  {
+    "title": "Generative AI Summit Toronto",
+    "slug": "generative-ai-summit-toronto-2026",
+    "description": "An engineering-focused summit for teams moving generative AI prototypes into production, run by the AI Accelerator Institute.\n\nThe day opens with a headliner stage from 9:00 AM to 10:30 AM, then splits into two tracks from 11:00 AM to 5:00 PM: a Generative AI track on turning model capabilities into scalable applications, and an Agentic AI track on building systems that can reason, act and finish real tasks. One ticket covers all stages.\n\nExpect around 350 builders and engineers, plus hands-on workshops and roundtables on evaluation, reliability, tooling, governance and scale.",
+    "startsAt": "2026-11-12T09:00:00-05:00",
+    "endsAt": "2026-11-12T17:00:00-05:00",
+    "timezone": "America/Toronto",
+    "location": "Marriott Downtown at CF Toronto Eaton Centre, 525 Bay St, Toronto, ON",
+    "externalUrl": "https://world.aiacceleratorinstitute.com/location/toronto/",
+    "sourceName": "AI Accelerator Institute"
+  },
+  {
+    "title": "Product-Led Summit Toronto",
+    "slug": "product-led-summit-toronto-2026",
+    "description": "A two-day product leadership summit from Product-Led Alliance, running November 12-13, 2026.\n\nSessions look at what product leadership means now that AI has changed what building a product involves, budgets are tighter and product leaders are expected to own outcomes rather than roadmaps. Themes include shipping AI products that solve real customer problems, making a roadmap case a CFO will fund, and structuring teams to move quickly.\n\nEach day has keynotes on the main stage plus a panel and interactive roundtables. Registration and breakfast open at 8:00 AM, with opening remarks at 9:00 AM.",
+    "startsAt": "2026-11-12T08:00:00-05:00",
+    "timezone": "America/Toronto",
+    "location": "Marriott Downtown at CF Toronto Eaton Centre, 525 Bay St, Toronto, ON",
+    "externalUrl": "https://world.productledalliance.com/location/toronto",
+    "sourceName": "Product-Led Alliance"
+  },
+  {
+    "title": "MongoDB.local Toronto",
+    "slug": "mongodb-local-toronto-2026",
+    "description": "A one-day MongoDB technical event for developers, architects, IT professionals and DevOps engineers building modern applications.\n\nContent covers building and scaling applications in the AI era, reducing operational risk and speeding up delivery, with MongoDB engineers on hand throughout the day.\n\nA full-day pass is $100 CAD and includes all sessions plus food and drink.",
+    "startsAt": "2026-11-19T09:00:00-05:00",
+    "timezone": "America/Toronto",
+    "location": "Toronto, ON",
+    "externalUrl": "https://www.mongodb.com/events/mongodb-local/toronto",
+    "sourceName": "MongoDB",
+    "startTimeTbd": true
+  }
+]
