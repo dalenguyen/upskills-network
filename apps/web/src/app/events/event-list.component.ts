@@ -21,7 +21,10 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
  *
  * Editing is the opposite: the dashboard navigates to its own edit page and the
  * admin console edits inline, so {@link editLinkBase} chooses a link, and its
- * absence emits {@link edit} instead.
+ * absence emits {@link edit} instead. The guest list is the same kind of link,
+ * but the admin console needs it without also switching to a linked edit page,
+ * so {@link guestsLinkBase} can be supplied on its own and carries the org id
+ * in the URL.
  */
 @Component({
   selector: 'app-event-list',
@@ -96,9 +99,9 @@ import { apiErrorCode, apiErrorStatus } from './event-api';
                   >
                     {{ workshop.title }}
                   </a>
-                  @if (editLinkBase(); as base) {
+                  @if (guestListHref(workshop); as href) {
                     <a
-                      [href]="base + '/' + workshop.eventId + '/guests'"
+                      [href]="href"
                       [attr.aria-label]="'Guests for ' + workshop.title"
                       class="ml-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-700"
                     >
@@ -186,6 +189,14 @@ export class EventListComponent {
    */
   readonly editLinkBase = input<string | null>(null);
 
+  /**
+   * Where an event's guest list lives, when the host wants a linked guest list
+   * without the linked edit page that {@link editLinkBase} also produces. The
+   * generated URL carries `?orgId=`, so the guest page can act on an org the
+   * signed-in caller is not a member of.
+   */
+  readonly guestsLinkBase = input<string | null>(null);
+
   /** Whether to offer the permanent delete on draft rows. */
   readonly allowDelete = input(false);
 
@@ -202,6 +213,27 @@ export class EventListComponent {
   /** The public URL of one of this org's events: `/{orgSlug}/{eventSlug}`. */
   protected publicEventPath(workshop: DashboardEvent): string {
     return `/${encodeURIComponent(this.orgSlug())}/${encodeURIComponent(workshop.slug)}`;
+  }
+
+  /**
+   * The guest-list link for a row, or `null` when the host wants none.
+   *
+   * {@link editLinkBase} keeps its existing shape — the dashboard's guest and
+   * edit links sit side by side under the same base. {@link guestsLinkBase} is
+   * for the platform-admin console, which edits inline but still needs a guest
+   * link, and that link must name the org explicitly because the viewer may
+   * not be a member.
+   */
+  protected guestListHref(workshop: DashboardEvent): string | null {
+    const guestsBase = this.guestsLinkBase();
+
+    if (guestsBase !== null) {
+      return `${guestsBase}/${encodeURIComponent(workshop.eventId)}/guests?orgId=${encodeURIComponent(this.orgId())}`;
+    }
+
+    const editBase = this.editLinkBase();
+
+    return editBase === null ? null : `${editBase}/${workshop.eventId}/guests`;
   }
 
   async cancel(workshop: DashboardEvent): Promise<void> {

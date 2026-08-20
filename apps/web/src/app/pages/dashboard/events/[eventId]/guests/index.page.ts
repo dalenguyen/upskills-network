@@ -8,13 +8,14 @@ import { authGuard } from '../../../../../auth/auth-guard';
 import {
   dashboardEventDetailEndpoint,
   dashboardEventGuestsEndpoint,
+  dashboardOrgDetailEndpoint,
   meEndpoint,
   type DashboardEvent,
   type DashboardEventsDetailResponse,
   type DashboardEventsGuestsResponse,
+  type DashboardOrgsDetailResponse,
   type GuestView,
   type MeGetResponse,
-  type MeOrg,
 } from '../../../../../dashboard/dashboard-api';
 import { apiErrorStatus } from '../../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
@@ -24,14 +25,21 @@ import { LoadingStateComponent } from '../../../../../landing/loading-state.comp
 /**
  * `/dashboard/events/[eventId]/guests` — the guest list for one event.
  *
- * Same org and auth handling as the edit page: `orgs[0]` from
- * `/api/v1/auth/me`, no org switching (#65), a 403 from either dashboard route
- * rendered as "not found or you can't see it" rather than a retry prompt.
+ * For a member of the org this reads `orgs[0]` from `/api/v1/auth/me`, no org
+ * switching (#65). The platform-admin console links here with `?orgId=` instead:
+ * a platform admin is not necessarily a member of the org they are inspecting,
+ * so the org is read from the URL and the page skips the membership-role gate.
+ * Either way a 403 from a dashboard route is rendered as "not found or you
+ * can't see it" rather than a retry prompt.
  *
  * The guest list itself carries no email address — see
  * `handlers/dashboard/events-guests.ts`. A name and a status are what this
  * page is for: knowing who is coming, and whether they showed up.
  */
+
+interface GuestListOrg {
+  name: string;
+}
 
 type PageState =
   | { status: 'loading' }
@@ -41,7 +49,7 @@ type PageState =
   | { status: 'error' }
   | {
       status: 'ready';
-      org: MeOrg;
+      org: GuestListOrg;
       workshop: DashboardEvent;
       guests: GuestView[];
     };
@@ -245,6 +253,13 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
       return;
     }
 
+    const urlOrgId = this.route.snapshot.queryParamMap.get('orgId');
+
+    if (urlOrgId !== null && urlOrgId !== '') {
+      await this.loadForOrg(eventId, urlOrgId);
+      return;
+    }
+
     try {
       const me = await firstValueFrom(
         this.http.get<MeGetResponse>(meEndpoint(), { withCredentials: true }),
@@ -290,7 +305,52 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
     }
   }
 
-  org(): MeOrg | null {
+  /**
+   * Load the guest list for an org named in the URL, rather than for the
+   * signed-in user's own membership.
+   *
+   * The platform-admin console links here with `?orgId=`, and a platform admin
+   * has no membership row to read from `me.orgs[0]`. The dashboard routes
+   * authorize that caller themselves; the client just needs to ask about the
+   * org it was given. The org detail read is only for the name above the list.
+   */
+  private async loadForOrg(eventId: string, orgId: string): Promise<void> {
+    try {
+      const [orgResponse, detail, guestList] = await Promise.all([
+        firstValueFrom(
+          this.http.get<DashboardOrgsDetailResponse>(
+            dashboardOrgDetailEndpoint(orgId),
+            { withCredentials: true },
+          ),
+        ),
+        firstValueFrom(
+          this.http.get<DashboardEventsDetailResponse>(
+            dashboardEventDetailEndpoint(orgId, eventId),
+            { withCredentials: true },
+          ),
+        ),
+        firstValueFrom(
+          this.http.get<DashboardEventsGuestsResponse>(
+            dashboardEventGuestsEndpoint(orgId, eventId),
+            { withCredentials: true },
+          ),
+        ),
+      ]);
+
+      this.state.set({
+        status: 'ready',
+        org: { name: orgResponse.org.name },
+        workshop: detail.event,
+        guests: guestList.guests,
+      });
+    } catch (error) {
+      this.state.set({
+        status: apiErrorStatus(error) === 403 ? 'not-found' : 'error',
+      });
+    }
+  }
+
+  org(): GuestListOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
   }
