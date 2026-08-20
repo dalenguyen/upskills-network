@@ -33,14 +33,16 @@ import { EventImageComponent } from './event-image.component';
   template: `
     <ui-card>
       <a [href]="eventPath(event())" class="flex h-full flex-col p-6">
-        @if (event().imageUrl) {
-          <!-- No alt: the title is a heading three lines below, so the image
-               adds nothing a screen reader has not already been given. -->
-          <app-event-image
-            [src]="event().imageUrl"
-            imageClass="mb-5 -mx-6 -mt-6 aspect-video w-[calc(100%+3rem)] max-w-none object-cover"
-          />
-        }
+        <!-- Unconditional: an event with no image gets a coloured block bearing
+             its initials, so every card in the list has the same shape. No alt
+             either way — the title is a heading three lines below, so the image
+             adds nothing a screen reader has not already been given. -->
+        <app-event-image
+          [src]="event().imageUrl"
+          [title]="event().title"
+          [seed]="event().slug"
+          imageClass="mb-5 -mx-6 -mt-6 aspect-video w-[calc(100%+3rem)] max-w-none object-cover"
+        />
 
         <div class="flex items-center justify-between gap-3">
           @if (isExternal()) {
