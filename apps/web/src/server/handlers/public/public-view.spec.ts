@@ -90,6 +90,13 @@ describe('toPublicEvent', () => {
     expect('externalUrl' in view).toBe(false);
     expect('sourceName' in view).toBe(false);
     expect('imageUrl' in view).toBe(false);
+    expect('startTimeTbd' in view).toBe(false);
+  });
+
+  it('publishes startTimeTbd so the UI can withhold a placeholder hour', () => {
+    const view = toPublicEvent(fakeEvent({ startTimeTbd: true }), 'acme');
+
+    expect(view.startTimeTbd).toBe(true);
   });
 
   it('publishes the fields a seeded community event needs to be clickable', () => {

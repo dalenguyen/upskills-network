@@ -106,6 +106,7 @@ export class EventDetailComponent {
       this.event().startsAt,
       this.event().endsAt,
       this.event().timezone,
+      this.event().startTimeTbd,
     ),
   );
   readonly spots = computed(() => formatSpots(this.event().spotsRemaining));

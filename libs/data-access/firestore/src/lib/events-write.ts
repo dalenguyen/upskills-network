@@ -45,6 +45,8 @@ export interface CreateEventDraft {
   sourceName?: string;
   /** Hero image, absolute https URL. */
   imageUrl?: string;
+  /** The source published a date but no time of day — see the model field. */
+  startTimeTbd?: boolean;
   /** Price in **minor units** (cents). `0` means free. */
   price: number;
   currency: WorkshopEvent['currency'];
@@ -80,6 +82,8 @@ export interface UpdateEventPatch {
   externalUrl?: string;
   sourceName?: string;
   imageUrl?: string;
+  /** See the model field. `false` removes the flag rather than storing it. */
+  startTimeTbd?: boolean;
   price?: number;
   currency?: WorkshopEvent['currency'];
   maxGuests?: number;
@@ -156,6 +160,10 @@ export async function createEvent(
       ...(input.imageUrl !== undefined
         ? { imageUrl: input.imageUrl.trim() }
         : {}),
+      // Only stored when true. `false` and absent mean the same thing — the
+      // start time is known — so writing the `false` would add a field that
+      // every event without a time question would carry for nothing.
+      ...(input.startTimeTbd ? { startTimeTbd: true } : {}),
       price: input.price,
       currency: input.currency,
       maxGuests: input.maxGuests,
@@ -254,6 +262,16 @@ export async function updateEvent(
     // Enforced here rather than at the caller: this is the only write path.
     if (next.externalUrl === undefined) {
       delete next.sourceName;
+    }
+
+    // Absent means "the time is known", so a `false` is a removal rather than
+    // a value to store — the same rule the optional text fields follow.
+    if (Object.hasOwn(patch, 'startTimeTbd')) {
+      if (patch.startTimeTbd) {
+        next.startTimeTbd = true;
+      } else {
+        delete next.startTimeTbd;
+      }
     }
 
     if (patch.price !== undefined) {

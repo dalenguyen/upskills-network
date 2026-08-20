@@ -47,11 +47,20 @@ export function formatPrice(price: number, currency: Currency): string {
  * out that the number is not what will be printed on the door.
  *
  * The zone abbreviation is always included so the number is never ambiguous.
+ *
+ * ## When the time is unknown
+ *
+ * A curated listing sometimes gives a date and no time of day. `startsAt` still
+ * holds an instant — it is what the event sorts by — but that hour is a
+ * placeholder, and printing it would state a fact nobody published. With
+ * `startTimeTbd` the date is rendered alone, followed by "time TBA", so the
+ * page says what it knows and says that it does not know the rest.
  */
 export function formatEventWhen(
   startsAt: string,
   endsAt: string | undefined,
   timezone: string,
+  startTimeTbd = false,
 ): string {
   const start = new Date(startsAt);
 
@@ -64,6 +73,10 @@ export function formatEventWhen(
   const date = intlFormat(start, timezone, {
     dateStyle: 'long',
   });
+
+  if (startTimeTbd) {
+    return `${date} · time TBA`;
+  }
   const startTime = intlFormat(start, timezone, {
     timeStyle: 'short',
   });

@@ -90,6 +90,16 @@ describe('seedCommunityEvents', () => {
     );
   });
 
+  it('passes startTimeTbd through, so a dateless-time row renders as TBA', async () => {
+    const d = deps();
+
+    await seedCommunityEvents([row({ startTimeTbd: true })], d, options);
+
+    expect(d.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ startTimeTbd: true }),
+    );
+  });
+
   it('rejects one bad row and still writes the good ones around it', async () => {
     const d = deps();
 

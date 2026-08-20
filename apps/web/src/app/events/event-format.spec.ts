@@ -27,6 +27,32 @@ describe('formatEventWhen', () => {
     expect(when).toContain('9:30');
   });
 
+  it('renders the date alone when the start time is unknown', () => {
+    // A curated listing whose source published a date and no time. `startsAt`
+    // still holds an instant because that is what the event sorts by, but the
+    // hour is a placeholder and must never be shown as fact.
+    const when = formatEventWhen(
+      '2026-09-10T13:00:00.000Z',
+      undefined,
+      timezone,
+      true,
+    );
+
+    expect(when).toBe('September 10, 2026 · time TBA');
+    expect(when).not.toContain('9:00');
+  });
+
+  it('suppresses an end time too when the start time is unknown', () => {
+    const when = formatEventWhen(
+      '2026-09-10T13:00:00.000Z',
+      '2026-09-10T21:00:00.000Z',
+      timezone,
+      true,
+    );
+
+    expect(when).toBe('September 10, 2026 · time TBA');
+  });
+
   it('appends an end time when the event has one', () => {
     const when = formatEventWhen(
       '2026-09-10T13:30:00.000Z',
