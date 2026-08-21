@@ -1,12 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import {
-  Component,
-  HostListener,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
+import { Component, HostListener, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -16,20 +9,10 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
 /**
  * The site header, shared by the landing page, the auth pages, and event pages.
  *
- * "Sign in" sits outside the `md:flex` nav on purpose: the section links are a
- * landing-page convenience and collapse on small screens, but reaching sign-in
- * is the one thing a returning visitor cannot do any other way — the header is
- * the only place in the app that links to it, so it has to survive the mobile
- * breakpoint. The signed-in controls live in the same spot, so signing out
- * never collapses behind the small-screen nav either.
- *
- * "Events" is a real route, not a same-page anchor, so it has to stay reachable
- * on mobile too. Instead of joining the always-visible row (which used to
- * overflow once Admin was added), the mobile-only Events and Admin links now
- * live in a hamburger-triggered overflow menu. The always-visible row keeps
- * only sign-in/sign-out and the primary CTA, mirroring how those two are
- * already exempted from the `md:flex` nav collapse. The wordmark drops to the
- * badge-only mark below `sm` so that reduced row still fits a 360px viewport.
+ * On mobile every nav item — the section links, Events, Admin, sign in/out,
+ * and the Dashboard CTA — lives behind the hamburger menu, so the always-
+ * visible top row is just the wordmark and the toggle. Desktop keeps the
+ * `md:flex` nav plus sign-in/sign-out and the CTA inline.
  *
  * Every link here is a plain `href` rather than a `routerLink`, matching the
  * rest of the header. The section links are same-page fragments that must work
@@ -84,6 +67,37 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
         </nav>
 
         <div class="flex items-center gap-3 sm:gap-5">
+          <div class="hidden items-center gap-3 sm:gap-5 md:flex">
+            @if (auth.user(); as user) {
+              <span
+                class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
+              >
+                {{ user.displayName ?? user.email ?? 'Account' }}
+              </span>
+              <button
+                type="button"
+                [disabled]="signingOut()"
+                (click)="signOut()"
+                class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Sign out
+              </button>
+              <a
+                href="/dashboard"
+                class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              >
+                Dashboard
+              </a>
+            } @else {
+              <a
+                href="/auth/login"
+                class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
+              >
+                Sign in
+              </a>
+            }
+          </div>
+
           <div class="relative md:hidden">
             <button
               type="button"
@@ -112,8 +126,22 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
             <div
               id="mobile-menu"
               [hidden]="!menuOpen()"
-              class="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-zinc-900/5 bg-white py-1 shadow-lg shadow-zinc-900/10"
+              class="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-zinc-900/5 bg-white py-1 shadow-lg shadow-zinc-900/10"
             >
+              <a
+                href="/#how-it-works"
+                (click)="closeMenu()"
+                class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+              >
+                How it works
+              </a>
+              <a
+                href="/#features"
+                (click)="closeMenu()"
+                class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+              >
+                Why Upskills
+              </a>
               <a
                 href="/events"
                 class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
@@ -128,38 +156,39 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
                   Admin
                 </a>
               }
+
+              <div class="my-1 border-t border-zinc-900/5"></div>
+
+              @if (auth.user(); as user) {
+                <span
+                  class="block truncate px-4 py-1 text-xs font-medium text-zinc-400"
+                >
+                  {{ user.displayName ?? user.email ?? 'Account' }}
+                </span>
+                <a
+                  href="/dashboard"
+                  class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+                >
+                  Dashboard
+                </a>
+                <button
+                  type="button"
+                  [disabled]="signingOut()"
+                  (click)="signOut()"
+                  class="block w-full px-4 py-2 text-left text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Sign out
+                </button>
+              } @else {
+                <a
+                  href="/auth/login"
+                  class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+                >
+                  Sign in
+                </a>
+              }
             </div>
           </div>
-
-          @if (auth.user(); as user) {
-            <span
-              class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
-            >
-              {{ user.displayName ?? user.email ?? 'Account' }}
-            </span>
-            <button
-              type="button"
-              [disabled]="signingOut()"
-              (click)="signOut()"
-              class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Sign out
-            </button>
-          } @else {
-            <a
-              href="/auth/login"
-              class="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
-            >
-              Sign in
-            </a>
-          }
-
-          <a
-            [href]="ctaHref()"
-            class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-          >
-            {{ ctaLabel() }}
-          </a>
         </div>
       </div>
     </header>
@@ -196,14 +225,6 @@ export class LandingHeaderComponent {
    * schedule its own repaint.
    */
   readonly menuOpen = signal(false);
-
-  /** The primary call-to-action: dashboard for signed-in users, waitlist for everyone else. */
-  readonly ctaHref = computed(() =>
-    this.auth.user() ? '/dashboard' : '/#waitlist',
-  );
-  readonly ctaLabel = computed(() =>
-    this.auth.user() ? 'Dashboard' : 'Join the waitlist',
-  );
 
   private readonly router = inject(Router);
 

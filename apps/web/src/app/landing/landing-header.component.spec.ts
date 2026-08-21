@@ -57,61 +57,54 @@ describe('LandingHeaderComponent', () => {
     return { auth, fixture, navigateByUrl };
   }
 
-  function signOutButton(root: HTMLElement): HTMLButtonElement | null {
-    return (
-      Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
-        (button) => button.textContent?.trim() === 'Sign out',
-      ) ?? null
-    );
+  function signOutButtons(root: HTMLElement): HTMLButtonElement[] {
+    return Array.from(
+      root.querySelectorAll<HTMLButtonElement>('button'),
+    ).filter((button) => button.textContent?.trim() === 'Sign out');
   }
 
   function menuButton(root: HTMLElement): HTMLButtonElement | null {
     return root.querySelector<HTMLButtonElement>('button[aria-label="Menu"]');
   }
 
-  it('renders the wordmark and a waitlist call-to-action anchor', async () => {
+  it('renders the wordmark', async () => {
     const { fixture } = await setup();
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('Upskills');
-
-    const callToAction = root.querySelector('a[href="/#waitlist"]');
-    expect(callToAction?.textContent?.trim()).toBe('Join the waitlist');
   });
 
-  it('links to sign-in, the only route into the app for a returning visitor', async () => {
+  it('no longer shows a waitlist call-to-action anywhere in the header', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('a[href="/#waitlist"]')).toBeNull();
+    expect(root.textContent).not.toContain('Join the waitlist');
+  });
+
+  it('links to sign-in outside the mobile menu, for desktop', async () => {
     const { fixture } = await setup();
 
     const root = fixture.nativeElement as HTMLElement;
 
-    const signIn = root.querySelector('a[href="/auth/login"]');
-    expect(signIn?.textContent?.trim()).toBe('Sign in');
-  });
-
-  // The section links collapse below `md`, and sign-in must not go with them:
-  // no other page links to it, so a hidden link is an unreachable app.
-  it('keeps sign-in outside the nav that hides on small screens', async () => {
-    const { fixture } = await setup();
-
-    const root = fixture.nativeElement as HTMLElement;
-
-    const signIn = root.querySelector('a[href="/auth/login"]');
-    expect(signIn?.closest('nav')).toBeNull();
-  });
-
-  // `/events` is a real route, not a same-page anchor, so it must stay
-  // reachable when the `md:flex` nav collapses. The mobile copy now lives in
-  // the hamburger menu, still outside the desktop nav.
-  it('keeps an Events link outside the nav that hides on small screens', async () => {
-    const { fixture } = await setup();
-
-    const root = fixture.nativeElement as HTMLElement;
-
-    const eventsLinks = Array.from(
-      root.querySelectorAll<HTMLAnchorElement>('a[href="/events"]'),
+    const signInLinks = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href="/auth/login"]'),
     );
-    expect(eventsLinks).toHaveLength(2);
-    expect(eventsLinks.some((link) => link.closest('nav') === null)).toBe(true);
+    expect(signInLinks).toHaveLength(2);
+    expect(
+      signInLinks.some((link) => link.closest('#mobile-menu') === null),
+    ).toBe(true);
+  });
+
+  // `/events` only lives in the mobile menu now — the always-visible row on
+  // small screens is just the wordmark and the hamburger toggle.
+  it('puts the Events link inside the mobile menu', async () => {
+    const { fixture } = await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const menu = root.querySelector<HTMLElement>('#mobile-menu');
+
+    expect(menu?.querySelector('a[href="/events"]')).toBeTruthy();
   });
 
   it('shows the sign-in link and no sign-out button when signed out', async () => {
@@ -120,7 +113,7 @@ describe('LandingHeaderComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.querySelector('a[href="/auth/login"]')).toBeTruthy();
-    expect(signOutButton(root)).toBeNull();
+    expect(signOutButtons(root)).toHaveLength(0);
   });
 
   it('hides the admin link when the signed-in user is not a platform admin', async () => {
@@ -131,16 +124,13 @@ describe('LandingHeaderComponent', () => {
     expect(root.querySelector('a[href="/admin/orgs"]')).toBeNull();
   });
 
-  it('shows the admin link when the signed-in user is a platform admin', async () => {
+  it('shows the admin link in the mobile menu when the signed-in user is a platform admin', async () => {
     const { fixture } = await setup(signedInUser, 'admin');
 
     const root = fixture.nativeElement as HTMLElement;
+    const menu = root.querySelector<HTMLElement>('#mobile-menu');
 
-    const adminLinks = Array.from(
-      root.querySelectorAll<HTMLAnchorElement>('a[href="/admin/orgs"]'),
-    );
-    expect(adminLinks).toHaveLength(2);
-    expect(adminLinks.some((link) => link.closest('nav') === null)).toBe(true);
+    expect(menu?.querySelector('a[href="/admin/orgs"]')).toBeTruthy();
   });
 
   it('hides the admin link when signed out', async () => {
@@ -157,11 +147,13 @@ describe('LandingHeaderComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Ada Lovelace');
-    expect(signOutButton(root)).toBeTruthy();
+    expect(signOutButtons(root).length).toBeGreaterThan(0);
     expect(root.querySelector('a[href="/auth/login"]')).toBeNull();
 
-    const callToAction = root.querySelector('a[href="/dashboard"]');
-    expect(callToAction?.textContent?.trim()).toBe('Dashboard');
+    const dashboardLinks = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>('a[href="/dashboard"]'),
+    );
+    expect(dashboardLinks.length).toBeGreaterThan(0);
     expect(root.querySelector('a[href="/#waitlist"]')).toBeNull();
   });
 
@@ -193,7 +185,7 @@ describe('LandingHeaderComponent', () => {
     const { auth, fixture, navigateByUrl } = await setup(signedInUser);
 
     const root = fixture.nativeElement as HTMLElement;
-    signOutButton(root)!.click();
+    signOutButtons(root)[0].click();
     await fixture.whenStable();
 
     expect(auth.logout).toHaveBeenCalledTimes(1);
@@ -205,7 +197,7 @@ describe('LandingHeaderComponent', () => {
     auth.logout.mockRejectedValue(new Error('session teardown failed'));
 
     const root = fixture.nativeElement as HTMLElement;
-    signOutButton(root)!.click();
+    signOutButtons(root)[0].click();
     await fixture.whenStable();
 
     expect(auth.logout).toHaveBeenCalledTimes(1);
@@ -224,7 +216,7 @@ describe('LandingHeaderComponent', () => {
     );
 
     const root = fixture.nativeElement as HTMLElement;
-    const button = signOutButton(root)!;
+    const button = signOutButtons(root)[0];
     expect(button.disabled).toBe(false);
 
     button.click();
@@ -239,18 +231,10 @@ describe('LandingHeaderComponent', () => {
     await fixture.whenStable();
   });
 
-  it('keeps the sign-out button outside the nav that hides on small screens', async () => {
-    const { fixture } = await setup(signedInUser);
-
-    const root = fixture.nativeElement as HTMLElement;
-
-    expect(signOutButton(root)?.closest('nav')).toBeNull();
-  });
-
-  // The mobile-only Events and Admin links used to sit directly in the
-  // always-visible row. They now live in a collapsed menu so the row cannot
-  // overflow a 360px viewport.
-  it('collapses the mobile Events and Admin links into a hidden menu', async () => {
+  // Everything nav-related — sections, Events, Admin, sign in/out, the CTA —
+  // now lives in the mobile menu; the always-visible row on small screens is
+  // just the wordmark and the hamburger toggle.
+  it('collapses the mobile Events, Admin, and sign-out links into a hidden menu', async () => {
     const { fixture } = await setup(signedInUser, 'admin');
 
     const root = fixture.nativeElement as HTMLElement;
@@ -260,6 +244,11 @@ describe('LandingHeaderComponent', () => {
     expect(menu?.hidden).toBe(true);
     expect(menu?.querySelector('a[href="/events"]')).toBeTruthy();
     expect(menu?.querySelector('a[href="/admin/orgs"]')).toBeTruthy();
+    expect(
+      Array.from(menu?.querySelectorAll('button') ?? []).some(
+        (button) => button.textContent?.trim() === 'Sign out',
+      ),
+    ).toBe(true);
   });
 
   it('toggles the mobile menu from the menu button', async () => {
@@ -285,16 +274,38 @@ describe('LandingHeaderComponent', () => {
     expect(menu?.hidden).toBe(true);
   });
 
-  it('keeps sign-in and the primary CTA outside the mobile menu', async () => {
+  it('includes sign-in inside the mobile menu', async () => {
     const { fixture } = await setup();
 
     const root = fixture.nativeElement as HTMLElement;
+    const menu = root.querySelector<HTMLElement>('#mobile-menu');
 
-    expect(
-      root.querySelector('a[href="/auth/login"]')?.closest('#mobile-menu'),
-    ).toBeNull();
-    expect(
-      root.querySelector('a[href="/#waitlist"]')?.closest('#mobile-menu'),
-    ).toBeNull();
+    expect(menu?.querySelector('a[href="/auth/login"]')).toBeTruthy();
   });
+
+  // The section links are same-page fragments, so clicking one while already
+  // on `/` never remounts the header — the menu must close itself or it sits
+  // on top of the section the visitor just navigated to.
+  it.each([
+    ['How it works', 'a[href="/#how-it-works"]'],
+    ['Why Upskills', 'a[href="/#features"]'],
+  ])(
+    'closes the mobile menu when the %s link is clicked',
+    async (_label, selector) => {
+      const { fixture } = await setup();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const button = menuButton(root);
+      const menu = root.querySelector<HTMLElement>('#mobile-menu');
+
+      button?.click();
+      fixture.detectChanges();
+      expect(menu?.hidden).toBe(false);
+
+      menu?.querySelector<HTMLAnchorElement>(selector)?.click();
+      fixture.detectChanges();
+
+      expect(menu?.hidden).toBe(true);
+    },
+  );
 });
