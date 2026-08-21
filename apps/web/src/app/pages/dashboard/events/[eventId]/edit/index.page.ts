@@ -13,7 +13,10 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../../dashboard/dashboard-api';
-import { apiErrorStatus } from '../../../../../events/event-api';
+import {
+  apiErrorMessage,
+  apiErrorStatus,
+} from '../../../../../events/event-api';
 import { EventFormComponent } from '../../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
@@ -38,7 +41,7 @@ type PageState =
   | { status: 'forbidden' }
   | { status: 'not-found' }
   | { status: 'cancelled' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'ready'; org: MeOrg; workshop: DashboardEvent };
 
 export const routeMeta: RouteMeta = {
@@ -126,9 +129,7 @@ export const routeMeta: RouteMeta = {
               <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
                 Something went wrong
               </h1>
-              <p class="mt-3 text-zinc-600">
-                We couldn't load this event. Please refresh to try again.
-              </p>
+              <p class="mt-3 text-zinc-600">{{ errorMessage() }}</p>
             </section>
           }
 
@@ -229,8 +230,16 @@ export default class DashboardEventsEditPageComponent implements OnInit {
 
       this.state.set({ status: 'ready', org, workshop: response.event });
     } catch (error) {
+      if (apiErrorStatus(error) === 403) {
+        this.state.set({ status: 'not-found' });
+        return;
+      }
+
       this.state.set({
-        status: apiErrorStatus(error) === 403 ? 'not-found' : 'error',
+        status: 'error',
+        message:
+          apiErrorMessage(error) ??
+          "We couldn't load this event. Please refresh to try again.",
       });
     }
   }
@@ -238,6 +247,11 @@ export default class DashboardEventsEditPageComponent implements OnInit {
   org(): MeOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
+  }
+
+  errorMessage(): string {
+    const state = this.state();
+    return state.status === 'error' ? state.message : '';
   }
 
   guestsPath(): string {

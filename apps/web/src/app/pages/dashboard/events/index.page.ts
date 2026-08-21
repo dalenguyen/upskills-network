@@ -13,6 +13,7 @@ import {
   type MeUser,
   type DashboardEvent,
 } from '../../../dashboard/dashboard-api';
+import { apiErrorMessage } from '../../../events/event-api';
 import { EventListComponent } from '../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
@@ -37,7 +38,7 @@ import { LoadingStateComponent } from '../../../landing/loading-state.component'
 type PageState =
   | { status: 'loading' }
   | { status: 'no-orgs' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'ready'; user: MeUser; org: MeOrg; events: DashboardEvent[] };
 
 export const routeMeta: RouteMeta = {
@@ -78,9 +79,7 @@ export const routeMeta: RouteMeta = {
               <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
                 Something went wrong
               </h1>
-              <p class="mt-3 text-zinc-600">
-                We couldn't load these events. Please refresh to try again.
-              </p>
+              <p class="mt-3 text-zinc-600">{{ errorMessage() }}</p>
             </section>
           }
 
@@ -165,14 +164,24 @@ export default class DashboardEventsPageComponent implements OnInit {
         org,
         events: response.events,
       });
-    } catch {
-      this.state.set({ status: 'error' });
+    } catch (error) {
+      this.state.set({
+        status: 'error',
+        message:
+          apiErrorMessage(error) ??
+          "We couldn't load these events. Please refresh to try again.",
+      });
     }
   }
 
   org(): MeOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
+  }
+
+  errorMessage(): string {
+    const state = this.state();
+    return state.status === 'error' ? state.message : '';
   }
 
   events(): DashboardEvent[] {
