@@ -620,6 +620,12 @@ export default class DashboardOverviewPageComponent implements OnInit {
         events: events.events,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       this.state.set({
         status: 'error',
         message:
