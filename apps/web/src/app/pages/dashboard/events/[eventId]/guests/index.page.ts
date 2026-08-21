@@ -17,7 +17,7 @@ import {
   type GuestView,
   type MeGetResponse,
 } from '../../../../../dashboard/dashboard-api';
-import { apiErrorStatus } from '../../../../../events/event-api';
+import { apiErrorMessage, apiErrorStatus } from '../../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
 import { LoadingStateComponent } from '../../../../../landing/loading-state.component';
@@ -46,7 +46,7 @@ type PageState =
   | { status: 'no-orgs' }
   | { status: 'forbidden' }
   | { status: 'not-found' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | {
       status: 'ready';
       org: GuestListOrg;
@@ -120,9 +120,7 @@ export const routeMeta: RouteMeta = {
               <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
                 Something went wrong
               </h1>
-              <p class="mt-3 text-zinc-600">
-                We couldn't load the guest list. Please refresh to try again.
-              </p>
+              <p class="mt-3 text-zinc-600">{{ errorMessage() }}</p>
             </section>
           }
 
@@ -299,8 +297,16 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorStatus(error) === 403) {
+        this.state.set({ status: 'not-found' });
+        return;
+      }
+
       this.state.set({
-        status: apiErrorStatus(error) === 403 ? 'not-found' : 'error',
+        status: 'error',
+        message:
+          apiErrorMessage(error) ??
+          "We couldn't load the guest list. Please refresh to try again.",
       });
     }
   }
@@ -348,8 +354,16 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorStatus(error) === 403) {
+        this.state.set({ status: 'not-found' });
+        return;
+      }
+
       this.state.set({
-        status: apiErrorStatus(error) === 403 ? 'not-found' : 'error',
+        status: 'error',
+        message:
+          apiErrorMessage(error) ??
+          "We couldn't load the guest list. Please refresh to try again.",
       });
     }
   }
@@ -357,6 +371,11 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
   org(): GuestListOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
+  }
+
+  errorMessage(): string {
+    const state = this.state();
+    return state.status === 'error' ? state.message : '';
   }
 
   workshop(): DashboardEvent | null {

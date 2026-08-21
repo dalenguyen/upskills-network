@@ -10,6 +10,7 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../dashboard/dashboard-api';
+import { apiErrorMessage } from '../../../../events/event-api';
 import { EventFormComponent } from '../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
@@ -32,7 +33,7 @@ type PageState =
   | { status: 'loading' }
   | { status: 'no-orgs' }
   | { status: 'forbidden' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'ready'; org: MeOrg };
 
 export const routeMeta: RouteMeta = {
@@ -85,9 +86,7 @@ export const routeMeta: RouteMeta = {
               <h1 class="text-2xl font-bold tracking-tight text-zinc-900">
                 Something went wrong
               </h1>
-              <p class="mt-3 text-zinc-600">
-                We couldn't load this page. Please refresh to try again.
-              </p>
+              <p class="mt-3 text-zinc-600">{{ errorMessage() }}</p>
             </section>
           }
 
@@ -157,14 +156,24 @@ export default class DashboardEventsNewPageComponent implements OnInit {
       }
 
       this.state.set({ status: 'ready', org });
-    } catch {
-      this.state.set({ status: 'error' });
+    } catch (error) {
+      this.state.set({
+        status: 'error',
+        message:
+          apiErrorMessage(error) ??
+          "We couldn't load this page. Please refresh to try again.",
+      });
     }
   }
 
   org(): MeOrg | null {
     const state = this.state();
     return state.status === 'ready' ? state.org : null;
+  }
+
+  errorMessage(): string {
+    const state = this.state();
+    return state.status === 'error' ? state.message : '';
   }
 
   protected async onSaved(): Promise<void> {

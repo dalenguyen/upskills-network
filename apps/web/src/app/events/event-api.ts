@@ -172,3 +172,33 @@ export function apiErrorCode(error: unknown): string | null {
 
   return null;
 }
+
+/**
+ * The human `message` an API failure carries, when it carries one.
+ *
+ * Unlike {@link apiErrorCode}, this is server prose, not a stable code — fine
+ * to show directly on an organizer/admin screen where "why did this fail"
+ * matters more than a hand-written sentence per code, but not something a
+ * guest-facing flow should render (see {@link apiErrorCode}'s doc comment).
+ */
+export function apiErrorMessage(error: unknown): string | null {
+  const failure = asRecord(error);
+
+  if (failure === null) {
+    return null;
+  }
+
+  for (const body of [asRecord(failure['error']), asRecord(failure['data'])]) {
+    if (body === null) {
+      continue;
+    }
+
+    const message = body['message'];
+
+    if (typeof message === 'string' && message.trim() !== '') {
+      return message;
+    }
+  }
+
+  return null;
+}

@@ -11,6 +11,7 @@ import { provideClientHydration } from '@angular/platform-browser';
 import { provideFileRouter, requestContextInterceptor } from '@analogjs/router';
 
 import { provideFirebaseAuth } from './auth/firebase-auth-client';
+import { invalidSessionInterceptor } from './auth/invalid-session-interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -23,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(),
     provideHttpClient(
       withFetch(),
-      withInterceptors([requestContextInterceptor]),
+      withInterceptors([requestContextInterceptor, invalidSessionInterceptor]),
     ),
   ],
 };
