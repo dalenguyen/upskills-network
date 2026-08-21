@@ -45,6 +45,22 @@ describe('EventCardComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('MaRS Centre, Toronto');
   });
 
+  it('links the location to a Google Maps search in a new tab', () => {
+    const fixture = render();
+    const link = fixture.nativeElement.querySelector(
+      'a[href^="https://www.google.com/maps/search/"]',
+    );
+
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe(
+      'https://www.google.com/maps/search/?api=1&query=MaRS%20Centre%2C%20Toronto',
+    );
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+    expect(link.getAttribute('rel')).toContain('noreferrer');
+    expect(link.textContent).toContain('MaRS Centre, Toronto');
+  });
+
   it('names a free event as free', () => {
     expect(render().nativeElement.textContent).toContain('Free');
   });
@@ -64,8 +80,13 @@ describe('EventCardComponent', () => {
   });
 
   it('omits the location row when the event has no location', () => {
+    const fixture = render({ location: undefined });
+
+    expect(fixture.nativeElement.textContent).not.toContain('MaRS');
     expect(
-      render({ location: undefined }).nativeElement.textContent,
-    ).not.toContain('MaRS');
+      fixture.nativeElement.querySelector(
+        'a[href^="https://www.google.com/maps/search/"]',
+      ),
+    ).toBeNull();
   });
 });

@@ -73,7 +73,9 @@ describe('EventsPageComponent', () => {
     const cards = root.querySelectorAll('app-event-card');
     expect(cards.length).toBe(2);
 
-    const links = root.querySelectorAll<HTMLAnchorElement>('app-event-card a');
+    const links = root.querySelectorAll<HTMLAnchorElement>(
+      'app-event-card h2 a',
+    );
     expect(links[0]?.getAttribute('href')).toBe('/acme/intro-to-kubernetes');
     expect(links[1]?.getAttribute('href')).toBe('/acme/rust-for-the-web');
     expect(root.textContent).toContain('Intro to Kubernetes');

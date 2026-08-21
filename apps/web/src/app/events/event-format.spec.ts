@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatEventWhen, formatPrice, formatSpots } from './event-format';
+import {
+  formatEventWhen,
+  formatLocationUrl,
+  formatPrice,
+  formatSpots,
+} from './event-format';
 
 describe('formatPrice', () => {
   it('names a zero price rather than printing $0.00', () => {
@@ -9,6 +14,20 @@ describe('formatPrice', () => {
 
   it('renders minor units as major units with the currency', () => {
     expect(formatPrice(4500, 'cad')).toBe('$45.00 CAD');
+  });
+});
+
+describe('formatLocationUrl', () => {
+  it('builds a Google Maps search URL from the location text', () => {
+    expect(formatLocationUrl('MaRS Centre, Toronto')).toBe(
+      'https://www.google.com/maps/search/?api=1&query=MaRS%20Centre%2C%20Toronto',
+    );
+  });
+
+  it('trims surrounding whitespace before building the query', () => {
+    expect(formatLocationUrl('  Room 3  ')).toBe(
+      'https://www.google.com/maps/search/?api=1&query=Room%203',
+    );
   });
 });
 

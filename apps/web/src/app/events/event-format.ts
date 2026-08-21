@@ -13,6 +13,18 @@ import type { Currency } from '@upskills/models';
 const SCARCITY_THRESHOLD = 10;
 
 /**
+ * A Google Maps search URL for a free-text event location.
+ *
+ * Events store whatever the organizer typed — a room name, an address, or just
+ * a city — with no coordinates. The Maps search URL resolves that text on
+ * Google's side, so no latitude/longitude is assumed here. `api=1` is the
+ * documented "Maps URLs" entry point for a search query.
+ */
+export function formatLocationUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`;
+}
+
+/**
  * A price as a guest reads it.
  *
  * `price` is minor units, so it is divided before formatting. Zero is rendered

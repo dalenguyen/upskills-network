@@ -1,7 +1,12 @@
 import { Component, computed, input } from '@angular/core';
 import { Badge, Card, Icon } from '@upskills/ui';
 
-import { formatEventWhen, formatPrice, formatSpots } from './event-format';
+import {
+  formatEventWhen,
+  formatLocationUrl,
+  formatPrice,
+  formatSpots,
+} from './event-format';
 import { eventPath, type PublicEvent } from './event-api';
 import { EventImageComponent } from './event-image.component';
 
@@ -32,7 +37,7 @@ import { EventImageComponent } from './event-image.component';
   imports: [Badge, Card, Icon, EventImageComponent],
   template: `
     <ui-card>
-      <a [href]="eventPath(event())" class="flex h-full flex-col p-6">
+      <div class="relative flex h-full flex-col p-6">
         <!-- Unconditional: an event with no image gets a coloured block bearing
              its initials, so every card in the list has the same shape. No alt
              either way — the title is a heading three lines below, so the image
@@ -71,7 +76,12 @@ import { EventImageComponent } from './event-image.component';
         </div>
 
         <h2 class="mt-5 text-lg font-semibold text-zinc-900">
-          {{ event().title }}
+          <a
+            [href]="eventPath(event())"
+            class="after:absolute after:inset-0 after:content-['']"
+          >
+            {{ event().title }}
+          </a>
         </h2>
 
         <dl class="mt-auto flex flex-col gap-2.5 pt-5 text-sm text-zinc-600">
@@ -83,13 +93,22 @@ import { EventImageComponent } from './event-image.component';
             <dd>{{ when() }}</dd>
           </div>
 
-          @if (event().location; as location) {
+          @if (event().location?.trim(); as location) {
             <div class="flex items-start gap-2.5">
               <dt class="mt-0.5 text-zinc-400">
                 <ui-icon name="map-pin" size="sm" />
                 <span class="sr-only">Where</span>
               </dt>
-              <dd>{{ location }}</dd>
+              <dd>
+                <a
+                  [href]="formatLocationUrl(location)"
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  class="relative z-10 font-medium text-indigo-600 transition hover:text-indigo-500"
+                >
+                  {{ location }}
+                </a>
+              </dd>
             </div>
           }
         </dl>
@@ -100,7 +119,7 @@ import { EventImageComponent } from './event-image.component';
           View details
           <ui-icon name="arrow-right" size="sm" />
         </span>
-      </a>
+      </div>
     </ui-card>
   `,
 })
@@ -115,6 +134,8 @@ export class EventCardComponent {
   protected readonly eventPath = eventPath;
 
   /** Listed here, run elsewhere — see the class comment. */
+  protected readonly formatLocationUrl = formatLocationUrl;
+
   readonly isExternal = computed(() => Boolean(this.event().externalUrl));
 
   readonly price = computed(() =>

@@ -1,7 +1,12 @@
 import { Component, computed, input } from '@angular/core';
 import { Badge, Icon } from '@upskills/ui';
 
-import { formatEventWhen, formatPrice, formatSpots } from './event-format';
+import {
+  formatEventWhen,
+  formatLocationUrl,
+  formatPrice,
+  formatSpots,
+} from './event-format';
 import type { PublicEvent } from './event-api';
 import { EventImageComponent } from './event-image.component';
 
@@ -71,13 +76,22 @@ import { EventImageComponent } from './event-image.component';
           <dd>{{ when() }}</dd>
         </div>
 
-        @if (event().location; as location) {
+        @if (event().location?.trim(); as location) {
           <div class="flex items-start gap-3">
             <dt class="mt-0.5 text-zinc-400">
               <ui-icon name="map-pin" size="sm" />
               <span class="sr-only">Where</span>
             </dt>
-            <dd>{{ location }}</dd>
+            <dd>
+              <a
+                [href]="formatLocationUrl(location)"
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                class="font-medium text-indigo-600 transition hover:text-indigo-500"
+              >
+                {{ location }}
+              </a>
+            </dd>
           </div>
         }
       </dl>
@@ -98,6 +112,8 @@ export class EventDetailComponent {
   readonly event = input.required<PublicEvent>();
 
   /** Listed here, run elsewhere — see the class comment. */
+  protected readonly formatLocationUrl = formatLocationUrl;
+
   readonly isExternal = computed(() => Boolean(this.event().externalUrl));
 
   readonly price = computed(() =>
