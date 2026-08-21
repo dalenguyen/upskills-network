@@ -1,5 +1,8 @@
 import { isPlatformBrowser } from '@angular/common';
-import { HttpErrorResponse, type HttpInterceptorFn } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  type HttpInterceptorFn,
+} from '@angular/common/http';
 import { inject, PLATFORM_ID } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, from, switchMap, throwError } from 'rxjs';

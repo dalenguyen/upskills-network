@@ -17,7 +17,10 @@ import {
   type GuestView,
   type MeGetResponse,
 } from '../../../../../dashboard/dashboard-api';
-import { apiErrorMessage, apiErrorStatus } from '../../../../../events/event-api';
+import {
+  apiErrorMessage,
+  apiErrorStatus,
+} from '../../../../../events/event-api';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
 import { LoadingStateComponent } from '../../../../../landing/loading-state.component';

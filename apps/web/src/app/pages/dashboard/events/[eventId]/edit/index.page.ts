@@ -13,7 +13,10 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../../dashboard/dashboard-api';
-import { apiErrorMessage, apiErrorStatus } from '../../../../../events/event-api';
+import {
+  apiErrorMessage,
+  apiErrorStatus,
+} from '../../../../../events/event-api';
 import { EventFormComponent } from '../../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../../landing/landing-header.component';
