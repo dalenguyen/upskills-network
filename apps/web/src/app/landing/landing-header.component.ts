@@ -130,12 +130,14 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
             >
               <a
                 href="/#how-it-works"
+                (click)="closeMenu()"
                 class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
               >
                 How it works
               </a>
               <a
                 href="/#features"
+                (click)="closeMenu()"
                 class="block px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
               >
                 Why Upskills

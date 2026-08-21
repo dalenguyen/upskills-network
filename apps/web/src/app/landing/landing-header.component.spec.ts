@@ -282,4 +282,30 @@ describe('LandingHeaderComponent', () => {
 
     expect(menu?.querySelector('a[href="/auth/login"]')).toBeTruthy();
   });
+
+  // The section links are same-page fragments, so clicking one while already
+  // on `/` never remounts the header — the menu must close itself or it sits
+  // on top of the section the visitor just navigated to.
+  it.each([
+    ['How it works', 'a[href="/#how-it-works"]'],
+    ['Why Upskills', 'a[href="/#features"]'],
+  ])(
+    'closes the mobile menu when the %s link is clicked',
+    async (_label, selector) => {
+      const { fixture } = await setup();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const button = menuButton(root);
+      const menu = root.querySelector<HTMLElement>('#mobile-menu');
+
+      button?.click();
+      fixture.detectChanges();
+      expect(menu?.hidden).toBe(false);
+
+      menu?.querySelector<HTMLAnchorElement>(selector)?.click();
+      fixture.detectChanges();
+
+      expect(menu?.hidden).toBe(true);
+    },
+  );
 });
