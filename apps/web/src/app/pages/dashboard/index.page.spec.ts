@@ -217,6 +217,29 @@ describe('DashboardOverviewPageComponent', () => {
     ).toBeNull();
   });
 
+  it('holds the loading state when the session is gone, rather than flashing an error', async () => {
+    // Every server render reaches this: SSR carries no session cookie, so
+    // `me.get` answers 401 `invalid-session` and the interceptor starts a
+    // redirect to /auth/login without waiting for it. Painting the error
+    // branch here is what put "Something went wrong" in the delivered HTML,
+    // one frame before the real content replaced it.
+    const { fixture, http } = await setup();
+
+    http
+      .expectOne(meEndpoint())
+      .flush(
+        { error: 'invalid-session', reason: 'missing' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Something went wrong');
+    expect(text).toContain('Loading dashboard');
+  });
+
   it('names roster members by email and invites by email', async () => {
     const { fixture, http } = await setup();
 

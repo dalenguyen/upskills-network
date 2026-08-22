@@ -23,11 +23,15 @@ describe('LandingHeaderComponent', () => {
   async function setup(
     user: AuthUser | null = null,
     meRole: 'admin' | 'user' = 'user',
+    // Defaults to "the answer is in": every test written before the neutral
+    // branch existed is about what a *resolved* header shows.
+    ready = true,
   ) {
     TestBed.resetTestingModule();
 
     const auth = {
       user: signal<AuthUser | null>(user),
+      ready: signal(ready),
       logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
 
@@ -114,6 +118,27 @@ describe('LandingHeaderComponent', () => {
 
     expect(root.querySelector('a[href="/auth/login"]')).toBeTruthy();
     expect(signOutButtons(root)).toHaveLength(0);
+  });
+
+  it('offers neither sign-in nor sign-out before auth state is known', async () => {
+    // The server render and the moments before the SDK restores a persisted
+    // session both land here. Rendering the signed-out branch instead is what
+    // flashed "Sign in" at a signed-in visitor on every full page load.
+    const { fixture } = await setup(null, 'user', false);
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('a[href="/auth/login"]')).toBeNull();
+    expect(signOutButtons(root)).toHaveLength(0);
+    expect(root.querySelector('a[href="/dashboard"]')).toBeNull();
+  });
+
+  it('shows the sign-in link once auth state resolves to signed out', async () => {
+    const { fixture } = await setup(null, 'user', true);
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('a[href="/auth/login"]')).toBeTruthy();
   });
 
   it('hides the admin link when the signed-in user is not a platform admin', async () => {

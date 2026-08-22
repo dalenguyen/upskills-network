@@ -25,6 +25,7 @@ describe('LoginPageComponent', () => {
 
     const auth = {
       user: signal<AuthUser | null>(null),
+      ready: signal(true),
       logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       loginWithEmail: vi.fn(async () => signedInUser),
       loginWithGoogle: vi.fn(async () => signedInUser),

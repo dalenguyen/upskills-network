@@ -573,6 +573,19 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       this.setOrg(response.org, response.invites);
       await this.loadEvents();
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // Not a failure to report: this frame is always replaced. During SSR no
+        // session cookie reaches the render, so this 401s on every server-rendered
+        // load and the browser re-runs it after hydration with the cookie
+        // attached; in the browser, invalidSessionInterceptor is already
+        // navigating to /auth/login. Back to 'loading' rather than a bare return,
+        // because this also runs after a mutation, where leaving the previous
+        // 'ready' state up would keep authenticated content on screen that the
+        // session no longer covers while that navigation lands.
+        this.state.set({ status: 'loading' });
+        return;
+      }
+
       const status = apiErrorStatus(error);
 
       if (status === 403) {
@@ -620,7 +633,16 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       );
 
       this.events.set(response.events);
-    } catch {
+    } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // Reached independently of the load() catch above, which has already
+        // returned by the time this runs. Same reasoning: the session is gone
+        // and the interceptor is navigating away, so an events error would
+        // only sit on screen until it does.
+        this.state.set({ status: 'loading' });
+        return;
+      }
+
       this.eventsError.set(
         "We couldn't load this organizer's events. Please refresh to try again.",
       );

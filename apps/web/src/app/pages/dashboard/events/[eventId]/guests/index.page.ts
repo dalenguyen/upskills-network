@@ -18,6 +18,7 @@ import {
   type MeGetResponse,
 } from '../../../../../dashboard/dashboard-api';
 import {
+  apiErrorCode,
   apiErrorMessage,
   apiErrorStatus,
 } from '../../../../../events/event-api';
@@ -300,6 +301,19 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // Not a failure to report: this frame is always replaced. During SSR no
+        // session cookie reaches the render, so this 401s on every server-rendered
+        // load and the browser re-runs it after hydration with the cookie
+        // attached; in the browser, invalidSessionInterceptor is already
+        // navigating to /auth/login. Back to 'loading' rather than a bare return,
+        // because this also runs after a mutation, where leaving the previous
+        // 'ready' state up would keep authenticated content on screen that the
+        // session no longer covers while that navigation lands.
+        this.state.set({ status: 'loading' });
+        return;
+      }
+
       if (apiErrorStatus(error) === 403) {
         this.state.set({ status: 'not-found' });
         return;
@@ -357,6 +371,19 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // Not a failure to report: this frame is always replaced. During SSR no
+        // session cookie reaches the render, so this 401s on every server-rendered
+        // load and the browser re-runs it after hydration with the cookie
+        // attached; in the browser, invalidSessionInterceptor is already
+        // navigating to /auth/login. Back to 'loading' rather than a bare return,
+        // because this also runs after a mutation, where leaving the previous
+        // 'ready' state up would keep authenticated content on screen that the
+        // session no longer covers while that navigation lands.
+        this.state.set({ status: 'loading' });
+        return;
+      }
+
       if (apiErrorStatus(error) === 403) {
         this.state.set({ status: 'not-found' });
         return;

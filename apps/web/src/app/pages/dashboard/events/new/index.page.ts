@@ -10,7 +10,7 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../dashboard/dashboard-api';
-import { apiErrorMessage } from '../../../../events/event-api';
+import { apiErrorCode, apiErrorMessage } from '../../../../events/event-api';
 import { EventFormComponent } from '../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
@@ -157,6 +157,19 @@ export default class DashboardEventsNewPageComponent implements OnInit {
 
       this.state.set({ status: 'ready', org });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // Not a failure to report: this frame is always replaced. During SSR no
+        // session cookie reaches the render, so this 401s on every server-rendered
+        // load and the browser re-runs it after hydration with the cookie
+        // attached; in the browser, invalidSessionInterceptor is already
+        // navigating to /auth/login. Back to 'loading' rather than a bare return,
+        // because this also runs after a mutation, where leaving the previous
+        // 'ready' state up would keep authenticated content on screen that the
+        // session no longer covers while that navigation lands.
+        this.state.set({ status: 'loading' });
+        return;
+      }
+
       this.state.set({
         status: 'error',
         message:
