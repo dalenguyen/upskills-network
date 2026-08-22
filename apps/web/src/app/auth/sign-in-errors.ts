@@ -157,13 +157,31 @@ export function signInErrorMessage(
 }
 
 /**
+ * Where an authenticated visitor belongs when nothing else says otherwise.
+ *
+ * Somebody who has just signed in, or who is already signed in and lands on
+ * the sign-in page, asked for their workspace — not the marketing page. The
+ * landing page is for visitors who are *not* signed in; sending an
+ * authenticated user there leaves them to find the dashboard by hand, which is
+ * the step that made signing in feel like it had not worked.
+ */
+export const POST_AUTH_LANDING = '/dashboard';
+
+/**
  * The post-auth redirect target, read from the login/register query param.
  *
  * Only a same-origin relative path is accepted: exactly one leading `/`, and
  * not `//` or `/\`, which are protocol-relative and therefore can leave the
- * origin. Absolute URLs and `javascript:` fall through to `/`.
+ * origin. Absolute URLs and `javascript:` fall through to `fallback`.
+ *
+ * `fallback` defaults to `/` so that a caller which has no opinion cannot
+ * accidentally send a signed-out visitor somewhere guarded. Callers that only
+ * run for an authenticated visitor pass {@link POST_AUTH_LANDING}.
  */
-export function safeRedirectTarget(redirectTo: string | null): string {
+export function safeRedirectTarget(
+  redirectTo: string | null,
+  fallback = '/',
+): string {
   if (
     typeof redirectTo === 'string' &&
     redirectTo.startsWith('/') &&
@@ -173,7 +191,7 @@ export function safeRedirectTarget(redirectTo: string | null): string {
     return redirectTo;
   }
 
-  return '/';
+  return fallback;
 }
 
 function signInErrorCode(error: unknown): string | null {

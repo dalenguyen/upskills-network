@@ -42,6 +42,7 @@ describe('invalidSessionInterceptor', () => {
   it('signs out and redirects to login on a 401 invalid-session', async () => {
     configure('browser');
     const router = TestBed.inject(Router);
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/dashboard/events');
     const navigateByUrl = vi
       .spyOn(router, 'navigateByUrl')
       .mockResolvedValue(true);
@@ -55,7 +56,11 @@ describe('invalidSessionInterceptor', () => {
     await expect(run(req, next)).rejects.toBe(error);
 
     expect(logout).toHaveBeenCalledTimes(1);
-    expect(navigateByUrl).toHaveBeenCalledWith('/auth/login');
+    // The destination rides along, so signing in again lands the visitor back
+    // where they were bounced from rather than on the landing page.
+    expect(String(navigateByUrl.mock.calls[0][0])).toBe(
+      '/auth/login?redirectTo=%2Fdashboard%2Fevents',
+    );
   });
 
   it('still redirects when logout itself fails', async () => {
@@ -73,7 +78,43 @@ describe('invalidSessionInterceptor', () => {
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(req, next)).rejects.toBe(error);
-    expect(navigateByUrl).toHaveBeenCalledWith('/auth/login');
+    expect(String(navigateByUrl.mock.calls[0][0])).toContain('/auth/login');
+  });
+
+  it('omits redirectTo when the visitor was already on a public page', async () => {
+    configure('browser');
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/');
+    const navigateByUrl = vi
+      .spyOn(router, 'navigateByUrl')
+      .mockResolvedValue(true);
+
+    const error = new HttpErrorResponse({
+      status: 401,
+      error: { error: true, data: { error: 'invalid-session' } },
+    });
+    const next: HttpHandlerFn = () => throwError(() => error);
+
+    await expect(run(req, next)).rejects.toBe(error);
+    expect(String(navigateByUrl.mock.calls[0][0])).toBe('/auth/login');
+  });
+
+  it('does not point redirectTo back at an auth page', async () => {
+    configure('browser');
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/auth/login');
+    const navigateByUrl = vi
+      .spyOn(router, 'navigateByUrl')
+      .mockResolvedValue(true);
+
+    const error = new HttpErrorResponse({
+      status: 401,
+      error: { error: true, data: { error: 'invalid-session' } },
+    });
+    const next: HttpHandlerFn = () => throwError(() => error);
+
+    await expect(run(req, next)).rejects.toBe(error);
+    expect(String(navigateByUrl.mock.calls[0][0])).toBe('/auth/login');
   });
 
   it('passes through a 401 that is not invalid-session', async () => {
