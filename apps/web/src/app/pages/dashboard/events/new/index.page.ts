@@ -10,7 +10,7 @@ import {
   type MeGetResponse,
   type MeOrg,
 } from '../../../../dashboard/dashboard-api';
-import { apiErrorMessage } from '../../../../events/event-api';
+import { apiErrorCode, apiErrorMessage } from '../../../../events/event-api';
 import { EventFormComponent } from '../../../../events/event-form.component';
 import { LandingFooterComponent } from '../../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../../landing/landing-header.component';
@@ -157,6 +157,12 @@ export default class DashboardEventsNewPageComponent implements OnInit {
 
       this.state.set({ status: 'ready', org });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       this.state.set({
         status: 'error',
         message:

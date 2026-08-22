@@ -573,6 +573,12 @@ export default class AdminOrgDetailPageComponent implements OnInit {
       this.setOrg(response.org, response.invites);
       await this.loadEvents();
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       const status = apiErrorStatus(error);
 
       if (status === 403) {

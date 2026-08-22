@@ -18,6 +18,7 @@ import {
   type MeGetResponse,
 } from '../../../../../dashboard/dashboard-api';
 import {
+  apiErrorCode,
   apiErrorMessage,
   apiErrorStatus,
 } from '../../../../../events/event-api';
@@ -300,6 +301,12 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       if (apiErrorStatus(error) === 403) {
         this.state.set({ status: 'not-found' });
         return;
@@ -357,6 +364,12 @@ export default class DashboardEventsGuestsPageComponent implements OnInit {
         guests: guestList.guests,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       if (apiErrorStatus(error) === 403) {
         this.state.set({ status: 'not-found' });
         return;

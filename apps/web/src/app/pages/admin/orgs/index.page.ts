@@ -274,6 +274,12 @@ export default class AdminOrgsPageComponent implements OnInit {
 
       this.state.set({ status: 'ready', orgs: response.orgs });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       this.state.set({
         status: apiErrorStatus(error) === 403 ? 'forbidden' : 'error',
       });

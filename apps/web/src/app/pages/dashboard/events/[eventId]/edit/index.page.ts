@@ -14,6 +14,7 @@ import {
   type MeOrg,
 } from '../../../../../dashboard/dashboard-api';
 import {
+  apiErrorCode,
   apiErrorMessage,
   apiErrorStatus,
 } from '../../../../../events/event-api';
@@ -230,6 +231,12 @@ export default class DashboardEventsEditPageComponent implements OnInit {
 
       this.state.set({ status: 'ready', org, workshop: response.event });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       if (apiErrorStatus(error) === 403) {
         this.state.set({ status: 'not-found' });
         return;

@@ -13,7 +13,7 @@ import {
   type MeUser,
   type DashboardEvent,
 } from '../../../dashboard/dashboard-api';
-import { apiErrorMessage } from '../../../events/event-api';
+import { apiErrorCode, apiErrorMessage } from '../../../events/event-api';
 import { EventListComponent } from '../../../events/event-list.component';
 import { LandingFooterComponent } from '../../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../../landing/landing-header.component';
@@ -165,6 +165,12 @@ export default class DashboardEventsPageComponent implements OnInit {
         events: response.events,
       });
     } catch (error) {
+      if (apiErrorCode(error) === 'invalid-session') {
+        // The interceptor is already redirecting to /auth/login; stay in
+        // 'loading' so we don't flash an error while that navigation lands.
+        return;
+      }
+
       this.state.set({
         status: 'error',
         message:
