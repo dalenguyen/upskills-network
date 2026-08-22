@@ -236,7 +236,11 @@ export default class DashboardEventsEditPageComponent implements OnInit {
         // session cookie reaches the render, so this 401s on every server-rendered
         // load and the browser re-runs it after hydration with the cookie
         // attached; in the browser, invalidSessionInterceptor is already
-        // navigating to /auth/login. The error branch here only ever flashes.
+        // navigating to /auth/login. Back to 'loading' rather than a bare return,
+        // because this also runs after a mutation, where leaving the previous
+        // 'ready' state up would keep authenticated content on screen that the
+        // session no longer covers while that navigation lands.
+        this.state.set({ status: 'loading' });
         return;
       }
 
