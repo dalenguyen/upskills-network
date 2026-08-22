@@ -487,6 +487,53 @@ describe('AuthService', () => {
     });
   });
 
+  describe('forgetSession', () => {
+    async function signIn(service: AuthService): Promise<void> {
+      const http = TestBed.inject(HttpTestingController);
+      const signedIn = service.loginWithGoogle();
+      await settle();
+      http.expectOne(SESSION_ENDPOINT).flush({});
+      await signedIn;
+    }
+
+    /**
+     * The whole point of this method. `logout()` revokes the account's refresh
+     * tokens for whatever session is valid when its DELETE lands — which is not
+     * necessarily the session the 401 was about. Reaching the session route at
+     * all from a recovery path is the bug.
+     */
+    it('drops local state without touching the session route', async () => {
+      configure();
+      const service = TestBed.inject(AuthService);
+      const http = TestBed.inject(HttpTestingController);
+      await signIn(service);
+
+      expect(service.user()).not.toBeNull();
+
+      await service.forgetSession();
+
+      expect(service.user()).toBeNull();
+      expect(client.currentUser).toBeNull();
+      expect(client.calls).toContain('signOut');
+      // Nothing in flight, and nothing sent: the cookie is left to expire.
+      http.verify();
+    });
+
+    it('still ends up signed out when the SDK sign-out fails', async () => {
+      configure();
+      const service = TestBed.inject(AuthService);
+      const http = TestBed.inject(HttpTestingController);
+      await signIn(service);
+
+      client.signOutFailure = new Error('storage unavailable');
+
+      await expect(service.forgetSession()).resolves.toBeUndefined();
+
+      expect(service.user()).toBeNull();
+      http.verify();
+    });
+  });
+
   describe('exchangeForSession', () => {
     it('refuses when nobody is signed in', async () => {
       configure();
