@@ -232,8 +232,11 @@ export default class DashboardEventsEditPageComponent implements OnInit {
       this.state.set({ status: 'ready', org, workshop: response.event });
     } catch (error) {
       if (apiErrorCode(error) === 'invalid-session') {
-        // The interceptor is already redirecting to /auth/login; stay in
-        // 'loading' so we don't flash an error while that navigation lands.
+        // Not a failure to report: this frame is always replaced. During SSR no
+        // session cookie reaches the render, so this 401s on every server-rendered
+        // load and the browser re-runs it after hydration with the cookie
+        // attached; in the browser, invalidSessionInterceptor is already
+        // navigating to /auth/login. The error branch here only ever flashes.
         return;
       }
 
