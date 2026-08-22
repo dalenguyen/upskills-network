@@ -241,6 +241,33 @@ export class AuthService {
   }
 
   /**
+   * Drop this browser's sign-in without telling the server.
+   *
+   * For the one case {@link logout} is wrong for: the server has just answered
+   * 401 `invalid-session`, so there is no session left to tear down and nothing
+   * to revoke. Calling `logout()` there does real damage — its DELETE revokes
+   * the account's refresh tokens for whatever session is valid *at the moment
+   * it arrives*, which is not necessarily the one the 401 was about. A request
+   * that 401ed before a fresh sign-in, answered after it, would revoke the new
+   * session on behalf of the old one.
+   *
+   * So this only clears local state, leaving the cookie to expire on its own.
+   * The cookie is already dead — the server said so — so leaving it is not a
+   * credential left lying around, and the next sign-in overwrites it.
+   *
+   * A user-initiated sign-out is a different thing entirely and still goes
+   * through {@link logout}: revoking is the whole point there.
+   */
+  async forgetSession(): Promise<void> {
+    if (this.client === null) {
+      this.setState(null);
+      return;
+    }
+
+    await this.abandonSignIn(this.client);
+  }
+
+  /**
    * POST the current ID token to {@link SESSION_ENDPOINT} and let the server set
    * the `__session` cookie.
    *
@@ -348,7 +375,10 @@ export class AuthService {
   }
 
   /**
-   * Undo a sign-in whose exchange failed.
+   * Drop the local sign-in without touching the server.
+   *
+   * Two callers, both of which have a browser believing it is signed in and a
+   * server that disagrees: an exchange that failed, and {@link forgetSession}.
    *
    * The sign-out is best-effort: if it fails too, the exchange failure is the
    * one worth reporting, and swallowing this one keeps the original error and

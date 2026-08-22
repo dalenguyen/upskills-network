@@ -1,30 +1,51 @@
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
+  HttpContext,
   HttpErrorResponse,
   HttpRequest,
   HttpResponse,
   type HttpHandlerFn,
 } from '@angular/common/http';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { invalidSessionInterceptor } from './invalid-session-interceptor';
-import { AuthService, SESSION_ENDPOINT } from './auth-service';
+import { SESSION_ENDPOINT } from './auth-service';
+import {
+  BYPASS_SESSION_RECOVERY,
+  SessionRecovery,
+  type Recovery,
+} from './session-recovery';
 
+/**
+ * What this interceptor decides is narrow: which failures are a session
+ * problem at all, and what to do with the request once `SessionRecovery` has
+ * said what the 401 meant. The sign-out and the redirect belong to that
+ * service and are tested with it.
+ */
 describe('invalidSessionInterceptor', () => {
   const req = new HttpRequest('GET', '/api/v1/auth/me');
-  let logout: ReturnType<typeof vi.fn>;
+  let recover: ReturnType<typeof vi.fn>;
 
-  function configure(platform: 'browser' | 'server'): void {
-    logout = vi.fn().mockResolvedValue(undefined);
+  const invalidSession = () =>
+    new HttpErrorResponse({
+      status: 401,
+      error: { error: true, data: { error: 'invalid-session' } },
+    });
+
+  function configure(
+    platform: 'browser' | 'server',
+    outcome: Recovery = 'signed-out',
+  ): void {
+    recover = vi.fn().mockResolvedValue(outcome);
 
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: PLATFORM_ID, useValue: platform },
-        { provide: AuthService, useValue: { logout } },
+        { provide: SessionRecovery, useValue: { recover } },
       ],
     });
   }
@@ -39,89 +60,64 @@ describe('invalidSessionInterceptor', () => {
     TestBed.resetTestingModule();
   });
 
-  it('signs out and redirects to login on a 401 invalid-session', async () => {
+  it('hands a 401 invalid-session to the recovery, with the page to return to', async () => {
     configure('browser');
-    const router = TestBed.inject(Router);
-    vi.spyOn(router, 'url', 'get').mockReturnValue('/dashboard/events');
-    const navigateByUrl = vi
-      .spyOn(router, 'navigateByUrl')
-      .mockResolvedValue(true);
-
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
-    });
+    const error = invalidSession();
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(req, next)).rejects.toBe(error);
 
-    expect(logout).toHaveBeenCalledTimes(1);
-    // The destination rides along, so signing in again lands the visitor back
-    // where they were bounced from rather than on the landing page.
-    expect(String(navigateByUrl.mock.calls[0][0])).toBe(
-      '/auth/login?redirectTo=%2Fdashboard%2Fevents',
-    );
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(typeof recover.mock.calls[0][0]).toBe('string');
   });
 
-  it('still redirects when logout itself fails', async () => {
-    configure('browser');
-    logout.mockRejectedValue(new Error('server session teardown failed'));
-    const router = TestBed.inject(Router);
-    const navigateByUrl = vi
-      .spyOn(router, 'navigateByUrl')
-      .mockResolvedValue(true);
+  it('retries against the newer session when the recovery finds one', async () => {
+    // The tab-left-open case. This request's cookie was replaced between the
+    // request leaving and its 401 coming back, so the 401 describes a session
+    // that no longer applies.
+    configure('browser', 'retry');
+    const ok = new HttpResponse({ status: 200 });
 
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
-    });
-    const next: HttpHandlerFn = () => throwError(() => error);
+    let attempts = 0;
+    const next: HttpHandlerFn = () => {
+      attempts += 1;
+      return attempts === 1 ? throwError(() => invalidSession()) : of(ok);
+    };
 
-    await expect(run(req, next)).rejects.toBe(error);
-    expect(String(navigateByUrl.mock.calls[0][0])).toContain('/auth/login');
+    await expect(run(req, next)).resolves.toBe(ok);
+    expect(attempts).toBe(2);
   });
 
-  it('omits redirectTo when the visitor was already on a public page', async () => {
-    configure('browser');
-    const router = TestBed.inject(Router);
-    vi.spyOn(router, 'url', 'get').mockReturnValue('/');
-    const navigateByUrl = vi
-      .spyOn(router, 'navigateByUrl')
-      .mockResolvedValue(true);
+  it('rethrows once the recovery has signed the browser out', async () => {
+    configure('browser', 'signed-out');
+    const error = invalidSession();
 
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
-    });
-    const next: HttpHandlerFn = () => throwError(() => error);
+    let attempts = 0;
+    const next: HttpHandlerFn = () => {
+      attempts += 1;
+      return throwError(() => error);
+    };
 
     await expect(run(req, next)).rejects.toBe(error);
-    expect(String(navigateByUrl.mock.calls[0][0])).toBe('/auth/login');
+    expect(attempts).toBe(1);
   });
 
-  it('does not point redirectTo back at an auth page', async () => {
+  it('leaves the probe request itself alone, so its 401 comes back untouched', async () => {
+    // Without this the probe's own 401 would be intercepted, and it would send
+    // a second probe to decide what to do about the first.
     configure('browser');
-    const router = TestBed.inject(Router);
-    vi.spyOn(router, 'url', 'get').mockReturnValue('/auth/login');
-    const navigateByUrl = vi
-      .spyOn(router, 'navigateByUrl')
-      .mockResolvedValue(true);
-
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
+    const probeReq = new HttpRequest('GET', '/api/v1/auth/me', {
+      context: new HttpContext().set(BYPASS_SESSION_RECOVERY, true),
     });
+    const error = invalidSession();
     const next: HttpHandlerFn = () => throwError(() => error);
 
-    await expect(run(req, next)).rejects.toBe(error);
-    expect(String(navigateByUrl.mock.calls[0][0])).toBe('/auth/login');
+    await expect(run(probeReq, next)).rejects.toBe(error);
+    expect(recover).not.toHaveBeenCalled();
   });
 
   it('passes through a 401 that is not invalid-session', async () => {
     configure('browser');
-    const router = TestBed.inject(Router);
-    const navigateByUrl = vi.spyOn(router, 'navigateByUrl');
-
     const error = new HttpErrorResponse({
       status: 401,
       error: { error: true, data: { error: 'stale-sign-in' } },
@@ -129,9 +125,7 @@ describe('invalidSessionInterceptor', () => {
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(req, next)).rejects.toBe(error);
-
-    expect(logout).not.toHaveBeenCalled();
-    expect(navigateByUrl).not.toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
   });
 
   it('passes through a non-401 failure untouched', async () => {
@@ -140,39 +134,33 @@ describe('invalidSessionInterceptor', () => {
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(req, next)).rejects.toBe(error);
-    expect(logout).not.toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
   });
 
-  it('never calls logout on a successful response', async () => {
+  it('never starts a recovery on a successful response', async () => {
     configure('browser');
     const next: HttpHandlerFn = () => of(new HttpResponse({ status: 200 }));
 
     await run(req, next);
-    expect(logout).not.toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
   });
 
   it('skips the session endpoint itself, even on a 401 invalid-session', async () => {
     configure('browser');
     const sessionReq = new HttpRequest('DELETE', SESSION_ENDPOINT);
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
-    });
+    const error = invalidSession();
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(sessionReq, next)).rejects.toBe(error);
-    expect(logout).not.toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
   });
 
   it('has no opinion during server-side rendering', async () => {
     configure('server');
-    const error = new HttpErrorResponse({
-      status: 401,
-      error: { error: true, data: { error: 'invalid-session' } },
-    });
+    const error = invalidSession();
     const next: HttpHandlerFn = () => throwError(() => error);
 
     await expect(run(req, next)).rejects.toBe(error);
-    expect(logout).not.toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
   });
 });
