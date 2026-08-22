@@ -93,7 +93,7 @@ describe('RegisterPageComponent', () => {
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
   });
 
-  it('defaults the post-sign-in redirect to /', async () => {
+  it('defaults the post-sign-in redirect to the dashboard', async () => {
     const { auth, fixture, navigateByUrl } = await setup();
 
     fixture.componentInstance.form.setValue({
@@ -104,7 +104,7 @@ describe('RegisterPageComponent', () => {
     await fixture.componentInstance.submit();
 
     expect(auth.registerWithEmail).toHaveBeenCalled();
-    expect(navigateByUrl).toHaveBeenCalledWith('/');
+    expect(navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
 
   it('continues with Google and returns to the requested page', async () => {

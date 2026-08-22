@@ -93,7 +93,7 @@ describe('LoginPageComponent', () => {
     expect(navigateByUrl).toHaveBeenCalledWith('/dashboard/events');
   });
 
-  it('defaults the post-sign-in redirect to /', async () => {
+  it('defaults the post-sign-in redirect to the dashboard', async () => {
     const { auth, fixture, navigateByUrl } = await setup();
 
     fixture.componentInstance.form.setValue({
@@ -104,10 +104,10 @@ describe('LoginPageComponent', () => {
     await fixture.componentInstance.submit();
 
     expect(auth.loginWithEmail).toHaveBeenCalled();
-    expect(navigateByUrl).toHaveBeenCalledWith('/');
+    expect(navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
 
-  it('ignores a protocol-relative redirectTo and falls back to /', async () => {
+  it('ignores a protocol-relative redirectTo and falls back to the dashboard', async () => {
     const { auth, fixture, navigateByUrl } = await setup({
       redirectTo: '//evil.example.com',
     });
@@ -120,7 +120,7 @@ describe('LoginPageComponent', () => {
     await fixture.componentInstance.submit();
 
     expect(auth.loginWithEmail).toHaveBeenCalled();
-    expect(navigateByUrl).toHaveBeenCalledWith('/');
+    expect(navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
 
   it('continues with Google and returns to the requested page', async () => {

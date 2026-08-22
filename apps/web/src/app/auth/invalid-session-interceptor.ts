@@ -4,7 +4,7 @@ import {
   type HttpInterceptorFn,
 } from '@angular/common/http';
 import { inject, PLATFORM_ID } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, type UrlTree } from '@angular/router';
 import { catchError, from, switchMap, throwError } from 'rxjs';
 
 import { apiErrorCode } from '../events/event-api';
@@ -40,12 +40,40 @@ export const invalidSessionInterceptor: HttpInterceptorFn = (req, next) => {
         return throwError(() => error);
       }
 
+      // Captured before the sign-out, which can itself trigger navigation.
+      const from_ = router.url;
+
       return from(auth.logout().catch(() => undefined)).pipe(
         switchMap(() => {
-          void router.navigateByUrl('/auth/login');
+          void router.navigateByUrl(loginUrlFor(router, from_));
           return throwError(() => error);
         }),
       );
     }),
   );
 };
+
+/**
+ * The sign-in URL, carrying the page the visitor was bounced off.
+ *
+ * Dropping it is what made re-authenticating feel like it had not worked:
+ * somebody whose session expired on `/dashboard` was sent to a bare
+ * `/auth/login`, signed in, and landed somewhere else entirely — with no sign
+ * that anything had gone wrong and nothing to do but navigate back by hand.
+ *
+ * A URL travels here, never a page's data, and `safeRedirectTarget` on the
+ * receiving side refuses anything that could leave the origin.
+ *
+ * Two origins get no parameter. An `/auth/…` page would only point the visitor
+ * back at the page they are already on; `/` is the landing page, which is
+ * where a signed-out visitor already belongs, and naming it would override the
+ * sign-in page's own default of sending an authenticated visitor to their
+ * workspace.
+ */
+function loginUrlFor(router: Router, from: string): UrlTree {
+  const keep = from !== '/' && !from.startsWith('/auth/');
+
+  return router.createUrlTree(['/auth/login'], {
+    queryParams: keep ? { redirectTo: from } : {},
+  });
+}

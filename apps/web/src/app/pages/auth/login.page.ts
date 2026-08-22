@@ -1,3 +1,4 @@
+import type { RouteMeta } from '@analogjs/router';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   FormControl,
@@ -13,7 +14,9 @@ import { Button } from '@upskills/ui';
 import { EmailSchema } from '@upskills/validation';
 
 import { AuthService } from '../../auth/auth-service';
+import { guestGuard } from '../../auth/guest-guard';
 import {
+  POST_AUTH_LANDING,
   safeRedirectTarget,
   signInErrorMessage,
   type SignInFlow,
@@ -25,6 +28,10 @@ type LoginState =
   | { status: 'idle' }
   | { status: 'submitting' }
   | { status: 'error'; message: string };
+
+export const routeMeta: RouteMeta = {
+  canActivate: [guestGuard],
+};
 
 function emailValidator(control: AbstractControl): ValidationErrors | null {
   if (typeof control.value !== 'string') {
@@ -183,8 +190,12 @@ export default class LoginPageComponent implements OnInit {
   private readonly redirectTo: string;
 
   constructor() {
+    // The fallback is the dashboard, not `/`: somebody who opened this page
+    // came here to reach their workspace, and the landing page is written for
+    // visitors who are not signed in.
     this.redirectTo = safeRedirectTarget(
       this.route.snapshot.queryParamMap.get('redirectTo'),
+      POST_AUTH_LANDING,
     );
   }
 
@@ -199,7 +210,9 @@ export default class LoginPageComponent implements OnInit {
   }
 
   linkQueryParams(): { redirectTo?: string } {
-    return this.redirectTo === '/' ? {} : { redirectTo: this.redirectTo };
+    return this.redirectTo === POST_AUTH_LANDING
+      ? {}
+      : { redirectTo: this.redirectTo };
   }
 
   async continueWithGoogle(): Promise<void> {
