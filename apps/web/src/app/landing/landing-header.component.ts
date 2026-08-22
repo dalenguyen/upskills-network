@@ -68,7 +68,14 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
 
         <div class="flex items-center gap-3 sm:gap-5">
           <div class="hidden items-center gap-3 sm:gap-5 md:flex">
-            @if (auth.user(); as user) {
+            @if (!auth.ready()) {
+              <!--
+                Auth state is not known yet, so neither branch below is safe to
+                render. See AuthService.ready: null means "signed out" and "not
+                said yet" alike, and guessing signed-out here is what flashed
+                "Sign in" at a signed-in visitor on every full page load.
+              -->
+            } @else if (auth.user(); as user) {
               <span
                 class="hidden whitespace-nowrap text-sm font-medium text-zinc-600 sm:inline"
               >
@@ -159,7 +166,9 @@ import { meEndpoint, type MeGetResponse } from '../dashboard/dashboard-api';
 
               <div class="my-1 border-t border-zinc-900/5"></div>
 
-              @if (auth.user(); as user) {
+              @if (!auth.ready()) {
+                <!-- Not known yet — see the desktop block above. -->
+              } @else if (auth.user(); as user) {
                 <span
                   class="block truncate px-4 py-1 text-xs font-medium text-zinc-400"
                 >

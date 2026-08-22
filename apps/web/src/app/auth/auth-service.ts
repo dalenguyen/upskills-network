@@ -1,5 +1,12 @@
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { DestroyRef, inject, Injectable, signal } from '@angular/core';
+import {
+  DestroyRef,
+  inject,
+  Injectable,
+  PLATFORM_ID,
+  signal,
+} from '@angular/core';
 import { BehaviorSubject, filter, firstValueFrom, type Observable } from 'rxjs';
 
 import { AUTH_CLIENT, type AuthClient, type ClientUser } from './auth-client';
@@ -103,6 +110,27 @@ export class AuthService {
    */
   private readonly resolved = new BehaviorSubject(false);
 
+  private readonly readySignal = signal(false);
+
+  /**
+   * Whether {@link user} is an answer rather than an absence.
+   *
+   * `user()` is `null` both for "signed out" and for "nobody has said yet", and
+   * a template cannot tell those apart. Rendering the signed-out branch on the
+   * second one is what makes a signed-in visitor's header read "Sign in" for a
+   * frame on every full page load — during SSR, and again until the SDK
+   * restores the persisted session. Anything that renders one thing for a
+   * signed-in user and another for a signed-out one should render neither until
+   * this is `true`.
+   *
+   * False for the whole server render, deliberately: SSR authorizes from the
+   * `__session` cookie and has no client SDK, so it cannot know, and saying
+   * "signed out" there is exactly the wrong guess. In a browser with no
+   * Firebase config there is genuinely no session to wait for, so this is
+   * `true` immediately and the signed-out branch renders without a delay.
+   */
+  readonly ready = this.readySignal.asReadonly();
+
   /**
    * Sign-in state, starting at `null` and updated on every change.
    *
@@ -121,12 +149,18 @@ export class AuthService {
       // SSR, or a build with no Firebase config. There is no state to track and
       // nothing will ever resolve it — say so, so `currentUser()` does not hang.
       this.resolved.next(true);
+      // But only a *browser* with no client has actually learned anything: it
+      // has no session and never will. On the server this stays false, so
+      // templates hold the neutral branch instead of rendering "signed out"
+      // into HTML that a signed-in visitor is about to receive.
+      this.readySignal.set(isPlatformBrowser(inject(PLATFORM_ID)));
       return;
     }
 
     const unsubscribe = this.client.onAuthStateChanged((user) => {
       this.setState(user === null ? null : toAuthUser(user));
       this.resolved.next(true);
+      this.readySignal.set(true);
     });
 
     inject(DestroyRef).onDestroy(unsubscribe);

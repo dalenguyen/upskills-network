@@ -39,6 +39,7 @@ const event: PublicEvent = {
 function authServiceStub() {
   return {
     user: signal<AuthUser | null>(null),
+    ready: signal(true),
     logout: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   };
 }
