@@ -1,5 +1,85 @@
 [
   {
+    "title": "Cloud Summit Toronto 2026",
+    "slug": "cloud-summit-toronto-2026",
+    "description": "The first Toronto edition of Cloud Summit, a community-run multi-cloud conference from the Canadian Public Cloud Association.\n\nThe day takes over seven levels of the Northeastern University campus on Queen Street West, with keynote sessions, technical tracks, workshops and a sponsor floor. The HackerRivals hackathon runs alongside it as a three-hour competition.\n\nOne ticket also covers Toronto AWS Day, held at the same venue on the same day. Doors are at noon and the after party starts at 6:30 PM.",
+    "startsAt": "2026-08-29T12:00:00-04:00",
+    "endsAt": "2026-08-29T18:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Northeastern University Toronto, 375 Queen St W, Toronto, ON M5V 2A5",
+    "externalUrl": "https://cloudsummit.ca/",
+    "sourceName": "Cloud Summit Canada",
+    "imageUrl": "https://images.lumacdn.com/cdn-cgi/image/format=auto,fit=cover,dpr=2,background=white,quality=75,width=400,height=400/event-covers/ly/ce80f4ef-7b27-4f30-84d4-9253e7479b81.png"
+  },
+  {
+    "title": "Toronto Big Business, Tech and Entrepreneur Professional Networking Soiree",
+    "slug": "toronto-business-tech-entrepreneur-soiree-sep-2026",
+    "description": "An after-work mixer for tech startups, entrepreneurs, business owners and professionals, run by the Toronto Entrepreneurs, Startup & Business Coalition.\n\nThe format is open networking over three hours at a St. Clair Avenue lounge. People come to find co-founders, partners, coaches or team members rather than to hear talks.\n\nEntry is free but you must RSVP in advance.",
+    "startsAt": "2026-09-14T17:30:00-04:00",
+    "endsAt": "2026-09-14T20:30:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Gatherings Bar And Lounge, 49 St Clair Ave W, Toronto, ON M4V 1K7",
+    "externalUrl": "https://www.eventbrite.com/e/toronto-big-business-tech-entrepreneur-professional-networking-soiree-tickets-1975843214242",
+    "sourceName": "Eventbrite",
+    "imageUrl": "https://cdn.evbuc.com/images/478556389/271118485943/1/original.jpg"
+  },
+  {
+    "title": "Women in Tech Toronto 2026",
+    "slug": "women-in-tech-toronto-2026",
+    "description": "An evening for mid-level and senior women in tech, run by OutGeekWomen, where the job seekers set the agenda rather than the recruiters.\n\nCTOs and hiring teams give short pitches about their companies, then the rest of the night is open networking. It is aimed at software engineers, AI and ML specialists, data scientists, product managers and cybersecurity professionals.\n\nRuns 6:00 PM to 8:30 PM downtown.",
+    "startsAt": "2026-09-30T18:00:00-04:00",
+    "endsAt": "2026-09-30T20:30:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "123 Edward St, Toronto, ON M5G 1E2",
+    "externalUrl": "https://www.eventbrite.com/e/women-in-tech-toronto-2026-tickets-1993031024445",
+    "sourceName": "Eventbrite",
+    "imageUrl": "https://cdn.evbuc.com/images/1188105176/529664982707/1/original.20260702-185337"
+  },
+  {
+    "title": "Financial Affiliate Marketing Forum 2026",
+    "slug": "financial-affiliate-marketing-forum-2026",
+    "description": "A one-day forum for performance marketers working in Canadian financial services.\n\nIt brings together banking leaders, fintech operators and affiliate marketers for strategy sessions, practical talks and networking. Topics cover how regulated financial brands acquire customers through partner and affiliate channels.\n\nThe day runs 8:30 AM to 6:00 PM Eastern at The Quay on the waterfront.",
+    "startsAt": "2026-10-06T08:30:00-04:00",
+    "endsAt": "2026-10-06T18:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "The Quay, 100 Queens Quay E, 3rd Floor, Toronto, ON M5E 1Z2",
+    "externalUrl": "https://famf.ca/",
+    "sourceName": "Finance Events"
+  },
+  {
+    "title": "SecTor 2026",
+    "slug": "sector-2026-toronto",
+    "description": "Canada's largest cybersecurity conference, now in its 20th year and part of the Black Hat family of events.\n\nSecTor is built around research talks from practitioners: underground threats, attack techniques and the corporate defences that answer them. The programme mixes training days, briefings, an expo floor and community villages.\n\nIt runs October 6 to 8, 2026 at the Metro Toronto Convention Centre.",
+    "startsAt": "2026-10-06T07:00:00-04:00",
+    "endsAt": "2026-10-08T16:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Metro Toronto Convention Centre, 255 Front St W, Toronto, ON M5V 2W6",
+    "externalUrl": "https://www.blackhat.com/sector/",
+    "sourceName": "SecTor"
+  },
+  {
+    "title": "Canadian Lenders Summit 2026",
+    "slug": "canadian-lenders-summit-2026",
+    "description": "An annual gathering of lending leaders from banking, credit unions, private lending and fintech.\n\nSessions cover risk management, AI in lending, regulatory compliance, consumer credit and business financing, with practical tracks on fraud prevention, mortgage modernisation, SMB credit and capital sourcing.\n\nThe day runs 8:00 AM to 6:00 PM, with a three-hour reception from 2:00 PM.",
+    "startsAt": "2026-10-22T08:00:00-04:00",
+    "endsAt": "2026-10-22T18:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "The Quay, 100 Queens Quay E, 3rd Floor, Toronto, ON M5E 1Z2",
+    "externalUrl": "https://financeevents.co/events/2026-canadian-lenders-summit/",
+    "sourceName": "Finance Events",
+    "imageUrl": "https://financeevents.co/wp-content/uploads/2025/10/CLS-Logo-white-2.png"
+  },
+  {
+    "title": "WomenHack Toronto",
+    "slug": "womenhack-toronto-oct-2026",
+    "description": "A one-evening hiring event where women technologists meet 15 to 20 employers in rapid one-on-one rounds.\n\nThe format is speed-interviewing rather than a career fair: short scheduled conversations with each company, then open networking. It is aimed at engineers, designers and other technical roles.\n\nFree for candidates. Places are by application, so apply for an invite before the date.",
+    "startsAt": "2026-10-22T19:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "Toronto, ON",
+    "externalUrl": "https://womenhack.com/events/canada/toronto/",
+    "sourceName": "WomenHack"
+  },
+  {
     "title": "Difinity Conference Toronto 2026",
     "slug": "difinity-conference-toronto-2026",
     "description": "Difinity is a Microsoft Data, AI, Power BI and Fabric conference that has run in New Zealand since 2017. This is its first Canadian edition.\n\nThe programme runs over two days: a pre-conference day on September 10 and the main conference day on September 11. Speakers come from the Microsoft product team, plus MVPs, Regional Directors and industry practitioners.\n\nIt is aimed at anyone working in data analytics: developers, business analysts, BI professionals, database administrators, architects, IT decision makers and consultants.",
