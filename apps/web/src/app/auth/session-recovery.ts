@@ -20,7 +20,10 @@ export const BYPASS_SESSION_RECOVERY = new HttpContextToken(() => false);
 
 /** What a caller should do with the request whose 401 started the recovery. */
 export type Recovery =
-  /** A newer session answered — send the request again, against that one. */
+  /**
+   * A session answered — send the request again, against that one. Either a
+   * newer session was already in place, or this run minted a replacement.
+   */
   | 'retry'
   /** The session really is gone. The browser is signed out and navigating. */
   | 'signed-out';
@@ -52,6 +55,37 @@ export type Recovery =
  * of that, the 401 stands. A probe that fails for any other reason — offline, a
  * 500, a timeout — is not evidence of a live session and must not be read as
  * one.
+ *
+ * ## A dead cookie is not the same as a dead sign-in
+ *
+ * The probe answering 401 settles that the *cookie* is no good. It says nothing
+ * about the Firebase session behind it, and the two are separate credentials
+ * with separate lifetimes: the cookie can go missing on its own — cleared by
+ * the browser, dropped by a `Set-Cookie` that did not stick, aged out at five
+ * days — while the browser is still perfectly signed in.
+ *
+ * Signing the visitor out for that was the whole defect. Somebody who signed in
+ * a minute ago, whose cookie then went missing for any reason at all, was sent
+ * back to the sign-in page to do again what they had just done — and, because
+ * the second attempt lands a cookie that does stick, it looked like signing in
+ * simply had to be done twice.
+ *
+ * So before giving up, this asks {@link AuthService.exchangeForSession} to mint
+ * a replacement from the Firebase session the browser still holds. It is the
+ * same exchange the sign-in path runs, against the same route, under the same
+ * rules — no relaxed variant, no second endpoint:
+ *
+ * - **The five-minute rule is untouched.** `createSessionCookie` still refuses
+ *   an ID token whose `auth_time` is more than five minutes old, so a tab left
+ *   open over lunch gets `stale-sign-in` and falls through to the sign-out
+ *   below, exactly as it does today. What is rescued is the recent sign-in,
+ *   which is the case that was broken.
+ * - **Revocation is untouched.** The exchange verifies the ID token *with*
+ *   revocation checking, so an account whose tokens were revoked cannot mint
+ *   its way back in. The re-mint fails and the sign-out proceeds.
+ *
+ * This cannot loop: `invalidSessionInterceptor` skips `SESSION_ENDPOINT`, so
+ * the exchange's own 401 comes back here as a plain rejection.
  *
  * ## One recovery, however many 401s
  *
@@ -103,12 +137,40 @@ export class SessionRecovery {
       return 'retry';
     }
 
+    // The cookie is gone; the sign-in behind it may not be. See the class
+    // comment for why this is tried before anything is torn down.
+    if (await this.sessionWasReminted()) {
+      return 'retry';
+    }
+
     // Best-effort: a browser that cannot clear its own local state is still
     // better off at the sign-in page than sitting on a page it cannot load.
     await this.auth.forgetSession().catch(() => undefined);
     void this.router.navigateByUrl(this.loginUrlFor(from));
 
     return 'signed-out';
+  }
+
+  /**
+   * Whether a replacement cookie was minted from the browser's Firebase
+   * session.
+   *
+   * Every failure is one answer — `false` — because they all mean the same
+   * thing here: nobody is signed in, the sign-in is too old to exchange, the
+   * account was revoked, the network is down. None of them leaves a usable
+   * cookie, and the sign-out below is the response to all of them.
+   *
+   * `exchangeForSession` signs the browser out itself when the exchange fails,
+   * which is why the `forgetSession` that follows is not redundant work so much
+   * as the same intent stated once more for the paths that did not get there.
+   */
+  private async sessionWasReminted(): Promise<boolean> {
+    try {
+      await this.auth.exchangeForSession();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async sessionIsLive(): Promise<boolean> {

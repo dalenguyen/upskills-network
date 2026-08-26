@@ -276,14 +276,19 @@ export class AuthService {
    * The server rejects an ID token whose sign-in is more than five minutes old
    * with 401 `stale-sign-in`. Every sign-in method on this service already
    * calls it, in the same flow, before it resolves — so ordinary code never
-   * needs to. It is public for the one case that is not ordinary: a flow that
+   * needs to. It is public for the two cases that are not ordinary: a flow that
    * re-authenticates the user by some other means (a reauthentication prompt
-   * before a sensitive action) and must upgrade the fresh sign-in immediately.
+   * before a sensitive action) and must upgrade the fresh sign-in immediately,
+   * and {@link SessionRecovery}, which tries once to replace a cookie the
+   * server has just rejected before it signs the browser out.
    *
-   * Calling it "to make sure we have a cookie" on a page load, from a guard, or
-   * on a 401 will pass in development against a tab opened seconds ago and fail
-   * in production against a tab someone left open over lunch. If the cookie is
-   * gone, the user signs in again; that is the intended recovery.
+   * Calling it "to make sure we have a cookie" on a page load or from a guard
+   * will pass in development against a tab opened seconds ago and fail in
+   * production against a tab someone left open over lunch. That is why
+   * `SessionRecovery` calls it as a *last resort with a fallback* rather than
+   * as a mechanism: when it fails, the visitor is signed out and sent to the
+   * sign-in page, which is what would have happened anyway. Nothing may depend
+   * on this succeeding.
    *
    * The token is read with `getIdToken()` and not `getIdToken(true)`: a forced
    * refresh produces a newer token but the *same* `auth_time`, so it cannot
