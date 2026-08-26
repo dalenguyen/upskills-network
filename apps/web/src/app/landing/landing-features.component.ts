@@ -23,7 +23,7 @@ interface Feature {
           <h2
             class="mt-3 text-balance text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl"
           >
-            Built for people who learn by doing
+            Built for people who run workshops
           </h2>
         </div>
 
@@ -53,25 +53,28 @@ interface Feature {
 export class LandingFeaturesComponent {
   readonly features: readonly Feature[] = [
     {
-      icon: 'calendar',
-      title: 'Local workshops',
-      description: 'Hands-on sessions near you, in small groups.',
+      icon: 'ticket',
+      title: 'Real capacity limits',
+      description:
+        "Registration is a database transaction — a full event can't be oversold, even when two people register at once.",
     },
     {
       icon: 'users',
-      title: 'Grow your network',
-      description: 'Meet professionals across industries who show up to learn.',
+      title: 'The waitlist runs itself',
+      description:
+        'Past capacity, guests land on a waitlist and move up automatically when someone cancels.',
     },
     {
       icon: 'sparkles',
-      title: 'Learn from practitioners',
-      description: 'Led by people doing the work, not talking about it.',
+      title: 'Emails sent for you',
+      description:
+        'Confirmation, waitlist, and reminder emails go out without you touching an inbox.',
     },
     {
-      icon: 'check',
-      title: 'Effortless signup',
+      icon: 'external-link',
+      title: 'Open source, self-hostable',
       description:
-        'Simple registration, transparent waitlist, easy cancellation.',
+        'MIT licensed. Use the free hosted version, or run it yourself on your own Firebase project.',
     },
   ];
 }

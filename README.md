@@ -1,6 +1,8 @@
 # Upskills
 
-Upskills is a platform for in-person workshops and networking events. Organizers create and publish paid workshop events, and guests register, pay via Stripe, and receive transactional email via Resend. The app is a single Nx workspace (`@upskills/source`) built with Angular + AnalogJS for server-side rendering, Firebase for auth and data (Firestore), and deployed as a container to Cloud Run.
+Upskills is an open-source platform for people who run workshops. Organizers publish an event page, guests register, capacity is enforced so a full event can't be oversold, and the waitlist and transactional email (via Resend) run without the organizer touching anything. The app is a single Nx workspace (`@upskills/source`) built with Angular + AnalogJS for server-side rendering, Firebase for auth and data (Firestore), and deployed as a container to Cloud Run.
+
+**Free while in beta.** Paid events aren't live yet — the Stripe checkout path is stubbed, and registration refuses paid events. Free events only, for now.
 
 ## Tech stack
 
@@ -45,7 +47,7 @@ Then open http://localhost:4200.
 
 ## Domain model
 
-An organizer hosts a workshop event (`events/{eventId}`) with a price, capacity, and lifecycle (`draft` → `published` → `cancelled`). A guest registers against an event; their registration is a `Guest` document keyed by normalized email and carries a status: `pending` (waitlist), `held` (paid reservation awaiting the Stripe webhook), `confirmed` (holds a spot), `cancelled`, or `expired` (a held reservation whose payment never landed).
+An organizer hosts a workshop event (`events/{eventId}`) with a price, capacity, and lifecycle (`draft` → `published` → `cancelled`). A guest registers against an event; their registration is a `Guest` document keyed by normalized email and carries a status: `pending` (waitlist), `held` (paid reservation awaiting the Stripe webhook — not reachable yet, since paid events aren't live), `confirmed` (holds a spot), `cancelled`, or `expired` (a held reservation whose payment never landed).
 
 ## Contributing
 

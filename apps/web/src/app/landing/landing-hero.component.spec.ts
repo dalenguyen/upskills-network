@@ -1,4 +1,3 @@
-import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -8,21 +7,23 @@ describe('LandingHeroComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [LandingHeroComponent],
-      providers: [provideHttpClient()],
     }).compileComponents();
   });
 
-  it('renders the headline, subhead, and waitlist form', () => {
+  it('renders the headline, subhead, and the create-event CTA', () => {
     const fixture = TestBed.createComponent(LandingHeroComponent);
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain(
-      'Grow your skills. Expand your network.',
+      'Stop running your workshop from a spreadsheet.',
     );
     expect(root.textContent).toContain(
-      'Upskills hosts in-person workshops where professionals learn from practitioners and meet peers — no lectures, no passive webinars.',
+      'Upskills is an open-source platform for people who run workshops.',
     );
-    expect(root.querySelector('app-landing-waitlist-form')).toBeTruthy();
+    const cta = root.querySelector<HTMLAnchorElement>(
+      'a[href="/auth/register"]',
+    );
+    expect(cta?.textContent).toContain('Create your first event');
   });
 });
