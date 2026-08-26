@@ -144,6 +144,32 @@ describe('EventFormComponent', () => {
     http.verify();
   });
 
+  it('warns when a price is set, since payments are not live yet', async () => {
+    const { fixture, http } = await setup();
+
+    expect(fixture.nativeElement.textContent).not.toContain(
+      "Payments aren't live yet",
+    );
+
+    setValue(fixture, '#price', '49.50');
+
+    expect(fixture.nativeElement.textContent).toContain(
+      "Payments aren't live yet",
+    );
+    http.verify();
+  });
+
+  it('does not warn for a free event, including the default of 0', async () => {
+    const { fixture, http } = await setup();
+
+    setValue(fixture, '#price', '0');
+
+    expect(fixture.nativeElement.textContent).not.toContain(
+      "Payments aren't live yet",
+    );
+    http.verify();
+  });
+
   it('offers a Cancel button only when the host asks for one', async () => {
     const { fixture, http } = await setup();
 

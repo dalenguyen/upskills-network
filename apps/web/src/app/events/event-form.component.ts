@@ -243,6 +243,14 @@ interface EventForm {
           [(ngModel)]="form.price"
           class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
         />
+        @if (hasPriceWarning()) {
+          <p
+            class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200"
+          >
+            Payments aren't live yet — guests won't be able to pay, so
+            registration for this event will be refused until it's free.
+          </p>
+        }
       </div>
 
       <div>
@@ -366,6 +374,11 @@ export class EventFormComponent {
 
   isEdit(): boolean {
     return this.event() !== null;
+  }
+
+  /** Payments aren't wired up — a priced event can be saved but not paid for. */
+  protected hasPriceWarning(): boolean {
+    return Number(this.form.price) > 0;
   }
 
   private prefill(workshop: DashboardEvent): void {
