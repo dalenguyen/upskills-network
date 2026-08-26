@@ -19,19 +19,29 @@ describe('SessionRecovery', () => {
   let http: HttpTestingController;
   let forgetSession: ReturnType<typeof vi.fn>;
   let logout: ReturnType<typeof vi.fn>;
+  let exchangeForSession: ReturnType<typeof vi.fn>;
   let navigateByUrl: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
     forgetSession = vi.fn().mockResolvedValue(undefined);
     logout = vi.fn().mockResolvedValue(undefined);
+    // The default across this suite is a re-mint that cannot help — a browser
+    // with no Firebase session behind the dead cookie. The tests that care
+    // about the rescue override it.
+    exchangeForSession = vi
+      .fn()
+      .mockRejectedValue(new Error('nobody is signed in'));
 
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         provideHttpClient(withInterceptors([])),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { forgetSession, logout } },
+        {
+          provide: AuthService,
+          useValue: { forgetSession, logout, exchangeForSession },
+        },
       ],
     });
 
@@ -62,6 +72,46 @@ describe('SessionRecovery', () => {
     await expect(result).resolves.toBe('retry');
     expect(forgetSession).not.toHaveBeenCalled();
     expect(navigateByUrl).not.toHaveBeenCalled();
+    // A live cookie needs no replacement, and minting one would cost a round
+    // trip on the login path for nothing.
+    expect(exchangeForSession).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The bug this whole path exists for: the cookie is gone but the browser is
+   * still signed in. Sending that visitor to the sign-in page asks them to
+   * redo what they did a minute ago, and because the second attempt lands a
+   * cookie that sticks, it reads as "I had to sign in twice".
+   */
+  it('mints a replacement from the Firebase session rather than signing out', async () => {
+    exchangeForSession.mockResolvedValue(undefined);
+
+    const result = recovery.recover('/dashboard');
+    answerProbe(false);
+
+    await expect(result).resolves.toBe('retry');
+    expect(exchangeForSession).toHaveBeenCalledTimes(1);
+    expect(forgetSession).not.toHaveBeenCalled();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The re-mint is a rescue, not a mechanism. It goes through the same
+   * `POST /api/v1/auth/session` as sign-in, so a sign-in older than five
+   * minutes is refused `stale-sign-in` and a revoked account is refused
+   * outright — and both land here, at the sign-out that would have happened
+   * anyway.
+   */
+  it('signs out when the replacement cannot be minted either', async () => {
+    exchangeForSession.mockRejectedValue(new Error('stale-sign-in'));
+
+    const result = recovery.recover('/dashboard');
+    answerProbe(false);
+
+    await expect(result).resolves.toBe('signed-out');
+    expect(exchangeForSession).toHaveBeenCalledTimes(1);
+    expect(forgetSession).toHaveBeenCalledTimes(1);
+    expect(navigateByUrl).toHaveBeenCalledTimes(1);
   });
 
   it('signs out locally and redirects when the session really is gone', async () => {
@@ -130,6 +180,9 @@ describe('SessionRecovery', () => {
     ]);
     expect(forgetSession).toHaveBeenCalledTimes(1);
     expect(navigateByUrl).toHaveBeenCalledTimes(1);
+    // One re-mint too: three concurrent exchanges would race to set the cookie
+    // and revoke each other's work.
+    expect(exchangeForSession).toHaveBeenCalledTimes(1);
     http.verify();
   });
 

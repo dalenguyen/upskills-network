@@ -25,11 +25,11 @@ import { BYPASS_SESSION_RECOVERY, SessionRecovery } from './session-recovery';
  *
  * Acting on it destroyed the replacement, which is how signing in came to look
  * like it needed doing twice. So the decision belongs to {@link
- * SessionRecovery}, which re-asks with the current cookie: if a newer session
- * answers, the request is retried against it and nothing is signed out.
- * Retrying is safe because a 401 `invalid-session` is refused by the
- * authorization check, before any handler runs — there is no half-applied
- * write to worry about.
+ * SessionRecovery}, which re-asks with the current cookie and, failing that,
+ * tries once to mint a replacement from the browser's Firebase session. If
+ * either answers, the request is retried and nothing is signed out. Retrying is
+ * safe because a 401 `invalid-session` is refused by the authorization check,
+ * before any handler runs — there is no half-applied write to worry about.
  *
  * Skipped for {@link SESSION_ENDPOINT} itself — its own DELETE 401ing here
  * would recurse into another DELETE — for the probe, which needs its 401 to
