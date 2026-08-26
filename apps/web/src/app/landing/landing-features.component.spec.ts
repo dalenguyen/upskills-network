@@ -17,21 +17,21 @@ describe('LandingFeaturesComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelectorAll('ui-card')).toHaveLength(4);
 
-    expect(root.textContent).toContain('Local workshops');
+    expect(root.textContent).toContain('Real capacity limits');
     expect(root.textContent).toContain(
-      'Hands-on sessions near you, in small groups.',
+      "Registration is a database transaction — a full event can't be oversold, even when two people register at once.",
     );
-    expect(root.textContent).toContain('Grow your network');
+    expect(root.textContent).toContain('The waitlist runs itself');
     expect(root.textContent).toContain(
-      'Meet professionals across industries who show up to learn.',
+      'Past capacity, guests land on a waitlist and move up automatically when someone cancels.',
     );
-    expect(root.textContent).toContain('Learn from practitioners');
+    expect(root.textContent).toContain('Emails sent for you');
     expect(root.textContent).toContain(
-      'Led by people doing the work, not talking about it.',
+      'Confirmation, waitlist, and reminder emails go out without you touching an inbox.',
     );
-    expect(root.textContent).toContain('Effortless signup');
+    expect(root.textContent).toContain('Open source, self-hostable');
     expect(root.textContent).toContain(
-      'Simple registration, transparent waitlist, easy cancellation.',
+      'MIT licensed. Use the free hosted version, or run it yourself on your own Firebase project.',
     );
   });
 });

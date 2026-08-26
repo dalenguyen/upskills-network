@@ -19,11 +19,11 @@ describe('LandingHowItWorksComponent', () => {
     expect(steps).toHaveLength(3);
 
     expect(steps[0].textContent).toContain('Step 1');
-    expect(steps[0].textContent).toContain('Join the waitlist');
+    expect(steps[0].textContent).toContain('Create your event');
     expect(steps[1].textContent).toContain('Step 2');
-    expect(steps[1].textContent).toContain('Pick a workshop');
+    expect(steps[1].textContent).toContain('Publish and share the link');
     expect(steps[2].textContent).toContain('Step 3');
-    expect(steps[2].textContent).toContain('Show up and connect');
+    expect(steps[2].textContent).toContain('Registrations run themselves');
   });
 
   // <ol> admits only <li> and script-supporting elements. The decorative

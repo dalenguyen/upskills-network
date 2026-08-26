@@ -22,7 +22,7 @@ interface Step {
         <h2
           class="mt-3 text-balance text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl"
         >
-          Three steps from signup to a room full of peers
+          Three steps from idea to a full room
         </h2>
       </div>
 
@@ -68,22 +68,21 @@ interface Step {
 export class LandingHowItWorksComponent {
   readonly steps: readonly Step[] = [
     {
-      icon: 'ticket',
-      title: 'Join the waitlist',
-      description:
-        'Drop your email and we let you know the moment sessions open in your city.',
+      icon: 'calendar',
+      title: 'Create your event',
+      description: 'Set a title, date, and capacity. Takes a couple minutes.',
     },
     {
-      icon: 'map-pin',
-      title: 'Pick a workshop',
+      icon: 'external-link',
+      title: 'Publish and share the link',
       description:
-        'Browse upcoming sessions, see who is teaching, and reserve your spot in a click.',
+        'Your event gets a public page at upskillsnetwork.com/your-org/your-event.',
     },
     {
       icon: 'users',
-      title: 'Show up and connect',
+      title: 'Registrations run themselves',
       description:
-        'Spend an evening building something real alongside people worth knowing.',
+        'Capacity is enforced automatically, and the waitlist promotes the next guest when someone cancels.',
     },
   ];
 }

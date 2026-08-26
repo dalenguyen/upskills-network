@@ -1,6 +1,8 @@
 # Upskills
 
-Upskills is a platform for in-person workshops and networking events. Organizers create and publish paid workshop events, and guests register, pay via Stripe, and receive transactional email via Resend. The app is a single Nx workspace (`@upskills/source`) built with Angular + AnalogJS for server-side rendering, Firebase for auth and data (Firestore), and deployed as a container to Cloud Run.
+Upskills is an open-source platform for people who run workshops. Organizers publish an event page, guests register, capacity is enforced so a full event can't be oversold, and the waitlist and transactional email (via Resend) run without the organizer touching anything. The app is a single Nx workspace (`@upskills/source`) built with Angular + AnalogJS for server-side rendering, Firebase for auth and data (Firestore), and deployed as a container to Cloud Run.
+
+**Free while in beta.** Paid events aren't live yet — the Stripe checkout path is stubbed, and registration refuses paid events. Free events only, for now.
 
 ## Tech stack
 

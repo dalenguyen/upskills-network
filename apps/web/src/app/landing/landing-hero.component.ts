@@ -2,11 +2,9 @@ import { Component } from '@angular/core';
 
 import { Badge, Icon, Section } from '@upskills/ui';
 
-import { LandingWaitlistFormComponent } from './landing-waitlist-form.component';
-
 @Component({
   selector: 'app-landing-hero',
-  imports: [Section, Badge, Icon, LandingWaitlistFormComponent],
+  imports: [Section, Badge, Icon],
   template: `
     <div class="relative isolate overflow-hidden">
       <!-- Tinted backdrop: a vertical wash plus an indigo glow behind the
@@ -28,7 +26,7 @@ import { LandingWaitlistFormComponent } from './landing-waitlist-form.component'
               class="h-1.5 w-1.5 rounded-full bg-indigo-500"
               aria-hidden="true"
             ></span>
-            Now taking signups for the first cohort
+            Free while in beta
           </ui-badge>
 
           <!-- The accent half is a block so the headline always breaks between
@@ -38,16 +36,37 @@ import { LandingWaitlistFormComponent } from './landing-waitlist-form.component'
           <h1
             class="text-4xl font-bold leading-[1.1] tracking-tight text-zinc-900 sm:text-5xl lg:text-6xl"
           >
-            Grow your skills.
-            <span class="block text-indigo-600">Expand your network.</span>
+            Stop running your workshop from a spreadsheet.
+            <span class="block text-indigo-600">Publish it instead.</span>
           </h1>
 
           <p class="max-w-2xl text-pretty text-lg leading-8 text-zinc-600">
-            Upskills hosts in-person workshops where professionals learn from
-            practitioners and meet peers — no lectures, no passive webinars.
+            Upskills is an open-source platform for people who run workshops.
+            Publish an event page, take registrations, and let the waitlist
+            manage itself when you hit capacity — confirmation and reminder
+            emails included.
           </p>
 
-          <app-landing-waitlist-form />
+          <div
+            class="flex flex-col items-center gap-3 sm:flex-row sm:justify-center"
+          >
+            <a
+              href="/auth/register"
+              class="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-6 text-base font-semibold text-white shadow-sm shadow-indigo-600/25 transition duration-150 hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              Create your first event
+              <ui-icon name="arrow-right" size="sm" />
+            </a>
+            <a
+              href="https://github.com/dalenguyen/upskills-network"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex h-12 items-center gap-1.5 px-6 text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900"
+            >
+              View on GitHub
+              <ui-icon name="external-link" size="sm" />
+            </a>
+          </div>
 
           <ul
             class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500"
@@ -66,8 +85,8 @@ import { LandingWaitlistFormComponent } from './landing-waitlist-form.component'
 })
 export class LandingHeroComponent {
   readonly proofPoints: readonly string[] = [
-    'Small groups',
-    'Free while in beta',
-    'Hands-on, every session',
+    'Open source, MIT licensed',
+    'Self-hostable',
+    'Free events only for now',
   ];
 }
