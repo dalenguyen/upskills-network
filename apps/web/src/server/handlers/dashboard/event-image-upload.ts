@@ -33,15 +33,22 @@ const ACCEPTED_IMAGE_EXTENSIONS: Record<AcceptedImageContentType, string> = {
   'image/webp': 'webp',
 };
 
+/**
+ * The upload result.
+ *
+ * The field names match the `heroImage` bookkeeping object an event carries,
+ * so the create and update forms can store what they receive without renaming
+ * anything on the way through.
+ */
 export interface DashboardEventImageUploadResponse {
   /** Public Cloud Storage URL that serves the stored bytes. */
   url: string;
   /** Object path inside the media bucket. */
-  path: string;
+  storagePath: string;
   /** Sniffed content type written onto the object. */
   contentType: AcceptedImageContentType;
   /** Number of bytes stored. */
-  size: number;
+  sizeBytes: number;
 }
 
 export interface DashboardEventImageUploadDeps {
@@ -93,7 +100,20 @@ export function createDashboardEventImageUploadHandler(
         );
       }
 
-      const rawBody = await readRawBody(event);
+      // `false` is load-bearing: `readRawBody`'s default encoding is `utf8`,
+      // which would decode the image bytes into a string — replacing every
+      // byte that is not valid UTF-8 with U+FFFD and corrupting every JPEG,
+      // PNG and WebP that reached here. A string also has no `byteLength`, so
+      // the size check below would compare `undefined` and silently never
+      // fire. Only `false` returns the Buffer this handler needs.
+      const rawBody = await readRawBody(event, false);
+      if (rawBody === undefined) {
+        throw badRequest(
+          'invalid-multipart',
+          'Expected a multipart/form-data body with a boundary.',
+        );
+      }
+
       if (rawBody.byteLength > MAX_EVENT_IMAGE_BYTES) {
         throw imageTooLargeError();
       }
@@ -121,19 +141,19 @@ export function createDashboardEventImageUploadHandler(
       }
 
       const extension = ACCEPTED_IMAGE_EXTENSIONS[detected];
-      const path = `orgs/${orgId}/event-media/${newMediaId()}.${extension}`;
+      const storagePath = `orgs/${orgId}/event-media/${newMediaId()}.${extension}`;
 
       const url = await deps.storage.upload({
-        path,
+        path: storagePath,
         data: part.data,
         contentType: detected,
       });
 
       return {
         url,
-        path,
+        storagePath,
         contentType: detected,
-        size: part.data.byteLength,
+        sizeBytes: part.data.byteLength,
       } satisfies DashboardEventImageUploadResponse;
     } catch (error) {
       throw toHttpError(error);

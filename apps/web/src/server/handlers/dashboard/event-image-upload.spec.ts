@@ -118,9 +118,9 @@ describe('POST /api/v1/dashboard/events/image', () => {
       expect(input.data).toEqual(bytes);
       expect(result).toEqual({
         url: `https://storage.googleapis.com/test-bucket/${input.path}`,
-        path: input.path,
+        storagePath: input.path,
         contentType,
-        size: bytes.length,
+        sizeBytes: bytes.length,
       });
     },
   );
@@ -242,6 +242,31 @@ describe('POST /api/v1/dashboard/events/image', () => {
       data: { error: 'invalid-image-type' },
     });
     expect(d.storage.upload).not.toHaveBeenCalled();
+  });
+
+  it('stores the image bytes untouched, including bytes that are not valid UTF-8', async () => {
+    // The body must be read as a Buffer. Read with the default `utf8`
+    // encoding instead, every byte below that is not part of a valid UTF-8
+    // sequence comes back as U+FFFD and the stored image is corrupt — while
+    // every other assertion in this file still passes, because the magic
+    // bytes at the front survive the round trip.
+    const bytes = Buffer.concat([
+      pngBytes(),
+      Buffer.from([0x80, 0x81, 0xfe, 0xff, 0xc0, 0xaf, 0xed, 0xa0, 0x80]),
+    ]);
+    const upload = vi.fn(
+      async (input: UploadMediaInput) =>
+        `https://storage.googleapis.com/test-bucket/${input.path}`,
+    );
+    const d = deps({ storage: mediaStorage({ upload }) });
+
+    const result = await createDashboardEventImageUploadHandler(d)(
+      imageRequest(bytes),
+    );
+
+    const stored = upload.mock.calls[0][0].data;
+    expect(Buffer.compare(stored, bytes)).toBe(0);
+    expect(result).toMatchObject({ sizeBytes: bytes.length });
   });
 
   it('keys the stored object by an unguessable media id with no event id', async () => {
