@@ -37,6 +37,9 @@ importers:
       '@angular/router':
         specifier: ~22.0.4
         version: 22.0.8(@angular/common@22.0.8(@angular/core@22.0.8(@angular/compiler@22.0.8)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.8(@angular/compiler@22.0.8)(rxjs@7.8.2))(@angular/platform-browser@22.0.8(@angular/common@22.0.8(@angular/core@22.0.8(@angular/compiler@22.0.8)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.8(@angular/compiler@22.0.8)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@google-cloud/storage':
+        specifier: ^8.0.1
+        version: 8.0.1
       firebase:
         specifier: ^12.17.1
         version: 12.17.1
@@ -3101,12 +3104,26 @@ packages:
       }
     engines: { node: '>=14.0.0' }
 
+  '@google-cloud/paginator@7.0.1':
+    resolution:
+      {
+        integrity: sha512-k32cWlHAF8yTgg8rciLI8mPMI6UzuJdKp53YRxISRwMFxUl2FYplvs+Mr2UHxKn0W7rXsqZnUZy73AOJFDP8iA==,
+      }
+    engines: { node: '>=22' }
+
   '@google-cloud/projectify@4.0.0':
     resolution:
       {
         integrity: sha512-MmaX6HeSvyPbWGwFq7mXdo0uQZLGBYCwziiLIGq5JVX+/bdI3SAq6bP98trV5eTWfLuvsMcIC1YJOF2vfteLFA==,
       }
     engines: { node: '>=14.0.0' }
+
+  '@google-cloud/projectify@6.0.1':
+    resolution:
+      {
+        integrity: sha512-zA3o4l87UJ56odT/e9PcT4n2bqVnrp6dg9vI75DoGGbl0/YJemX8Fta7454htECt07eALxxc4iaAbrX3T+QulA==,
+      }
+    engines: { node: '>=22' }
 
   '@google-cloud/promisify@4.0.0':
     resolution:
@@ -3115,12 +3132,26 @@ packages:
       }
     engines: { node: '>=14' }
 
+  '@google-cloud/promisify@6.0.1':
+    resolution:
+      {
+        integrity: sha512-lpN2AtoQ/iimp7jjm5zJFWbpW7OJc5qWmQdt59CI4ENeoIRIx+yf2ShSR2kanQfjFOshA74eSbimXXuRaSCUVg==,
+      }
+    engines: { node: '>=22' }
+
   '@google-cloud/storage@7.22.0':
     resolution:
       {
         integrity: sha512-W98gTQOAntEeEQ7/pZxSQXxfUO5CiQcXJRsxBpUa6UU25n8YN/VtogPBi0H+MAmUrn/6bY/sBhFansoWEsr2/g==,
       }
     engines: { node: '>=18' }
+
+  '@google-cloud/storage@8.0.1':
+    resolution:
+      {
+        integrity: sha512-qgNayyweyLssLW2NNL4WYUIbwxRCvCVGg52aW8r9Lkunkoj52U6WQa/TSXSsJZ1BrbxQp3+9kwwpRl+scHQ3KQ==,
+      }
+    engines: { node: '>=22' }
 
   '@grpc/grpc-js@1.14.4':
     resolution:
@@ -14861,6 +14892,13 @@ packages:
       }
     engines: { node: '>=18' }
 
+  retry-request@9.0.1:
+    resolution:
+      {
+        integrity: sha512-4kGHEBl0ME6gR+8QB1sPMyg58jUxLUcCZNeqLDrfqzk0eWQN8XJFmeu7fmZCjlZCRW0S2u64Ik1HkO/0sWgCYQ==,
+      }
+    engines: { node: '>=22' }
+
   retry@0.13.1:
     resolution:
       {
@@ -15982,6 +16020,13 @@ packages:
         integrity: sha512-R1Cg4Vu0UULeDfHL/kjABLaTW++9yD/B6n2g48y5dJ04hsEaxcfmAqbNDzNsbqAYJyIpZafjklLG9YxRu9uzOg==,
       }
     engines: { node: '>=18' }
+
+  teeny-request@11.0.1:
+    resolution:
+      {
+        integrity: sha512-bNr5j2YjSdajgCVsp+8JVjRf1uHIbpNISLeKp/7V1NnVMX3Gh6H/kECNGlm2Q3I68ACODQ0iv6aZ3Rvm8WgLGA==,
+      }
+    engines: { node: '>=22' }
 
   teeny-request@9.0.0:
     resolution:
@@ -19498,11 +19543,19 @@ snapshots:
       extend: 3.0.2
     optional: true
 
+  '@google-cloud/paginator@7.0.1':
+    dependencies:
+      extend: 3.0.2
+
   '@google-cloud/projectify@4.0.0':
     optional: true
 
+  '@google-cloud/projectify@6.0.1': {}
+
   '@google-cloud/promisify@4.0.0':
     optional: true
+
+  '@google-cloud/promisify@6.0.1': {}
 
   '@google-cloud/storage@7.22.0':
     dependencies:
@@ -19524,6 +19577,26 @@ snapshots:
       - encoding
       - supports-color
     optional: true
+
+  '@google-cloud/storage@8.0.1':
+    dependencies:
+      '@google-cloud/paginator': 7.0.1
+      '@google-cloud/projectify': 6.0.1
+      '@google-cloud/promisify': 6.0.1
+      abort-controller: 3.0.0
+      async-retry: 1.3.3
+      duplexify: 4.1.3
+      fast-xml-parser: 5.10.1
+      gaxios: 6.7.1
+      google-auth-library: 9.15.1
+      html-entities: 2.6.0
+      mime: 3.0.0
+      p-limit: 3.1.0
+      retry-request: 9.0.1
+      teeny-request: 11.0.1
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
 
   '@grpc/grpc-js@1.14.4':
     dependencies:
@@ -20413,8 +20486,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
-  '@nodable/entities@3.0.0':
-    optional: true
+  '@nodable/entities@3.0.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -22629,8 +22701,7 @@ snapshots:
       normalize-path: 3.0.0
       picomatch: 2.3.2
 
-  anynum@1.0.1:
-    optional: true
+  anynum@1.0.1: {}
 
   archiver-utils@5.0.2:
     dependencies:
@@ -22682,7 +22753,6 @@ snapshots:
   async-retry@1.3.3:
     dependencies:
       retry: 0.13.1
-    optional: true
 
   async-sema@3.1.1: {}
 
@@ -23802,7 +23872,6 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
       stream-shift: 1.0.3
-    optional: true
 
   eastasianwidth@0.2.0: {}
 
@@ -24300,7 +24369,6 @@ snapshots:
     dependencies:
       path-expression-matcher: 1.6.2
       xml-naming: 0.3.0
-    optional: true
 
   fast-xml-parser@5.10.1:
     dependencies:
@@ -24310,7 +24378,6 @@ snapshots:
       path-expression-matcher: 1.6.2
       strnum: 2.4.1
       xml-naming: 0.3.0
-    optional: true
 
   fastq@1.20.1:
     dependencies:
@@ -24585,7 +24652,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   gaxios@7.1.3:
     dependencies:
@@ -24613,7 +24679,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   gcp-metadata@8.1.2:
     dependencies:
@@ -24767,7 +24832,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   google-gax@5.0.8:
     dependencies:
@@ -24786,8 +24850,7 @@ snapshots:
       - supports-color
     optional: true
 
-  google-logging-utils@0.0.2:
-    optional: true
+  google-logging-utils@0.0.2: {}
 
   google-logging-utils@1.1.3: {}
 
@@ -24817,7 +24880,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   gtoken@8.0.0:
     dependencies:
@@ -24884,8 +24946,7 @@ snapshots:
     dependencies:
       whatwg-encoding: 3.1.1
 
-  html-entities@2.6.0:
-    optional: true
+  html-entities@2.6.0: {}
 
   html-escaper@2.0.2: {}
 
@@ -25157,8 +25218,7 @@ snapshots:
 
   is-unicode-supported@2.1.0: {}
 
-  is-unsafe@2.0.0:
-    optional: true
+  is-unsafe@2.0.0: {}
 
   is-url@1.2.4: {}
 
@@ -26616,8 +26676,7 @@ snapshots:
 
   mime@1.6.0: {}
 
-  mime@3.0.0:
-    optional: true
+  mime@3.0.0: {}
 
   mime@4.1.0: {}
 
@@ -27367,8 +27426,7 @@ snapshots:
 
   path-exists@5.0.0: {}
 
-  path-expression-matcher@1.6.2:
-    optional: true
+  path-expression-matcher@1.6.2: {}
 
   path-is-absolute@1.0.1: {}
 
@@ -27927,8 +27985,14 @@ snapshots:
       - supports-color
     optional: true
 
-  retry@0.13.1:
-    optional: true
+  retry-request@9.0.1:
+    dependencies:
+      extend: 3.0.2
+      teeny-request: 11.0.1
+    transitivePeerDependencies:
+      - supports-color
+
+  retry@0.13.1: {}
 
   reusify@1.1.0: {}
 
@@ -28473,10 +28537,8 @@ snapshots:
   stream-events@1.0.5:
     dependencies:
       stubs: 3.0.0
-    optional: true
 
-  stream-shift@1.0.3:
-    optional: true
+  stream-shift@1.0.3: {}
 
   streamx@2.28.0:
     dependencies:
@@ -28559,14 +28621,12 @@ snapshots:
   strnum@2.4.1:
     dependencies:
       anynum: 1.0.1
-    optional: true
 
   strtok3@10.3.5:
     dependencies:
       '@tokenizer/token': 0.3.0
 
-  stubs@3.0.0:
-    optional: true
+  stubs@3.0.0: {}
 
   style-loader@3.3.4(webpack@5.105.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.26)):
     dependencies:
@@ -28684,6 +28744,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
     optional: true
+
+  teeny-request@11.0.1:
+    dependencies:
+      http-proxy-agent: 7.0.2
+      https-proxy-agent: 7.0.6
+      node-fetch: 3.3.2
+      stream-events: 1.0.5
+    transitivePeerDependencies:
+      - supports-color
 
   teeny-request@9.0.0:
     dependencies:
@@ -29185,8 +29254,7 @@ snapshots:
 
   uuid@14.0.1: {}
 
-  uuid@9.0.1:
-    optional: true
+  uuid@9.0.1: {}
 
   uvu@0.5.6:
     dependencies:
@@ -29529,8 +29597,7 @@ snapshots:
 
   xml-name-validator@5.0.0: {}
 
-  xml-naming@0.3.0:
-    optional: true
+  xml-naming@0.3.0: {}
 
   xmlbuilder2@4.0.3:
     dependencies:
