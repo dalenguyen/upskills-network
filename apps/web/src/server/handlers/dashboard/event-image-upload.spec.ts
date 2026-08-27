@@ -269,6 +269,69 @@ describe('POST /api/v1/dashboard/events/image', () => {
     expect(result).toMatchObject({ sizeBytes: bytes.length });
   });
 
+  it('stores the whole image when its bytes contain the boundary marker', async () => {
+    // The sender picks the boundary, so those bytes are not inherently absent
+    // from the payload. Matching a bare `--boundary` anywhere would truncate
+    // the file here and store the prefix with no error at all.
+    const bytes = Buffer.concat([
+      pngBytes(),
+      Buffer.from(`--${TEST_MULTIPART_BOUNDARY}`),
+      Buffer.from([0x00, 0x01, 0x02, 0x03]),
+    ]);
+    const upload = vi.fn(
+      async (input: UploadMediaInput) =>
+        `https://storage.googleapis.com/test-bucket/${input.path}`,
+    );
+    const d = deps({ storage: mediaStorage({ upload }) });
+
+    const result = await createDashboardEventImageUploadHandler(d)(
+      imageRequest(bytes),
+    );
+
+    expect(Buffer.compare(upload.mock.calls[0][0].data, bytes)).toBe(0);
+    expect(result).toMatchObject({ sizeBytes: bytes.length });
+  });
+
+  it('refuses an unbounded body once it passes 5 MB, without a declared length', async () => {
+    // A chunked request carries no content-length, so the gate before the read
+    // cannot fire. The cap has to be enforced while reading or it is advisory.
+    const d = deps();
+    const event = imageRequest(pngBytes());
+    const chunk = Buffer.alloc(256 * 1024);
+    let delivered = 0;
+    let destroyed = false;
+
+    Object.defineProperty(event.node.req, 'body', { value: undefined });
+    Object.defineProperty(event.node.req, 'destroy', {
+      value: () => {
+        destroyed = true;
+      },
+    });
+    Object.defineProperty(event.node.req, Symbol.asyncIterator, {
+      value: async function* () {
+        // Far more than the cap, one chunk at a time — the read must stop
+        // early rather than run this to completion.
+        for (let i = 0; i < 200; i += 1) {
+          delivered += chunk.byteLength;
+          yield chunk;
+        }
+      },
+    });
+
+    await expect(
+      createDashboardEventImageUploadHandler(d)(event),
+    ).rejects.toMatchObject({
+      statusCode: 413,
+      data: { error: 'image-too-large' },
+    });
+
+    expect(destroyed).toBe(true);
+    expect(delivered).toBeLessThanOrEqual(
+      MAX_EVENT_IMAGE_BYTES + chunk.byteLength,
+    );
+    expect(d.storage.upload).not.toHaveBeenCalled();
+  });
+
   it('keys the stored object by an unguessable media id with no event id', async () => {
     const upload = vi.fn(
       async (input: UploadMediaInput) =>

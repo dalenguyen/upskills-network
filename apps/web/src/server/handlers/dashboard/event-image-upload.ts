@@ -6,7 +6,6 @@ import {
   createError,
   defineEventHandler,
   getRequestHeader,
-  readRawBody,
   type EventHandler,
   type H3Event,
 } from 'h3';
@@ -100,23 +99,7 @@ export function createDashboardEventImageUploadHandler(
         );
       }
 
-      // `false` is load-bearing: `readRawBody`'s default encoding is `utf8`,
-      // which would decode the image bytes into a string — replacing every
-      // byte that is not valid UTF-8 with U+FFFD and corrupting every JPEG,
-      // PNG and WebP that reached here. A string also has no `byteLength`, so
-      // the size check below would compare `undefined` and silently never
-      // fire. Only `false` returns the Buffer this handler needs.
-      const rawBody = await readRawBody(event, false);
-      if (rawBody === undefined) {
-        throw badRequest(
-          'invalid-multipart',
-          'Expected a multipart/form-data body with a boundary.',
-        );
-      }
-
-      if (rawBody.byteLength > MAX_EVENT_IMAGE_BYTES) {
-        throw imageTooLargeError();
-      }
+      const rawBody = await readBoundedRawBody(event, MAX_EVENT_IMAGE_BYTES);
 
       const part = parseMultipartFile(rawBody, boundary);
       if (part === null || part.name !== 'file' || part.filename === '') {
@@ -170,6 +153,65 @@ function imageTooLargeError() {
   });
 }
 
+/**
+ * The request body, refusing to hold more than `maxBytes` of it at once.
+ *
+ * The `content-length` gate upstream only helps when the header is present and
+ * honest. A chunked request has none, and a lying one is a header a client
+ * chose — so reading the body with h3's `readRawBody` would buffer whatever
+ * the client decided to send before anything measured it, and the 413 would
+ * arrive after the memory had already been spent. Counting while reading is
+ * what makes the cap real rather than advisory.
+ *
+ * Reads bytes, never text: `readRawBody`'s default `utf8` encoding would
+ * decode the image into a string, replacing every byte outside a valid UTF-8
+ * sequence with U+FFFD and corrupting every JPEG, PNG and WebP that got here.
+ *
+ * A body already buffered upstream (h3 does this when something has read the
+ * request first, and the handler specs construct one directly) is measured
+ * rather than re-read — there is no stream left to consume in that case.
+ */
+async function readBoundedRawBody(
+  event: H3Event,
+  maxBytes: number,
+): Promise<Buffer> {
+  const request = event.node.req as NodeJS.ReadableStream & { body?: unknown };
+  const buffered = request.body;
+
+  if (Buffer.isBuffer(buffered)) {
+    if (buffered.byteLength > maxBytes) {
+      throw imageTooLargeError();
+    }
+    return buffered;
+  }
+
+  if (typeof request[Symbol.asyncIterator] !== 'function') {
+    throw badRequest(
+      'invalid-multipart',
+      'Expected a multipart/form-data body with a boundary.',
+    );
+  }
+
+  const chunks: Buffer[] = [];
+  let total = 0;
+
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += bytes.byteLength;
+
+    if (total > maxBytes) {
+      // Stop the sender rather than draining a body already known to be over
+      // the limit.
+      (event.node.req as { destroy?: () => void }).destroy?.();
+      throw imageTooLargeError();
+    }
+
+    chunks.push(bytes);
+  }
+
+  return Buffer.concat(chunks, total);
+}
+
 function parseContentLength(header: string | undefined): number | undefined {
   if (header === undefined) {
     return undefined;
@@ -221,6 +263,13 @@ function parseMultipartFile(
   boundary: string,
 ): MultipartFilePart | null {
   const delimiter = Buffer.from(`--${boundary}`);
+  // RFC 2046: every delimiter after the first is CRLF--boundary, and the CRLF
+  // belongs to the delimiter rather than to the part before it. Searching for
+  // the bare `--boundary` instead would match those bytes ANYWHERE, including
+  // inside the image — truncating the upload at the collision and storing a
+  // corrupt file with no error. The sender picks the boundary, so those bytes
+  // are not inherently absent from the payload.
+  const separator = Buffer.from(`\r\n--${boundary}`);
   const firstBoundary = body.indexOf(delimiter);
 
   if (firstBoundary === -1) {
@@ -245,28 +294,22 @@ function parseMultipartFile(
     const headerBlock = body.subarray(cursor, headerEnd).toString('utf8');
     const disposition = parseContentDisposition(headerBlock);
 
-    const nextBoundary = body.indexOf(delimiter, headerEnd + 4);
+    const nextBoundary = body.indexOf(separator, headerEnd + 4);
     if (nextBoundary === -1) {
       return null;
     }
 
-    let dataEnd = nextBoundary;
-    if (
-      dataEnd >= 2 &&
-      body.subarray(dataEnd - 2, dataEnd).toString() === '\r\n'
-    ) {
-      dataEnd -= 2;
-    }
-
+    // The CRLF is part of the delimiter, so the part's bytes end where the
+    // separator begins — no trailing-CRLF adjustment to make.
     if (disposition.name === 'file' && disposition.filename !== undefined) {
       return {
         name: disposition.name,
         filename: disposition.filename,
-        data: body.subarray(headerEnd + 4, dataEnd),
+        data: body.subarray(headerEnd + 4, nextBoundary),
       };
     }
 
-    cursor = nextBoundary + delimiter.length;
+    cursor = nextBoundary + separator.length;
   }
 
   return null;
