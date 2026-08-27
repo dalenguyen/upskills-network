@@ -110,6 +110,21 @@ describe('objectPathForPublicUrl', () => {
     ).toBeNull();
   });
 
+  it('returns null for a foreign host whose path starts with the bucket name', () => {
+    // The origin check is what refuses this, and nothing else would: the path
+    // is shaped exactly like one of ours, so the bucket and segment checks
+    // below it all pass. `imageUrl` is a value an organizer pastes, so without
+    // the origin check someone could point a draft event at
+    // `https://evil.example.com/<bucket>/orgs/<other org>/...`, delete the
+    // draft, and have the delete path remove another organizer's object.
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://evil.example.com/bucket/orgs/other-org/event-media/abc.jpg',
+      ),
+    ).toBeNull();
+  });
+
   it('returns null when the first path segment is a different bucket', () => {
     expect(
       objectPathForPublicUrl(
