@@ -389,6 +389,39 @@ describe('updateEvent', () => {
     expect(stored && 'heroImage' in stored).toBe(true);
   });
 
+  it('refuses to store heroImage when the same patch clears imageUrl', async () => {
+    // `UpdateEventSchema` rejects this pair, but `updateEvent` is the only
+    // write path and the seed script reaches it without a schema in between.
+    // Storing the bookkeeping alone would describe an object the event does
+    // not show — the exact orphan the sweeper is built to find, made invisible
+    // to it by a reference that lies.
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/a.jpg',
+      heroImage: {
+        storagePath: 'orgs/org-1/event-media/a.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: 10,
+        uploadedAt: '2026-09-01T18:00:00Z',
+      },
+    });
+
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: '',
+      heroImage: {
+        storagePath: 'orgs/org-1/event-media/b.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: 20,
+        uploadedAt: '2026-09-01T19:00:00Z',
+      },
+    });
+
+    const stored = await getEvent('org-1', 'evt-1');
+    expect(stored && 'imageUrl' in stored).toBe(false);
+    expect(stored && 'heroImage' in stored).toBe(false);
+  });
+
   it('leaves the listing fields alone when the patch does not mention them', async () => {
     // This is what makes a seeded event survive an edit through the dashboard,
     // whose form has no input for either field.

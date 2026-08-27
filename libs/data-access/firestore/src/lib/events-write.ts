@@ -284,7 +284,14 @@ export async function updateEvent(
     const imageUrlChanged = next.imageUrl !== existing.imageUrl;
 
     if (imageUrlChanged || patch.heroImage !== undefined) {
-      if (patch.heroImage !== undefined) {
+      // The URL has to survive `applyOptionalText` for bookkeeping to describe
+      // anything: a patch carrying both `imageUrl: ''` and a `heroImage` asks
+      // to clear the image and record an upload in the same breath.
+      // `UpdateEventSchema` refuses that pair, but this is the only write path
+      // and the seed script reaches it without passing through a schema — the
+      // same reason the `sourceName` rule below lives here rather than at its
+      // callers.
+      if (patch.heroImage !== undefined && next.imageUrl !== undefined) {
         next.heroImage = patch.heroImage;
       } else {
         delete next.heroImage;
