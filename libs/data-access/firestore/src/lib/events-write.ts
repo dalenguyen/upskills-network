@@ -264,17 +264,26 @@ export async function updateEvent(
     applyOptionalText(next, patch, 'imageUrl');
 
     // `heroImage` describes the bytes behind `imageUrl`, so the two are always
-    // written together and cleared together. Patching the URL — to a pasted
-    // link, to a freshly uploaded replacement, or to nothing — must write the
-    // bookkeeping the patch carries for the new URL, or remove the old
-    // bookkeeping when there is none. Keeping the old object here would be
-    // both a lie and an orphan: the sweeper would see a referenced path and
-    // leave the real garbage alone.
+    // written together, cleared together, and — just as importantly — left
+    // alone together. Changing the URL to a pasted link, to a freshly uploaded
+    // replacement, or to nothing must write the bookkeeping the patch carries
+    // for the new URL, or remove the old bookkeeping when there is none.
+    // Keeping stale bookkeeping would be both a lie and an orphan: the sweeper
+    // would see a referenced path and leave the real garbage alone.
     //
-    // A replacement is now possible because the upload route returns the full
+    // The trigger is a *changed* URL, not merely a present one. The edit form
+    // sends `imageUrl` on every save — omitting a field means "leave it as it
+    // was", so an emptied input has to send `''` to clear — which means the
+    // key is there even when an organizer only renamed the event. Keying off
+    // presence dropped the bookkeeping for an image the event still displays,
+    // and the caller, seeing bookkeeping vanish, deleted the live object.
+    //
+    // A replacement is possible because the upload route returns the full
     // `HeroImage`. Deleting the object the old bookkeeping points at stays the
     // caller's job, after this write has actually persisted.
-    if (Object.hasOwn(patch, 'imageUrl')) {
+    const imageUrlChanged = next.imageUrl !== existing.imageUrl;
+
+    if (imageUrlChanged || patch.heroImage !== undefined) {
       if (patch.heroImage !== undefined) {
         next.heroImage = patch.heroImage;
       } else {

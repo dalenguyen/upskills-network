@@ -359,6 +359,36 @@ describe('updateEvent', () => {
     });
   });
 
+  it('keeps heroImage when the patch resends the same imageUrl', async () => {
+    // The edit form sends `imageUrl` on every save, because omitting a field
+    // means "leave it alone" and an emptied input therefore has to send `''`
+    // to clear. So the ordinary act of renaming an event arrives here with the
+    // image URL present and unchanged. Keying the drop off presence rather
+    // than change deleted the bookkeeping for an image still on the page, and
+    // the caller then deleted the live object it pointed at.
+    const heroImage = {
+      storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+    const imageUrl =
+      'https://storage.googleapis.com/upskills-network-media/a.jpg';
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl,
+      heroImage,
+    });
+
+    await updateEvent('org-1', 'evt-1', { title: 'Renamed', imageUrl });
+
+    const stored = await getEvent('org-1', 'evt-1');
+    expect(stored).toMatchObject({ title: 'Renamed', imageUrl, heroImage });
+    expect(stored && 'heroImage' in stored).toBe(true);
+  });
+
   it('leaves the listing fields alone when the patch does not mention them', async () => {
     // This is what makes a seeded event survive an edit through the dashboard,
     // whose form has no input for either field.

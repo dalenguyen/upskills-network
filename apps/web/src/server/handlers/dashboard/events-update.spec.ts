@@ -420,6 +420,40 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
     expect(deleteMedia).not.toHaveBeenCalled();
   });
 
+  it('deletes nothing when an ordinary edit resends the unchanged image', async () => {
+    // The edit form sends `imageUrl` on every save, so renaming an event
+    // arrives here carrying the image it already had. The write preserves the
+    // bookkeeping in that case, and this handler must read that as "nothing
+    // was superseded" — anything else deletes the object the event still
+    // displays.
+    const updateEvent = vi.fn(async () =>
+      fakeEvent({
+        status: 'draft',
+        title: 'Renamed',
+        imageUrl: OLD_IMAGE_URL,
+        heroImage: OLD_HERO_IMAGE,
+      }),
+    );
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: OLD_IMAGE_URL,
+          heroImage: OLD_HERO_IMAGE,
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    await createDashboardEventsUpdateHandler(d)(
+      request({ title: 'Renamed', imageUrl: OLD_IMAGE_URL }),
+    );
+
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
+
   it('removing the image clears both fields and deletes the old object', async () => {
     const updateEvent = vi.fn(async () => fakeEvent({ status: 'draft' }));
     const deleteMedia = vi.fn(async () => undefined);
