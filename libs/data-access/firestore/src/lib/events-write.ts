@@ -1,4 +1,9 @@
-import type { EventStatus, Guest, WorkshopEvent } from '@upskills/models';
+import type {
+  EventStatus,
+  Guest,
+  HeroImage,
+  WorkshopEvent,
+} from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { eventRef, eventsCol, guestsCol } from './collections';
 import { listEventGuests } from './reads';
@@ -82,6 +87,11 @@ export interface UpdateEventPatch {
   externalUrl?: string;
   sourceName?: string;
   imageUrl?: string;
+  /**
+   * Storage bookkeeping for a replacement uploaded hero image. Written only
+   * when `imageUrl` is patched, and only alongside the URL it describes.
+   */
+  heroImage?: HeroImage;
   /** See the model field. `false` removes the flag rather than storing it. */
   startTimeTbd?: boolean;
   price?: number;
@@ -253,17 +263,39 @@ export async function updateEvent(
     applyOptionalText(next, patch, 'sourceName');
     applyOptionalText(next, patch, 'imageUrl');
 
-    // `heroImage` describes the bytes behind `imageUrl`, so it cannot outlive
-    // the URL it was written for. Patching the URL — to a pasted link or to
-    // nothing — makes the stored bookkeeping describe an object the event no
-    // longer shows, which is both a lie and an orphan: the sweeper would see a
-    // referenced path and leave the real garbage alone.
+    // `heroImage` describes the bytes behind `imageUrl`, so the two are always
+    // written together, cleared together, and — just as importantly — left
+    // alone together. Changing the URL to a pasted link, to a freshly uploaded
+    // replacement, or to nothing must write the bookkeeping the patch carries
+    // for the new URL, or remove the old bookkeeping when there is none.
+    // Keeping stale bookkeeping would be both a lie and an orphan: the sweeper
+    // would see a referenced path and leave the real garbage alone.
     //
-    // Dropped rather than rewritten because this path cannot produce a
-    // replacement: uploading from the edit form, and deleting the object the
-    // old bookkeeping points at, is a separate change.
-    if (Object.hasOwn(patch, 'imageUrl')) {
-      delete next.heroImage;
+    // The trigger is a *changed* URL, not merely a present one. The edit form
+    // sends `imageUrl` on every save — omitting a field means "leave it as it
+    // was", so an emptied input has to send `''` to clear — which means the
+    // key is there even when an organizer only renamed the event. Keying off
+    // presence dropped the bookkeeping for an image the event still displays,
+    // and the caller, seeing bookkeeping vanish, deleted the live object.
+    //
+    // A replacement is possible because the upload route returns the full
+    // `HeroImage`. Deleting the object the old bookkeeping points at stays the
+    // caller's job, after this write has actually persisted.
+    const imageUrlChanged = next.imageUrl !== existing.imageUrl;
+
+    if (imageUrlChanged || patch.heroImage !== undefined) {
+      // The URL has to survive `applyOptionalText` for bookkeeping to describe
+      // anything: a patch carrying both `imageUrl: ''` and a `heroImage` asks
+      // to clear the image and record an upload in the same breath.
+      // `UpdateEventSchema` refuses that pair, but this is the only write path
+      // and the seed script reaches it without passing through a schema — the
+      // same reason the `sourceName` rule below lives here rather than at its
+      // callers.
+      if (patch.heroImage !== undefined && next.imageUrl !== undefined) {
+        next.heroImage = patch.heroImage;
+      } else {
+        delete next.heroImage;
+      }
     }
 
     // `sourceName` answers "whose listing is `externalUrl`?", so it cannot

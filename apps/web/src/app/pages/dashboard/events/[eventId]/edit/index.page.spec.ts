@@ -363,6 +363,10 @@ describe('DashboardEventsEditPageComponent', () => {
     const { fixture, http } = await setup();
     await loadPage(fixture, http);
     fillRequiredFields(fixture);
+    // This event carries no image, so the form opens on the file picker. An
+    // organizer pasting a link switches over first.
+    buttonByText(fixture, 'or use a link').click();
+    fixture.detectChanges();
     setValue(fixture, '#imageUrl', 'http://example.com/poster.jpg');
 
     buttonByText(fixture, 'Save as draft').click();

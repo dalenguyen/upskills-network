@@ -355,4 +355,40 @@ describe('UpdateEventSchema', () => {
       UpdateEventSchema.safeParse({ endsAt: '2026-09-01T17:00:00Z' }).success,
     ).toBe(true);
   });
+
+  it('accepts a valid heroImage alongside the imageUrl it describes', () => {
+    const parsed = UpdateEventSchema.parse(validUploadedEvent);
+
+    expect(parsed.heroImage).toEqual(validHeroImage);
+    expect(parsed.imageUrl).toBe(validUploadedEvent.imageUrl);
+  });
+
+  it('rejects heroImage without the imageUrl it is bookkeeping for', () => {
+    const result = UpdateEventSchema.safeParse({
+      heroImage: validHeroImage,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((i) => i.path[0] === 'heroImage')).toBe(
+      true,
+    );
+  });
+
+  it('rejects heroImage when imageUrl is the clear sentinel', () => {
+    const result = UpdateEventSchema.safeParse({
+      imageUrl: '',
+      heroImage: validHeroImage,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((i) => i.path[0] === 'heroImage')).toBe(
+      true,
+    );
+  });
+
+  it('accepts an empty imageUrl on its own to clear the image', () => {
+    expect(UpdateEventSchema.parse({ imageUrl: '' })).toEqual({
+      imageUrl: '',
+    });
+  });
 });

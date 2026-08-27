@@ -285,19 +285,17 @@ interface EventForm {
           </div>
         }
 
-        @if (!isEdit()) {
-          <button
-            type="button"
-            (click)="toggleHeroImageMode()"
-            class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            @if (heroImageMode() === 'upload') {
-              or use a link
-            } @else {
-              or upload a file
-            }
-          </button>
-        }
+        <button
+          type="button"
+          (click)="toggleHeroImageMode()"
+          class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          @if (heroImageMode() === 'upload') {
+            or use a link
+          } @else {
+            or upload a file
+          }
+        </button>
       </div>
 
       <div>
@@ -424,16 +422,19 @@ export class EventFormComponent {
   private readonly chosenImageMode = signal<'upload' | 'link'>('upload');
 
   /**
-   * Uploading is offered on the create form only.
+   * Which input is showing, in both modes.
    *
-   * Replacing or removing an uploaded image on an event that already exists
-   * needs the old object deleted once the new URL is stored, which is a
-   * separate ticket; until it lands, the edit form keeps exactly the URL field
-   * it always had rather than an upload that would write bytes nothing cleans
-   * up.
+   * Editing used to force the link field, because replacing an uploaded image
+   * needs the superseded object deleted once the new URL is stored and nothing
+   * did that yet. The update route does it now, so an organizer can swap the
+   * file on a saved event exactly as they can on a new one.
+   *
+   * An edit still *opens* on whichever input matches what the event already
+   * has — see {@link populate}. Someone who pasted a link should find that
+   * link on screen, not a file picker that hides it.
    */
   readonly heroImageMode = computed<'upload' | 'link'>(() =>
-    this.isEdit() ? 'link' : this.chosenImageMode(),
+    this.chosenImageMode(),
   );
 
   /** An upload is in flight. Blocks a second one and shows progress. */
@@ -509,6 +510,16 @@ export class EventFormComponent {
     this.form.timezone = workshop.timezone;
     this.form.location = workshop.location ?? '';
     this.form.imageUrl = workshop.imageUrl ?? '';
+    // Open on the input that matches what is already there: an event carrying
+    // an image shows that image's URL, and one with no image gets the file
+    // picker. Either way the toggle is right there to switch.
+    this.chosenImageMode.set(
+      (workshop.imageUrl ?? '') === '' ? 'upload' : 'link',
+    );
+    // Null rather than the stored bookkeeping, because this signal means
+    // "bytes uploaded during *this* edit". Leaving the save untouched sends no
+    // `heroImage`, and an unchanged `imageUrl` tells the write path to keep the
+    // bookkeeping it already holds.
     this.heroImage.set(null);
     this.form.price = centsToDollars(workshop.price);
     this.form.maxGuests = String(workshop.maxGuests);
@@ -774,13 +785,14 @@ export class EventFormComponent {
       // value for an absent field to preserve.
       ...(isEdit || location !== '' ? { location } : {}),
       ...(isEdit || imageUrl !== '' ? { imageUrl } : {}),
-      // Bookkeeping travels with the URL it describes or not at all —
-      // `CreateEventSchema` rejects the pair split apart. Create only: adding
-      // an uploaded image to an existing event is #205's job, and
-      // `UpdateEventSchema` has no `heroImage` yet.
-      ...(!isEdit && heroImage !== null && imageUrl !== ''
-        ? { heroImage }
-        : {}),
+      // Bookkeeping travels with the URL it describes or not at all — both
+      // schemas reject the pair split apart.
+      //
+      // Sent only when something was uploaded during this session. On an edit
+      // that left the image alone it is absent, and because `imageUrl` then
+      // arrives unchanged the write path keeps the bookkeeping already stored
+      // — which is what stops an ordinary rename from orphaning a live image.
+      ...(heroImage !== null && imageUrl !== '' ? { heroImage } : {}),
       price: dollarsToCents(Number(this.form.price)),
       currency: 'cad',
       maxGuests: Number(this.form.maxGuests),

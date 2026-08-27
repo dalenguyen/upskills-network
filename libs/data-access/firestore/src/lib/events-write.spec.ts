@@ -257,7 +257,7 @@ describe('updateEvent', () => {
     expect(stored && 'sourceName' in stored).toBe(false);
   });
 
-  it('drops heroImage when imageUrl is changed or cleared, so it cannot outlive it', async () => {
+  it('drops heroImage when imageUrl is repointed at a pasted link or cleared', async () => {
     const heroImage = {
       storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
       contentType: 'image/jpeg',
@@ -296,6 +296,46 @@ describe('updateEvent', () => {
     expect(cleared && 'heroImage' in cleared).toBe(false);
   });
 
+  it('writes a replacement heroImage and clears both keys in lockstep', async () => {
+    const oldHeroImage = {
+      storagePath: 'orgs/org-1/event-media/old.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+    const newHeroImage = {
+      storagePath: 'orgs/org-1/event-media/new.jpg',
+      contentType: 'image/webp',
+      sizeBytes: 900_000,
+      uploadedAt: '2026-09-01T19:00:00Z',
+    };
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/old.jpg',
+      heroImage: oldHeroImage,
+    });
+
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/new.jpg',
+      heroImage: newHeroImage,
+    });
+
+    const replaced = await getEvent('org-1', 'evt-1');
+    expect(replaced).toMatchObject({
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/new.jpg',
+      heroImage: newHeroImage,
+    });
+    expect(replaced && 'heroImage' in replaced).toBe(true);
+
+    await updateEvent('org-1', 'evt-1', { imageUrl: '' });
+
+    const cleared = await getEvent('org-1', 'evt-1');
+    expect(cleared && 'imageUrl' in cleared).toBe(false);
+    expect(cleared && 'heroImage' in cleared).toBe(false);
+  });
+
   it('keeps heroImage when the patch does not mention imageUrl', async () => {
     const heroImage = {
       storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
@@ -317,6 +357,69 @@ describe('updateEvent', () => {
       title: 'Renamed',
       heroImage,
     });
+  });
+
+  it('keeps heroImage when the patch resends the same imageUrl', async () => {
+    // The edit form sends `imageUrl` on every save, because omitting a field
+    // means "leave it alone" and an emptied input therefore has to send `''`
+    // to clear. So the ordinary act of renaming an event arrives here with the
+    // image URL present and unchanged. Keying the drop off presence rather
+    // than change deleted the bookkeeping for an image still on the page, and
+    // the caller then deleted the live object it pointed at.
+    const heroImage = {
+      storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+    const imageUrl =
+      'https://storage.googleapis.com/upskills-network-media/a.jpg';
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl,
+      heroImage,
+    });
+
+    await updateEvent('org-1', 'evt-1', { title: 'Renamed', imageUrl });
+
+    const stored = await getEvent('org-1', 'evt-1');
+    expect(stored).toMatchObject({ title: 'Renamed', imageUrl, heroImage });
+    expect(stored && 'heroImage' in stored).toBe(true);
+  });
+
+  it('refuses to store heroImage when the same patch clears imageUrl', async () => {
+    // `UpdateEventSchema` rejects this pair, but `updateEvent` is the only
+    // write path and the seed script reaches it without a schema in between.
+    // Storing the bookkeeping alone would describe an object the event does
+    // not show — the exact orphan the sweeper is built to find, made invisible
+    // to it by a reference that lies.
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/a.jpg',
+      heroImage: {
+        storagePath: 'orgs/org-1/event-media/a.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: 10,
+        uploadedAt: '2026-09-01T18:00:00Z',
+      },
+    });
+
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: '',
+      heroImage: {
+        storagePath: 'orgs/org-1/event-media/b.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: 20,
+        uploadedAt: '2026-09-01T19:00:00Z',
+      },
+    });
+
+    const stored = await getEvent('org-1', 'evt-1');
+    expect(stored && 'imageUrl' in stored).toBe(false);
+    expect(stored && 'heroImage' in stored).toBe(false);
   });
 
   it('leaves the listing fields alone when the patch does not mention them', async () => {

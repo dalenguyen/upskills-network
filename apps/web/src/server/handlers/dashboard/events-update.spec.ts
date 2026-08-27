@@ -14,6 +14,25 @@ import {
 
 /** `PUT /api/v1/dashboard/events/:eventId` — the organizer event update route. */
 
+const OLD_HERO_IMAGE = {
+  storagePath: 'orgs/org-1/event-media/old.jpg',
+  contentType: 'image/jpeg',
+  sizeBytes: 1_000_000,
+  uploadedAt: '2026-09-01T18:00:00Z',
+};
+
+const NEW_HERO_IMAGE = {
+  storagePath: 'orgs/org-1/event-media/new.jpg',
+  contentType: 'image/webp',
+  sizeBytes: 900_000,
+  uploadedAt: '2026-09-01T19:00:00Z',
+};
+
+const OLD_IMAGE_URL =
+  'https://storage.googleapis.com/upskills-network-media/old.jpg';
+const NEW_IMAGE_URL =
+  'https://storage.googleapis.com/upskills-network-media/new.jpg';
+
 const ORG: OrgContext = {
   uid: 'uid-manager',
   role: 'user',
@@ -40,6 +59,7 @@ function deps(
     updateEvent: vi.fn(async () =>
       fakeEvent({ status: 'draft', title: 'New title' }),
     ),
+    deleteMedia: vi.fn(async () => undefined),
     ...overrides,
   };
 }
@@ -52,6 +72,10 @@ function request(body: unknown, eventId = 'evt-1', orgId = 'org-1') {
     body,
   }).event;
 }
+
+type UpdateHandlerResult = Awaited<
+  ReturnType<ReturnType<typeof createDashboardEventsUpdateHandler>>
+>;
 
 describe('PUT /api/v1/dashboard/events/:eventId', () => {
   it('authorizes the ?orgId= org, validates, and updates', async () => {
@@ -87,9 +111,7 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
 
     const result = (await createDashboardEventsUpdateHandler(d)(
       request({ title: 'New title' }),
-    )) as Awaited<
-      ReturnType<ReturnType<typeof createDashboardEventsUpdateHandler>>
-    >;
+    )) as UpdateHandlerResult;
 
     const workshop = (result as { event: Record<string, unknown> }).event;
 
@@ -234,5 +256,232 @@ describe('PUT /api/v1/dashboard/events/:eventId', () => {
     await expect(
       createDashboardEventsUpdateHandler(d)(request({ title: 'New title' })),
     ).rejects.toBe(bug);
+  });
+
+  it('replaces an uploaded image and deletes exactly the old object', async () => {
+    const updateEvent = vi.fn(async () =>
+      fakeEvent({
+        status: 'draft',
+        imageUrl: NEW_IMAGE_URL,
+        heroImage: NEW_HERO_IMAGE,
+      }),
+    );
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: OLD_IMAGE_URL,
+          heroImage: OLD_HERO_IMAGE,
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    const result = await createDashboardEventsUpdateHandler(d)(
+      request({ imageUrl: NEW_IMAGE_URL, heroImage: NEW_HERO_IMAGE }),
+    );
+
+    expect(updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
+      imageUrl: NEW_IMAGE_URL,
+      heroImage: NEW_HERO_IMAGE,
+    });
+    expect(deleteMedia).toHaveBeenCalledWith(OLD_HERO_IMAGE.storagePath);
+    expect(deleteMedia).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      event: expect.objectContaining({
+        eventId: 'evt-1',
+        imageUrl: NEW_IMAGE_URL,
+        heroImage: NEW_HERO_IMAGE,
+      }),
+    });
+  });
+
+  it('deletes the superseded object only after the update resolves', async () => {
+    let markUpdateCalled!: () => void;
+    const updateCalled = new Promise<void>((resolve) => {
+      markUpdateCalled = resolve;
+    });
+    let resolveUpdate!: (value: ReturnType<typeof fakeEvent>) => void;
+    const updateGate = new Promise<ReturnType<typeof fakeEvent>>((resolve) => {
+      resolveUpdate = resolve;
+    });
+
+    const updateEvent = vi.fn(() => {
+      markUpdateCalled();
+      return updateGate;
+    });
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: OLD_IMAGE_URL,
+          heroImage: OLD_HERO_IMAGE,
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    const response = createDashboardEventsUpdateHandler(d)(
+      request({ imageUrl: NEW_IMAGE_URL, heroImage: NEW_HERO_IMAGE }),
+    );
+
+    await updateCalled;
+    expect(deleteMedia).not.toHaveBeenCalled();
+
+    resolveUpdate(
+      fakeEvent({
+        status: 'draft',
+        imageUrl: NEW_IMAGE_URL,
+        heroImage: NEW_HERO_IMAGE,
+      }),
+    );
+    await response;
+
+    expect(deleteMedia).toHaveBeenCalledWith(OLD_HERO_IMAGE.storagePath);
+    expect(deleteMedia).toHaveBeenCalledOnce();
+  });
+
+  it('still succeeds when deleting the superseded object fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      const deleteMedia = vi.fn(async () => {
+        throw new Error('bucket unavailable');
+      });
+      const d = deps({
+        getEvent: vi.fn(async () =>
+          fakeEvent({
+            status: 'draft',
+            imageUrl: OLD_IMAGE_URL,
+            heroImage: OLD_HERO_IMAGE,
+          }),
+        ),
+        updateEvent: vi.fn(async () =>
+          fakeEvent({
+            status: 'draft',
+            imageUrl: NEW_IMAGE_URL,
+            heroImage: NEW_HERO_IMAGE,
+          }),
+        ),
+        deleteMedia,
+      });
+
+      const result = await createDashboardEventsUpdateHandler(d)(
+        request({ imageUrl: NEW_IMAGE_URL, heroImage: NEW_HERO_IMAGE }),
+      );
+
+      expect(deleteMedia).toHaveBeenCalledWith(OLD_HERO_IMAGE.storagePath);
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to delete superseded event hero image',
+        expect.any(Error),
+      );
+      expect(result).toEqual({
+        event: expect.objectContaining({ eventId: 'evt-1' }),
+      });
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('deletes nothing when switching from a pasted URL to an uploaded file', async () => {
+    const updateEvent = vi.fn(async () =>
+      fakeEvent({
+        status: 'draft',
+        imageUrl: NEW_IMAGE_URL,
+        heroImage: NEW_HERO_IMAGE,
+      }),
+    );
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: 'https://example.com/poster.jpg',
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    await createDashboardEventsUpdateHandler(d)(
+      request({ imageUrl: NEW_IMAGE_URL, heroImage: NEW_HERO_IMAGE }),
+    );
+
+    expect(updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
+      imageUrl: NEW_IMAGE_URL,
+      heroImage: NEW_HERO_IMAGE,
+    });
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing when an ordinary edit resends the unchanged image', async () => {
+    // The edit form sends `imageUrl` on every save, so renaming an event
+    // arrives here carrying the image it already had. The write preserves the
+    // bookkeeping in that case, and this handler must read that as "nothing
+    // was superseded" — anything else deletes the object the event still
+    // displays.
+    const updateEvent = vi.fn(async () =>
+      fakeEvent({
+        status: 'draft',
+        title: 'Renamed',
+        imageUrl: OLD_IMAGE_URL,
+        heroImage: OLD_HERO_IMAGE,
+      }),
+    );
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: OLD_IMAGE_URL,
+          heroImage: OLD_HERO_IMAGE,
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    await createDashboardEventsUpdateHandler(d)(
+      request({ title: 'Renamed', imageUrl: OLD_IMAGE_URL }),
+    );
+
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
+
+  it('removing the image clears both fields and deletes the old object', async () => {
+    const updateEvent = vi.fn(async () => fakeEvent({ status: 'draft' }));
+    const deleteMedia = vi.fn(async () => undefined);
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl: OLD_IMAGE_URL,
+          heroImage: OLD_HERO_IMAGE,
+        }),
+      ),
+      updateEvent,
+      deleteMedia,
+    });
+
+    const result = (await createDashboardEventsUpdateHandler(d)(
+      request({ imageUrl: '' }),
+    )) as UpdateHandlerResult;
+
+    expect(updateEvent).toHaveBeenCalledWith('org-1', 'evt-1', {
+      imageUrl: '',
+    });
+    expect(deleteMedia).toHaveBeenCalledWith(OLD_HERO_IMAGE.storagePath);
+    expect(deleteMedia).toHaveBeenCalledOnce();
+
+    const responseEvent = (result as { event: Record<string, unknown> }).event;
+    expect(responseEvent).toMatchObject({ eventId: 'evt-1' });
+    expect(responseEvent).not.toHaveProperty('imageUrl');
+    expect(responseEvent).not.toHaveProperty('heroImage');
   });
 });
