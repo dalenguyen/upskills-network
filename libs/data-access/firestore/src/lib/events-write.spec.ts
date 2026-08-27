@@ -257,6 +257,68 @@ describe('updateEvent', () => {
     expect(stored && 'sourceName' in stored).toBe(false);
   });
 
+  it('drops heroImage when imageUrl is changed or cleared, so it cannot outlive it', async () => {
+    const heroImage = {
+      storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/a.jpg',
+      heroImage,
+    });
+
+    // Repointing at a pasted link: the bookkeeping now describes an object the
+    // event no longer shows, so it goes.
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+    const repointed = await getEvent('org-1', 'evt-1');
+    expect(repointed).toMatchObject({
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+    expect(repointed && 'heroImage' in repointed).toBe(false);
+
+    // And the same when the image is removed outright.
+    await seedEvent({
+      eventId: 'evt-2',
+      slug: 'react-basics-2',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/b.jpg',
+      heroImage,
+    });
+    await updateEvent('org-1', 'evt-2', { imageUrl: '' });
+    const cleared = await getEvent('org-1', 'evt-2');
+    expect(cleared && 'imageUrl' in cleared).toBe(false);
+    expect(cleared && 'heroImage' in cleared).toBe(false);
+  });
+
+  it('keeps heroImage when the patch does not mention imageUrl', async () => {
+    const heroImage = {
+      storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/a.jpg',
+      heroImage,
+    });
+
+    await updateEvent('org-1', 'evt-1', { title: 'Renamed' });
+
+    expect(await getEvent('org-1', 'evt-1')).toMatchObject({
+      title: 'Renamed',
+      heroImage,
+    });
+  });
+
   it('leaves the listing fields alone when the patch does not mention them', async () => {
     // This is what makes a seeded event survive an edit through the dashboard,
     // whose form has no input for either field.

@@ -253,6 +253,19 @@ export async function updateEvent(
     applyOptionalText(next, patch, 'sourceName');
     applyOptionalText(next, patch, 'imageUrl');
 
+    // `heroImage` describes the bytes behind `imageUrl`, so it cannot outlive
+    // the URL it was written for. Patching the URL — to a pasted link or to
+    // nothing — makes the stored bookkeeping describe an object the event no
+    // longer shows, which is both a lie and an orphan: the sweeper would see a
+    // referenced path and leave the real garbage alone.
+    //
+    // Dropped rather than rewritten because this path cannot produce a
+    // replacement: uploading from the edit form, and deleting the object the
+    // old bookkeeping points at, is a separate change.
+    if (Object.hasOwn(patch, 'imageUrl')) {
+      delete next.heroImage;
+    }
+
     // `sourceName` answers "whose listing is `externalUrl`?", so it cannot
     // outlive the field it describes. Clearing the URL without clearing the
     // name would leave an event that takes registrations here while still
