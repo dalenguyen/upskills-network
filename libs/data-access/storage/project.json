@@ -1,0 +1,20 @@
+{
+  "name": "data-access-storage",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/data-access/storage/src",
+  "projectType": "library",
+  "tags": ["scope:data-access", "type:service"],
+  "// targets": "to see all targets run: nx show project data-access-storage --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "tsc -p libs/data-access/storage/tsconfig.lib.json --noEmit",
+          "tsc -p libs/data-access/storage/tsconfig.spec.json --noEmit"
+        ],
+        "parallel": false
+      }
+    }
+  }
+}
