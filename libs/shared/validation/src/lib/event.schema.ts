@@ -91,16 +91,22 @@ function endsAfterStart(
  * keeps the pair honest at the only point where both fields are written.
  *
  * The converse is deliberately allowed: `imageUrl` without `heroImage` is the
- * pasted-link case every existing event already uses.
+ * pasted-link case every existing event already uses. On update, `''` is also
+ * a valid `imageUrl` and means "clear it", so bookkeeping alongside `''` is
+ * rejected here too — clearing cannot be paired with a freshly uploaded file.
  */
 function heroImageAccompaniesUrl(
   value: { imageUrl?: string; heroImage?: unknown },
   ctx: z.RefinementCtx,
 ): void {
-  // Only absence is checked. A present-but-malformed `imageUrl` never reaches
-  // here: `HttpsUrlSchema` fails the object parse first, and `superRefine`
-  // runs only on a successful one.
-  if (value.heroImage !== undefined && value.imageUrl === undefined) {
+  // Only absence (and, on update, the clear-sentinel) is checked. A
+  // present-but-malformed `imageUrl` never reaches here: `HttpsUrlSchema`
+  // fails the object parse first, and `superRefine` runs only on a successful
+  // one.
+  if (
+    value.heroImage !== undefined &&
+    (value.imageUrl === undefined || value.imageUrl === '')
+  ) {
     ctx.addIssue({
       code: 'custom',
       path: ['heroImage'],
@@ -151,6 +157,13 @@ export const UpdateEventSchema = z
      */
     imageUrl: z.union([z.literal(''), eventFields.imageUrl.unwrap()]),
     location: z.union([z.literal(''), eventFields.location.unwrap()]),
+    /**
+     * Bookkeeping for a replacement image uploaded before this save. Optional,
+     * like `imageUrl`; the two are written and cleared together — see
+     * {@link heroImageAccompaniesUrl}. Absent means either the new `imageUrl`
+     * is a pasted link, or the image is being cleared.
+     */
+    heroImage: HeroImageSchema.optional(),
     status: EventStatusSchema,
   })
   .partial()
@@ -162,6 +175,7 @@ export const UpdateEventSchema = z
       });
     }
     endsAfterStart(value, ctx);
+    heroImageAccompaniesUrl(value, ctx);
   });
 
 export type CreateEventInput = z.infer<typeof CreateEventSchema>;

@@ -1,4 +1,9 @@
-import type { EventStatus, Guest, WorkshopEvent } from '@upskills/models';
+import type {
+  EventStatus,
+  Guest,
+  HeroImage,
+  WorkshopEvent,
+} from '@upskills/models';
 import { Timestamp, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { eventRef, eventsCol, guestsCol } from './collections';
 import { listEventGuests } from './reads';
@@ -82,6 +87,11 @@ export interface UpdateEventPatch {
   externalUrl?: string;
   sourceName?: string;
   imageUrl?: string;
+  /**
+   * Storage bookkeeping for a replacement uploaded hero image. Written only
+   * when `imageUrl` is patched, and only alongside the URL it describes.
+   */
+  heroImage?: HeroImage;
   /** See the model field. `false` removes the flag rather than storing it. */
   startTimeTbd?: boolean;
   price?: number;
@@ -253,17 +263,23 @@ export async function updateEvent(
     applyOptionalText(next, patch, 'sourceName');
     applyOptionalText(next, patch, 'imageUrl');
 
-    // `heroImage` describes the bytes behind `imageUrl`, so it cannot outlive
-    // the URL it was written for. Patching the URL — to a pasted link or to
-    // nothing — makes the stored bookkeeping describe an object the event no
-    // longer shows, which is both a lie and an orphan: the sweeper would see a
-    // referenced path and leave the real garbage alone.
+    // `heroImage` describes the bytes behind `imageUrl`, so the two are always
+    // written together and cleared together. Patching the URL — to a pasted
+    // link, to a freshly uploaded replacement, or to nothing — must write the
+    // bookkeeping the patch carries for the new URL, or remove the old
+    // bookkeeping when there is none. Keeping the old object here would be
+    // both a lie and an orphan: the sweeper would see a referenced path and
+    // leave the real garbage alone.
     //
-    // Dropped rather than rewritten because this path cannot produce a
-    // replacement: uploading from the edit form, and deleting the object the
-    // old bookkeeping points at, is a separate change.
+    // A replacement is now possible because the upload route returns the full
+    // `HeroImage`. Deleting the object the old bookkeeping points at stays the
+    // caller's job, after this write has actually persisted.
     if (Object.hasOwn(patch, 'imageUrl')) {
-      delete next.heroImage;
+      if (patch.heroImage !== undefined) {
+        next.heroImage = patch.heroImage;
+      } else {
+        delete next.heroImage;
+      }
     }
 
     // `sourceName` answers "whose listing is `externalUrl`?", so it cannot

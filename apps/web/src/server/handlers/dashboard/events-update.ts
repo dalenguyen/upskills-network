@@ -53,6 +53,8 @@ export interface DashboardEventsUpdateDeps {
     eventId: string,
     patch: UpdateEventPatch,
   ): Promise<WorkshopEvent>;
+  /** `delete` from the `MediaStorage` port in `@upskills/storage`. */
+  deleteMedia(path: string): Promise<void>;
 }
 
 export function createDashboardEventsUpdateHandler(
@@ -101,10 +103,26 @@ export function createDashboardEventsUpdateHandler(
         );
       }
 
+      const oldPath = found.heroImage?.storagePath;
+
       const updated = await deps.updateEvent(orgId, eventId, {
         ...patch,
         ...(status === undefined ? {} : { status }),
       });
+
+      // The old object is deleted only after the write has persisted, and only
+      // when the event used to point at a stored object that the new write no
+      // longer points at. Re-saving the same image, or switching from a pasted
+      // URL to an upload, deletes nothing. A failed delete is logged and the
+      // response still succeeds: an orphaned object is far cheaper than a
+      // failed save.
+      if (oldPath !== undefined && oldPath !== updated.heroImage?.storagePath) {
+        try {
+          await deps.deleteMedia(oldPath);
+        } catch (error) {
+          console.error('Failed to delete superseded event hero image', error);
+        }
+      }
 
       return {
         event: toDashboardEvent(updated),

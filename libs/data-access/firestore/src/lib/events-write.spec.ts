@@ -257,7 +257,7 @@ describe('updateEvent', () => {
     expect(stored && 'sourceName' in stored).toBe(false);
   });
 
-  it('drops heroImage when imageUrl is changed or cleared, so it cannot outlive it', async () => {
+  it('drops heroImage when imageUrl is repointed at a pasted link or cleared', async () => {
     const heroImage = {
       storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
       contentType: 'image/jpeg',
@@ -292,6 +292,46 @@ describe('updateEvent', () => {
     });
     await updateEvent('org-1', 'evt-2', { imageUrl: '' });
     const cleared = await getEvent('org-1', 'evt-2');
+    expect(cleared && 'imageUrl' in cleared).toBe(false);
+    expect(cleared && 'heroImage' in cleared).toBe(false);
+  });
+
+  it('writes a replacement heroImage and clears both keys in lockstep', async () => {
+    const oldHeroImage = {
+      storagePath: 'orgs/org-1/event-media/old.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 1_000_000,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+    const newHeroImage = {
+      storagePath: 'orgs/org-1/event-media/new.jpg',
+      contentType: 'image/webp',
+      sizeBytes: 900_000,
+      uploadedAt: '2026-09-01T19:00:00Z',
+    };
+
+    await seedEvent({
+      eventId: 'evt-1',
+      slug: 'react-basics',
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/old.jpg',
+      heroImage: oldHeroImage,
+    });
+
+    await updateEvent('org-1', 'evt-1', {
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/new.jpg',
+      heroImage: newHeroImage,
+    });
+
+    const replaced = await getEvent('org-1', 'evt-1');
+    expect(replaced).toMatchObject({
+      imageUrl: 'https://storage.googleapis.com/upskills-network-media/new.jpg',
+      heroImage: newHeroImage,
+    });
+    expect(replaced && 'heroImage' in replaced).toBe(true);
+
+    await updateEvent('org-1', 'evt-1', { imageUrl: '' });
+
+    const cleared = await getEvent('org-1', 'evt-1');
     expect(cleared && 'imageUrl' in cleared).toBe(false);
     expect(cleared && 'heroImage' in cleared).toBe(false);
   });
