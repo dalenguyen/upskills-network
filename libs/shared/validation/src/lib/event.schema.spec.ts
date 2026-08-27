@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CreateEventSchema, UpdateEventSchema } from './event.schema';
+import {
+  CreateEventSchema,
+  HeroImageSchema,
+  UpdateEventSchema,
+} from './event.schema';
 
 /** Builds a copy of `source` without the given keys. */
 function without<T extends object, K extends keyof T>(
@@ -25,12 +29,111 @@ const validEvent = {
   maxGuests: 30,
 };
 
+const validHeroImage = {
+  storagePath: 'events/intro-to-networking/hero.jpg',
+  contentType: 'image/jpeg',
+  sizeBytes: 1_000_000,
+  uploadedAt: '2026-09-01T18:00:00Z',
+};
+
+describe('HeroImageSchema', () => {
+  it('accepts a valid uploaded hero image', () => {
+    expect(HeroImageSchema.parse(validHeroImage)).toEqual(validHeroImage);
+  });
+
+  it('rejects an empty storagePath', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      storagePath: '   ',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['storagePath']);
+  });
+
+  it('rejects a disallowed content type', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      contentType: 'image/gif',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['contentType']);
+  });
+
+  it('rejects a non-positive size', () => {
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: 0 }).success,
+    ).toBe(false);
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: -1 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a non-integer size', () => {
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: 1_000.5 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('rejects a size over 5 MB', () => {
+    expect(
+      HeroImageSchema.safeParse({
+        ...validHeroImage,
+        sizeBytes: 5 * 1024 * 1024 + 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an uploadedAt without an offset', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      uploadedAt: '2026-09-01T18:00:00',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['uploadedAt']);
+  });
+});
+
 describe('CreateEventSchema', () => {
   it('accepts a fully specified event', () => {
     const parsed = CreateEventSchema.parse(validEvent);
 
     expect(parsed.title).toBe('Intro to Networking');
     expect(parsed.price).toBe(2500);
+  });
+
+  it('accepts a valid heroImage', () => {
+    const parsed = CreateEventSchema.parse({
+      ...validEvent,
+      heroImage: validHeroImage,
+    });
+
+    expect(parsed.heroImage).toEqual(validHeroImage);
+  });
+
+  it('allows heroImage to be omitted', () => {
+    expect(CreateEventSchema.parse(validEvent).heroImage).toBeUndefined();
+  });
+
+  it('rejects a heroImage with an oversized upload', () => {
+    expect(
+      CreateEventSchema.safeParse({
+        ...validEvent,
+        heroImage: { ...validHeroImage, sizeBytes: 5 * 1024 * 1024 + 1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a heroImage with a disallowed content type', () => {
+    expect(
+      CreateEventSchema.safeParse({
+        ...validEvent,
+        heroImage: { ...validHeroImage, contentType: 'image/gif' },
+      }).success,
+    ).toBe(false);
   });
 
   it('defaults status to draft', () => {

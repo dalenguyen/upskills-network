@@ -11,6 +11,29 @@ import {
 } from './primitives';
 
 /**
+ * Storage bookkeeping for an uploaded event hero image.
+ *
+ * Mirrors the shape of `HeroImage` on `WorkshopEvent`. The uploaded bytes are
+ * already constrained by the upload route before a save ever runs; this schema
+ * keeps the stored record just as tight so a malformed write cannot be handed
+ * to the rest of the app.
+ */
+export const HeroImageSchema = z.object({
+  /** Non-empty storage object path. */
+  storagePath: z.string().trim().min(1),
+  /** MIME type the upload route accepted. */
+  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  /** Size of the uploaded bytes; the upload route rejects anything over 5 MB. */
+  sizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(5 * 1024 * 1024),
+  /** ISO-8601 instant with an offset, recorded when the upload completed. */
+  uploadedAt: IsoDateTimeSchema,
+});
+
+/**
  * Body fields for creating an event.
  *
  * `orgId` and `eventId` are deliberately absent: they come from the route path
@@ -60,6 +83,11 @@ function endsAfterStart(
 export const CreateEventSchema = z
   .object({
     ...eventFields,
+    /**
+     * Bookkeeping for an image uploaded before the event was saved. Optional,
+     * like `imageUrl`; when it is present the two fields were written together.
+     */
+    heroImage: HeroImageSchema.optional(),
     /** New events default to `draft`; `cancelled` is not a creation state. */
     status: z.enum(['draft', 'published']).default('draft'),
   })

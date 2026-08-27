@@ -10,6 +10,23 @@ export type EventStatus = 'draft' | 'published' | 'cancelled';
 export type Currency = 'cad';
 
 /**
+ * Storage bookkeeping for an uploaded event hero image.
+ *
+ * `imageUrl` remains the single source of truth for rendering; this object only
+ * records where the uploaded bytes live and when they were uploaded.
+ */
+export interface HeroImage {
+  /** Storage object path for the uploaded image. */
+  storagePath: string;
+  /** MIME type of the uploaded image. */
+  contentType: string;
+  /** Size of the uploaded image, in bytes. */
+  sizeBytes: number;
+  /** ISO-8601 instant the upload completed. */
+  uploadedAt: string;
+}
+
+/**
  * Event document: `organizers/{orgId}/events/{eventId}`.
  *
  * A subcollection of the organizer, so ownership is the document's *path* rather
@@ -91,12 +108,20 @@ export interface WorkshopEvent {
   /**
    * Hero image, as an absolute `https:` URL.
    *
-   * Applies to every event, not only seeded ones. Stored as a URL rather than
-   * an upload because there is no Cloud Storage bucket in this project yet;
-   * seeded events point at the source's own CDN, and an organizer pastes a
-   * link. Never rendered without a fallback — a remote image can rot.
+   * Applies to every event, not only seeded ones. Seeded events point at the
+   * source's own CDN, and an organizer pastes a link. Never rendered without a
+   * fallback — a remote image can rot.
    */
   imageUrl?: string;
+  /**
+   * Storage bookkeeping for an uploaded hero image, written only when
+   * `imageUrl` was produced by an upload.
+   *
+   * `imageUrl` stays the single source of truth for rendering, so every
+   * consumer that already reads it keeps working and events that only have a
+   * pasted URL are untouched.
+   */
+  heroImage?: HeroImage;
   /** Price in **minor units** (cents). `0` means free. */
   price: number;
   currency: Currency;

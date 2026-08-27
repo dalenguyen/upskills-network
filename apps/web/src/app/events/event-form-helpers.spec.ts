@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { imageUrlError, toIsoWithOffset } from './event-form-helpers';
+import {
+  heroImageFileError,
+  heroImageUploadErrorMessage,
+  imageUrlError,
+  MAX_HERO_IMAGE_BYTES,
+  toIsoWithOffset,
+} from './event-form-helpers';
 
 describe('toIsoWithOffset', () => {
   it('stamps the offset in force at that wall time, across a DST change', () => {
@@ -42,5 +48,68 @@ describe('imageUrlError', () => {
       'https://',
     );
     expect(imageUrlError('example.com/poster.jpg')).toContain('https://');
+  });
+});
+
+describe('heroImageFileError', () => {
+  it('accepts JPEG, PNG, and WebP files at or under 5 MB', () => {
+    expect(heroImageFileError({ size: 1, type: 'image/jpeg' })).toBeNull();
+    expect(heroImageFileError({ size: 1, type: 'image/png' })).toBeNull();
+    expect(heroImageFileError({ size: 1, type: 'image/webp' })).toBeNull();
+    expect(
+      heroImageFileError({ size: MAX_HERO_IMAGE_BYTES, type: 'image/jpeg' }),
+    ).toBeNull();
+  });
+
+  it('refuses a file over 5 MB before any upload starts', () => {
+    const message = heroImageFileError({
+      size: MAX_HERO_IMAGE_BYTES + 1,
+      type: 'image/jpeg',
+    });
+
+    expect(message).toContain('5 MB');
+  });
+
+  it('refuses an unsupported type and names the accepted types', () => {
+    const message = heroImageFileError({
+      size: 1,
+      type: 'image/gif',
+    });
+
+    expect(message).toContain('JPEG');
+    expect(message).toContain('PNG');
+    expect(message).toContain('WebP');
+  });
+
+  it('checks the size before the type', () => {
+    const message = heroImageFileError({
+      size: MAX_HERO_IMAGE_BYTES + 1,
+      type: 'image/gif',
+    });
+
+    expect(message).toContain('5 MB');
+  });
+});
+
+describe('heroImageUploadErrorMessage', () => {
+  it('maps 413 to a file-too-large message', () => {
+    expect(heroImageUploadErrorMessage(413)).toContain('too large');
+  });
+
+  it('maps 400 to an unsupported-type message that names the accepted types', () => {
+    const message = heroImageUploadErrorMessage(400);
+
+    expect(message).toContain('JPEG');
+    expect(message).toContain('PNG');
+    expect(message).toContain('WebP');
+  });
+
+  it('maps any other status to a generic retryable message', () => {
+    expect(heroImageUploadErrorMessage(500)).toContain('try again');
+    expect(heroImageUploadErrorMessage(422)).toContain('try again');
+  });
+
+  it('maps a missing status to the generic retryable message', () => {
+    expect(heroImageUploadErrorMessage(null)).toContain('try again');
   });
 });

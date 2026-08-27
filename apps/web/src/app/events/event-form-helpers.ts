@@ -22,6 +22,15 @@ export const CANADIAN_TIME_ZONES = [
   'UTC',
 ] as const;
 
+/** Largest hero image the upload route will accept, in bytes. */
+export const MAX_HERO_IMAGE_BYTES = 5 * 1024 * 1024;
+
+const HERO_IMAGE_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
 /**
  * `2026-09-01T18:00` + `America/Toronto` → `2026-09-01T18:00:00-04:00`.
  *
@@ -118,4 +127,50 @@ export function imageUrlError(value: string): string | null {
   return HttpsUrlSchema.safeParse(trimmed).success
     ? null
     : 'Enter an image URL starting with https://, or leave the field empty.';
+}
+
+/**
+ * Why a selected hero image file is refused before any upload starts.
+ *
+ * The upload route enforces both limits with more authority — it knows the
+ * real byte count and content type — but a browser check fails in the form
+ * rather than after a needless request, and it can name the accepted types in
+ * a message the organizer sees immediately.
+ *
+ * @returns the message to show, or `null` when the file may be uploaded.
+ */
+export function heroImageFileError(file: {
+  size: number;
+  type: string;
+}): string | null {
+  if (file.size > MAX_HERO_IMAGE_BYTES) {
+    return 'Choose an image that is 5 MB or smaller.';
+  }
+
+  if (!HERO_IMAGE_CONTENT_TYPES.has(file.type)) {
+    return 'Unsupported file type. Choose a JPEG, PNG, or WebP image.';
+  }
+
+  return null;
+}
+
+/**
+ * A message for a failed hero image upload.
+ *
+ * The HTTP status is the only signal the upload route gives the form; mapping
+ * it here keeps that wiring in one pure helper instead of in the component.
+ *
+ * @returns a retryable message — every failure leaves the rest of the form
+ *   untouched, so the organizer can choose again or paste a URL instead.
+ */
+export function heroImageUploadErrorMessage(status: number | null): string {
+  if (status === 413) {
+    return 'The file is too large. Choose an image that is 5 MB or smaller.';
+  }
+
+  if (status === 400) {
+    return 'Unsupported file type. Choose a JPEG, PNG, or WebP image.';
+  }
+
+  return 'Upload failed. Try again.';
 }
