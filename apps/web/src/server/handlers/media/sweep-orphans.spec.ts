@@ -322,7 +322,62 @@ describe('POST /api/v1/media/sweep', () => {
       expect(del).toHaveBeenCalledWith(orphan);
     });
 
-    it('deletes nothing when an imageUrl cannot be parsed', async () => {
+    // One organizer pasting a bucket URL that names no object must not be able
+    // to disable the sweep for every other org. A URL this unresolvable cannot
+    // be naming a real object, because a referenced object's URL is minted by
+    // `publicUrlForPath` rather than typed by a person.
+    it('keeps sweeping when one event has a storage URL naming no object', async () => {
+      const orphan = 'orgs/org-1/event-media/orphan.jpg';
+      const del = vi.fn(async () => undefined);
+
+      const d = deps({
+        storage: {
+          upload: vi.fn(async () => ''),
+          delete: del,
+          list: vi.fn(async () => [object(orphan, OLD)]),
+        },
+        listEvents: vi.fn(async () => [
+          fakeEvent({ imageUrl: `https://storage.googleapis.com/${BUCKET}` }),
+        ]),
+      });
+
+      await expect(createMediaSweepHandler(d)(request())).resolves.toEqual({
+        scanned: 1,
+        deleted: 1,
+        spared: 0,
+      });
+
+      expect(del).toHaveBeenCalledWith(orphan);
+    });
+
+    it('still spares every object a resolvable sibling event references', async () => {
+      const live = 'orgs/org-1/event-media/live.jpg';
+      const orphan = 'orgs/org-1/event-media/orphan.jpg';
+      const del = vi.fn(async () => undefined);
+
+      const d = deps({
+        storage: {
+          upload: vi.fn(async () => ''),
+          delete: del,
+          list: vi.fn(async () => [object(live, OLD), object(orphan, OLD)]),
+        },
+        listEvents: vi.fn(async () => [
+          fakeEvent({ imageUrl: `https://storage.googleapis.com/${BUCKET}` }),
+          fakeEvent({ imageUrl: urlFor(live) }),
+        ]),
+      });
+
+      await expect(createMediaSweepHandler(d)(request())).resolves.toEqual({
+        scanned: 2,
+        deleted: 1,
+        spared: 1,
+      });
+
+      expect(del).toHaveBeenCalledTimes(1);
+      expect(del).toHaveBeenCalledWith(orphan);
+    });
+
+    it('treats an unparseable imageUrl as referencing nothing', async () => {
       const del = vi.fn(async () => undefined);
 
       const d = deps({
@@ -338,11 +393,11 @@ describe('POST /api/v1/media/sweep', () => {
 
       await expect(createMediaSweepHandler(d)(request())).resolves.toEqual({
         scanned: 1,
-        deleted: 0,
-        spared: 1,
+        deleted: 1,
+        spared: 0,
       });
 
-      expect(del).not.toHaveBeenCalled();
+      expect(del).toHaveBeenCalledWith('orgs/org-1/event-media/orphan.jpg');
     });
 
     it('deletes nothing when the event read fails', async () => {

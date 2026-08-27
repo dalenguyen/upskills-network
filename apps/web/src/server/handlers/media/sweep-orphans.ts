@@ -83,17 +83,6 @@ export function createMediaSweepHandler(deps: MediaSweepDeps): EventHandler {
       const candidates = await deps.storage.list(SWEEP_PREFIX);
       const referenced = await collectReferencedPaths(deps);
 
-      // An unparseable `imageUrl` could name any candidate, so no candidate can
-      // be *positively* established as unreferenced. Fail safe by deleting
-      // nothing rather than guessing.
-      if (referenced === null) {
-        return {
-          scanned: candidates.length,
-          deleted: 0,
-          spared: candidates.length,
-        } satisfies MediaSweepResponse;
-      }
-
       const now = (deps.now ?? (() => new Date()))();
       const cutoff = now.getTime() - SWEEP_GRACE_MS;
 
@@ -132,13 +121,26 @@ export function createMediaSweepHandler(deps: MediaSweepDeps): EventHandler {
 /**
  * The set of storage paths every event references.
  *
- * Returns `null` when reachability cannot be established positively, which the
- * caller treats as "delete nothing". That is deliberately one-directional:
- * sparing garbage is cheap, deleting a live image is not recoverable.
+ * ## Why an unresolvable `imageUrl` does not abort the whole sweep
+ *
+ * An earlier version returned `null` here — "reachability is unknown, so delete
+ * nothing" — and that was a denial of service anybody could trigger.
+ * `HttpsUrlSchema` accepts any https URL, so an organizer pasting
+ * `https://storage.googleapis.com/foo` into one event's image field
+ * permanently disabled the sweep for every org.
+ *
+ * Dropping the abort is safe because of where the resolvable URLs come from. A
+ * referenced object's URL is not typed by a person: it is minted by
+ * `publicUrlForPath` at upload time and always names the object's exact path.
+ * So a URL this function cannot resolve to a path cannot be naming any object
+ * in the bucket, and contributing nothing for it cannot expose a live image.
+ *
+ * It is still logged, because an `imageUrl` that names the media bucket without
+ * naming an object in it is a sign something upstream is wrong.
  */
 async function collectReferencedPaths(
   deps: MediaSweepDeps,
-): Promise<Set<string> | null> {
+): Promise<Set<string>> {
   const events = await deps.listEvents();
   const referenced = new Set<string>();
 
@@ -149,10 +151,11 @@ async function collectReferencedPaths(
       const path = storagePathFromImageUrl(imageUrl);
 
       if (path === undefined) {
-        return null;
-      }
-
-      if (path !== null) {
+        console.warn(
+          `media-sweep: event ${workshop.orgId}/${workshop.eventId} has an ` +
+            `imageUrl that names no storage object; it references nothing`,
+        );
+      } else if (path !== null) {
         referenced.add(path);
       }
     }
