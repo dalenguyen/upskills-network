@@ -90,7 +90,10 @@ function toCloudStorageClient(gcs: Storage): CloudStorageClient {
         async getFiles(options: { prefix?: string }) {
           const [files] = await bucket.getFiles(options);
 
-          return files.map((file) => ({ name: file.name }));
+          return files.map((file) => ({
+            name: file.name,
+            timeCreated: file.metadata.timeCreated,
+          }));
         },
       };
     },

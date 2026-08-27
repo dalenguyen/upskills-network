@@ -91,6 +91,7 @@ const firestore = vi.hoisted(() => ({
   revokeOrgInvite: vi.fn(async () => ({})),
   acceptOrgInvite: vi.fn(async () => ({ org: {}, invite: {} })),
   orgInviteStatus: vi.fn(() => 'pending'),
+  listAllEvents: vi.fn(async () => []),
 }));
 
 const email = vi.hoisted(() => ({
@@ -182,6 +183,8 @@ import adminOrgDetailRoute from './routes/api/v1/admin/orgs/[orgId]/index.get';
 import adminOrgMembersPostRoute from './routes/api/v1/admin/orgs/[orgId]/members.post';
 import adminOrgMembersPutRoute from './routes/api/v1/admin/orgs/[orgId]/members.put';
 import adminOrgMembersDeleteRoute from './routes/api/v1/admin/orgs/[orgId]/members.delete';
+
+import mediaSweepRoute from './routes/api/v1/media/sweep.post';
 
 import dashboardEventsListRoute from './routes/api/v1/dashboard/events/index.get';
 import dashboardEventsCreateRoute from './routes/api/v1/dashboard/events/index.post';
@@ -564,6 +567,34 @@ describe('dashboard event route wiring', () => {
       'manager',
     );
     expect(firestore.cancelEvent).toHaveBeenCalledWith('org-1', 'evt-1');
+  });
+
+  it('POST /media/sweep resolves the media port per request and reads every event', async () => {
+    storage.getMediaStorage.mockClear();
+    storage.port.list.mockClear();
+    firestore.listAllEvents.mockClear();
+
+    process.env['MEDIA_SWEEP_SECRET'] = 'wiring-secret';
+
+    try {
+      await run(mediaSweepRoute, {
+        method: 'POST',
+        url: '/api/v1/media/sweep',
+        headers: { 'x-sweep-secret': 'wiring-secret' },
+      });
+    } finally {
+      delete process.env['MEDIA_SWEEP_SECRET'];
+    }
+
+    // Same reasoning as the image route above: the counter is cleared
+    // immediately before the request, so a route that had captured the port at
+    // import time would leave this at zero.
+    expect(storage.getMediaStorage).toHaveBeenCalled();
+    expect(storage.port.list).toHaveBeenCalledWith('orgs/');
+
+    // The sweep must consider every event in the database. Wiring it to a
+    // scoped or status-filtered read would make it delete live images.
+    expect(firestore.listAllEvents).toHaveBeenCalled();
   });
 
   it('POST /dashboard/events/image authorizes the query org, then uploads through the media port', async () => {

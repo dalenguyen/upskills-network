@@ -1,5 +1,9 @@
 import { MEDIA_CACHE_CONTROL, publicUrlForPath } from './config';
-import type { MediaStorage, UploadMediaInput } from './media-storage';
+import type {
+  MediaObject,
+  MediaStorage,
+  UploadMediaInput,
+} from './media-storage';
 
 /**
  * The slice of the Cloud Storage SDK the provider actually uses.
@@ -26,6 +30,14 @@ export interface CloudStorageFile {
 
 export interface CloudStorageObject {
   readonly name: string;
+  /**
+   * ISO-8601 creation instant reported by Cloud Storage.
+   *
+   * Optional on purpose: a list result that is missing the field is still a
+   * real object and must not be dropped or failed. Callers that need an age
+   * decide how to treat the absence; see {@link CloudStorageMediaStorage.list}.
+   */
+  readonly timeCreated?: string;
 }
 
 /** The metadata the provider writes on every uploaded object. */
@@ -81,13 +93,34 @@ export class CloudStorageMediaStorage implements MediaStorage {
     }
   }
 
-  async list(prefix: string): Promise<string[]> {
+  async list(prefix: string): Promise<MediaObject[]> {
     const objects = await this.client
       .bucket(this.bucketName)
       .getFiles({ prefix });
 
-    return objects.map((object) => object.name);
+    return objects.map((object) => ({
+      path: object.name,
+      createdAt: createdAtOf(object.timeCreated),
+    }));
   }
+}
+
+/**
+ * The age of a listed object, fail-safe for a sweeper.
+ *
+ * An object whose creation time is missing or unparseable is returned as brand
+ * new rather than dropped or rejected. A sweeper that deletes only objects
+ * older than a grace period will therefore spare it, which is the safe side:
+ * sparing garbage is cheap, while deleting a live image is not recoverable.
+ */
+function createdAtOf(timeCreated: string | undefined): Date {
+  if (timeCreated === undefined) {
+    return new Date();
+  }
+
+  const parsed = new Date(timeCreated);
+
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 function isNotFoundError(error: unknown): boolean {

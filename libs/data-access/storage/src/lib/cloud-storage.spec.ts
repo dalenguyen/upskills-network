@@ -22,6 +22,11 @@ interface FakeState {
   listedPrefixes: (string | undefined)[];
 }
 
+interface FakeListedObject {
+  name: string;
+  timeCreated?: string;
+}
+
 /**
  * A fake standing in for the Cloud Storage SDK.
  *
@@ -30,7 +35,10 @@ interface FakeState {
  * live. It records what it was asked to do rather than simulating a bucket —
  * what matters is the arguments the provider hands the SDK.
  */
-function fakeClient(options: { deleteError?: unknown; files?: string[] }): {
+function fakeClient(options: {
+  deleteError?: unknown;
+  files?: FakeListedObject[];
+}): {
   client: CloudStorageClient;
   state: FakeState;
 } {
@@ -63,7 +71,10 @@ function fakeClient(options: { deleteError?: unknown; files?: string[] }): {
         },
         async getFiles(listOptions) {
           state.listedPrefixes.push(listOptions.prefix);
-          return (options.files ?? []).map((name) => ({ name }));
+          return (options.files ?? []).map((file) => ({
+            name: file.name,
+            timeCreated: file.timeCreated,
+          }));
         },
       };
     },
@@ -205,17 +216,32 @@ describe('CloudStorageMediaStorage.delete', () => {
 });
 
 describe('CloudStorageMediaStorage.list', () => {
-  it('lists object paths under the prefix', async () => {
+  it('lists objects with their paths and parsed creation times', async () => {
     const { client, state } = fakeClient({
-      files: ['orgs/org-1/event-media/a.jpg', 'orgs/org-1/event-media/b.jpg'],
+      files: [
+        {
+          name: 'orgs/org-1/event-media/a.jpg',
+          timeCreated: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          name: 'orgs/org-1/event-media/b.jpg',
+          timeCreated: '2026-01-02T00:00:00.000Z',
+        },
+      ],
     });
     const storage = new CloudStorageMediaStorage(client, BUCKET);
 
-    const paths = await storage.list('orgs/org-1/event-media/');
+    const objects = await storage.list('orgs/org-1/event-media/');
 
-    expect(paths).toEqual([
-      'orgs/org-1/event-media/a.jpg',
-      'orgs/org-1/event-media/b.jpg',
+    expect(objects).toEqual([
+      {
+        path: 'orgs/org-1/event-media/a.jpg',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+      {
+        path: 'orgs/org-1/event-media/b.jpg',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
     ]);
     expect(state.listedPrefixes).toEqual(['orgs/org-1/event-media/']);
   });
@@ -225,5 +251,34 @@ describe('CloudStorageMediaStorage.list', () => {
     const storage = new CloudStorageMediaStorage(client, BUCKET);
 
     await expect(storage.list('orgs/org-2/')).resolves.toEqual([]);
+  });
+
+  it('treats a missing creation time as brand new, so a sweeper spares it', async () => {
+    const { client } = fakeClient({
+      files: [{ name: 'orgs/org-1/event-media/a.jpg' }],
+    });
+    const storage = new CloudStorageMediaStorage(client, BUCKET);
+
+    const [object] = await storage.list('orgs/org-1/event-media/');
+
+    expect(object.path).toBe('orgs/org-1/event-media/a.jpg');
+    expect(object.createdAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it('treats an unparseable creation time as brand new too', async () => {
+    const { client } = fakeClient({
+      files: [
+        {
+          name: 'orgs/org-1/event-media/a.jpg',
+          timeCreated: 'not-an-iso-date',
+        },
+      ],
+    });
+    const storage = new CloudStorageMediaStorage(client, BUCKET);
+
+    const [object] = await storage.list('orgs/org-1/event-media/');
+
+    expect(object.path).toBe('orgs/org-1/event-media/a.jpg');
+    expect(object.createdAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
   });
 });
