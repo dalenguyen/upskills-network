@@ -98,7 +98,7 @@ export function createDashboardEventsDeleteHandler(
       // to remove the bytes is logged and never changes the response: the
       // delete itself succeeded, and a 500 would tell the organizer to retry
       // an operation that no longer has a document to find.
-      await deleteUploadedHeroImage(eventId, found.imageUrl, deps);
+      await deleteUploadedHeroImage(orgId, eventId, found.imageUrl, deps);
 
       return {
         eventId,
@@ -120,8 +120,23 @@ export function createDashboardEventsDeleteHandler(
  * then edited before being deleted may no longer carry it even though the
  * object still exists. The URL survives, and this derives the object path from
  * it.
+ *
+ * ## Why the path is checked against the caller's own org
+ *
+ * `imageUrl` is a value an organizer supplies — `HttpsUrlSchema` accepts any
+ * `https:` URL, with no host or path allowlist — and the object URL of any
+ * event is public and rendered on its page. Being inside our bucket is
+ * therefore not evidence that the object belongs to the event being deleted.
+ * Without this check an admin of one org could point a throwaway draft at
+ * another org's object URL, permanently delete the draft, and destroy that
+ * organizer's image.
+ *
+ * `orgs/{orgId}/event-media/…` is the prefix the upload route mints, and
+ * `orgId` here is the org the caller has just been authorized as an admin of,
+ * so a path outside it is never this caller's to delete.
  */
 async function deleteUploadedHeroImage(
+  orgId: string,
   eventId: string,
   imageUrl: string | undefined,
   deps: DashboardEventsDeleteDeps,
@@ -134,6 +149,10 @@ async function deleteUploadedHeroImage(
     const objectPath = objectPathForPublicUrl(deps.mediaBucketName(), imageUrl);
 
     if (objectPath === null) {
+      return;
+    }
+
+    if (!objectPath.startsWith(`orgs/${orgId}/`)) {
       return;
     }
 

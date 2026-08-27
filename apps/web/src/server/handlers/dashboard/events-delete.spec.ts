@@ -104,6 +104,31 @@ describe('DELETE /api/v1/dashboard/events/:eventId/permanent', () => {
     });
   });
 
+  it('touches no bucket object owned by a different org', async () => {
+    // `imageUrl` is organizer-supplied and every event's object URL is public,
+    // so being inside our own bucket does not make the object this caller's to
+    // delete. Without the org-prefix check an admin of org-1 could point a
+    // throwaway draft at org-2's image and destroy it by deleting the draft.
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl:
+            'https://storage.googleapis.com/test-bucket/orgs/org-2/event-media/victim.jpg',
+        }),
+      ),
+    });
+
+    const result = await createDashboardEventsDeleteHandler(d)(request());
+
+    expect(d.storage.delete).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      eventId: 'evt-1',
+      slug: 'intro-to-networking',
+      deleted: true,
+    });
+  });
+
   it('touches no bucket object when the event has no image URL', async () => {
     const d = deps({
       getEvent: vi.fn(async () => fakeEvent({ status: 'draft' })),
