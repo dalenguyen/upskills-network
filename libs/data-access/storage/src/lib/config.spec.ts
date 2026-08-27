@@ -57,6 +57,32 @@ describe('publicUrlForPath', () => {
       'https://storage.googleapis.com/bucket/orgs/a%20b/hero%20c.jpg',
     );
   });
+
+  // `.` is unreserved, so encodeURIComponent('..') === '..' and the traversal
+  // would otherwise reach the URL intact.
+  it.each(['orgs/a/../b/x.jpg', 'orgs/./x.jpg', '../x.jpg', 'orgs/..'])(
+    'rejects the traversal path %s',
+    (objectPath) => {
+      expect(() => publicUrlForPath('bucket', objectPath)).toThrow(
+        'Invalid object path',
+      );
+    },
+  );
+
+  it.each(['', '/x.jpg', 'orgs//x.jpg', 'orgs/x.jpg/'])(
+    'rejects the empty segment in %s',
+    (objectPath) => {
+      expect(() => publicUrlForPath('bucket', objectPath)).toThrow(
+        'Invalid object path',
+      );
+    },
+  );
+
+  it('allows a dot inside a segment', () => {
+    expect(publicUrlForPath('bucket', 'orgs/org-1/a.b.jpg')).toBe(
+      'https://storage.googleapis.com/bucket/orgs/org-1/a.b.jpg',
+    );
+  });
 });
 
 describe('MEDIA_CACHE_CONTROL', () => {

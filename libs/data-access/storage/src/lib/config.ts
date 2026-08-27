@@ -70,10 +70,28 @@ export function mediaBucketName(): string {
  * signing and no token. Each path segment is encoded separately so that the
  * slashes separating them survive while anything unusual inside a segment does
  * not break the URL.
+ *
+ * @throws if any segment is empty, `.`, or `..`. Percent-encoding does not
+ * neutralise those: `.` is an unreserved character, so `encodeURIComponent`
+ * returns `..` unchanged and the traversal survives into the URL, where an
+ * intermediary is free to resolve `orgs/a/../b/x.jpg` down to `orgs/b/x.jpg`.
+ * Object paths are built server-side today, but the extension in a media path
+ * is derived from an uploaded file, so the guard belongs at the seam rather
+ * than in each caller.
  */
 export function publicUrlForPath(bucket: string, objectPath: string): string {
-  const encodedPath = objectPath
-    .split('/')
+  const segments = objectPath.split('/');
+
+  for (const segment of segments) {
+    if (segment === '' || segment === '.' || segment === '..') {
+      throw new Error(
+        `Invalid object path ${JSON.stringify(objectPath)}: a path segment may ` +
+          `not be empty, "." or "..".`,
+      );
+    }
+  }
+
+  const encodedPath = segments
     .map((segment) => encodeURIComponent(segment))
     .join('/');
 
