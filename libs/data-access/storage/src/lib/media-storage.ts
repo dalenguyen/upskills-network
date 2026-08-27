@@ -20,6 +20,15 @@ export interface UploadMediaInput {
   contentType: string;
 }
 
+/** One object already stored in the media bucket. */
+export interface MediaObject {
+  /** Object path inside the bucket, e.g. `orgs/org-1/event-media/abc.jpg`. */
+  path: string;
+
+  /** When Cloud Storage created the object. */
+  createdAt: Date;
+}
+
 /** Storage operations available to media handlers. */
 export interface MediaStorage {
   /**
@@ -37,6 +46,6 @@ export interface MediaStorage {
    */
   delete(path: string): Promise<void>;
 
-  /** Object paths in the bucket that start with `prefix`. */
-  list(prefix: string): Promise<string[]>;
+  /** Objects in the bucket whose path starts with `prefix`. */
+  list(prefix: string): Promise<MediaObject[]>;
 }
