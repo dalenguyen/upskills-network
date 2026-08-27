@@ -138,11 +138,33 @@ const auth = vi.hoisted(() => ({
   })),
 }));
 
+const storage = vi.hoisted(() => {
+  // One port, returned every time — `getMediaStorage()` memoizes for real, and
+  // a mock that minted a fresh object per call would let a route resolve the
+  // port repeatedly without the assertions below noticing.
+  const port = {
+    upload: vi.fn(
+      async (input: { path: string }) =>
+        `https://storage.googleapis.com/test-bucket/${input.path}`,
+    ),
+    delete: vi.fn(async () => undefined),
+    list: vi.fn(async () => []),
+  };
+
+  return { port, getMediaStorage: vi.fn(() => port) };
+});
+
 vi.mock('@upskills/firestore', () => firestore);
 vi.mock('@upskills/email', () => email);
 vi.mock('@upskills/auth', () => auth);
+vi.mock('@upskills/storage', () => storage);
 
 import { createTestEvent } from './testing/h3-event';
+import {
+  multipartFileBody,
+  pngBytes,
+  TEST_MULTIPART_BOUNDARY,
+} from './testing/media-upload-fixtures';
 
 import meGetRoute from './routes/api/v1/auth/me.get';
 import sessionDeleteRoute from './routes/api/v1/auth/session.delete';
@@ -166,6 +188,7 @@ import dashboardEventsCreateRoute from './routes/api/v1/dashboard/events/index.p
 import dashboardEventDetailRoute from './routes/api/v1/dashboard/events/[eventId]/index.get';
 import dashboardEventUpdateRoute from './routes/api/v1/dashboard/events/[eventId]/index.put';
 import dashboardEventCancelRoute from './routes/api/v1/dashboard/events/[eventId]/index.delete';
+import dashboardEventImageRoute from './routes/api/v1/dashboard/events/image.post';
 
 import dashboardOrgsCreateRoute from './routes/api/v1/dashboard/orgs/index.post';
 import dashboardOrgDetailRoute from './routes/api/v1/dashboard/orgs/[orgId]/index.get';
@@ -541,6 +564,42 @@ describe('dashboard event route wiring', () => {
       'manager',
     );
     expect(firestore.cancelEvent).toHaveBeenCalledWith('org-1', 'evt-1');
+  });
+
+  it('POST /dashboard/events/image authorizes the query org, then uploads through the media port', async () => {
+    const boundary = TEST_MULTIPART_BOUNDARY;
+    storage.getMediaStorage.mockClear();
+    storage.port.upload.mockClear();
+
+    await run(dashboardEventImageRoute, {
+      method: 'POST',
+      url: '/api/v1/dashboard/events/image?orgId=org-1',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body: multipartFileBody({ data: pngBytes(), boundary }),
+    });
+
+    expect(auth.requireOrgRole).toHaveBeenCalledWith(
+      expect.anything(),
+      'org-1',
+      'admin',
+      'manager',
+    );
+
+    // Resolved DURING the request, not at module load: the counter is cleared
+    // just before the call above, so a route that had captured the port at
+    // import time would leave this at zero. That ordering is what keeps an
+    // unset MEDIA_BUCKET from breaking the load of every route in the bundle.
+    expect(storage.getMediaStorage).toHaveBeenCalled();
+
+    expect(storage.port.upload).toHaveBeenCalledOnce();
+    expect(storage.port.upload.mock.calls[0][0]).toMatchObject({
+      path: expect.stringMatching(
+        /^orgs\/org-1\/event-media\/[A-Za-z0-9_-]{32}\.png$/,
+      ),
+      contentType: 'image/png',
+    });
   });
 });
 
