@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import {
   Component,
+  computed,
   effect,
   inject,
   input,
@@ -8,11 +9,13 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import type { HeroImage } from '@upskills/models';
 import { nextSlugCandidate, slugify } from '@upskills/validation';
 import { firstValueFrom } from 'rxjs';
 
 import {
   dashboardEventCreateEndpoint,
+  dashboardEventImageUploadEndpoint,
   dashboardEventUpdateEndpoint,
   type DashboardEvent,
   type DashboardEventsCreateResponse,
@@ -23,6 +26,8 @@ import {
   CANADIAN_TIME_ZONES,
   centsToDollars,
   dollarsToCents,
+  heroImageFileError,
+  heroImageUploadErrorMessage,
   imageUrlError,
   toIsoWithOffset,
   toLocalDatetimeValue,
@@ -201,29 +206,98 @@ interface EventForm {
 
       <div>
         <label
-          for="imageUrl"
+          [attr.for]="
+            heroImageMode() === 'upload' ? 'heroImageFile' : 'imageUrl'
+          "
           class="block text-sm font-medium leading-6 text-zinc-900"
         >
-          Image URL
+          Event image
         </label>
-        <input
-          id="imageUrl"
-          name="imageUrl"
-          type="url"
-          maxlength="2000"
-          placeholder="https://example.com/poster.jpg"
-          [(ngModel)]="form.imageUrl"
-          class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-        />
-        <p class="mt-2 text-xs text-zinc-500">
-          @if (isEdit()) {
-            Optional. Must start with https://. Clear the field to remove the
-            image.
-          } @else {
-            Optional. Must start with https://. Link an image you host — if it
-            stops loading, the event simply shows without one.
+
+        @if (heroImageMode() === 'upload') {
+          <input
+            id="heroImageFile"
+            name="heroImageFile"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            [disabled]="uploadingImage()"
+            (change)="onHeroImageSelected($event)"
+            class="mt-2 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 disabled:opacity-50"
+          />
+          <p class="mt-2 text-xs text-zinc-500">
+            Optional. JPEG, PNG or WebP, up to 5 MB. Uploads as soon as you
+            choose it.
+          </p>
+
+          @if (uploadingImage()) {
+            <p
+              role="status"
+              class="mt-2 flex items-center gap-2 text-xs text-zinc-600"
+            >
+              <span
+                aria-hidden="true"
+                class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-300 border-t-indigo-600"
+              ></span>
+              Uploading your image…
+            </p>
           }
-        </p>
+        } @else {
+          <input
+            id="imageUrl"
+            name="imageUrl"
+            type="url"
+            maxlength="2000"
+            placeholder="https://example.com/poster.jpg"
+            [value]="form.imageUrl"
+            (input)="onImageUrlInput($event)"
+            class="mt-2 block w-full rounded-lg border-0 px-3 py-2 text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+          />
+          <p class="mt-2 text-xs text-zinc-500">
+            @if (isEdit()) {
+              Optional. Must start with https://. Clear the field to remove the
+              image.
+            } @else {
+              Optional. Must start with https://. Link an image you host — if it
+              stops loading, the event simply shows without one.
+            }
+          </p>
+        }
+
+        @if (imageUploadError(); as message) {
+          <p role="alert" class="mt-2 text-sm text-red-600">{{ message }}</p>
+        }
+
+        @if (form.imageUrl !== '' && !uploadingImage()) {
+          <div class="mt-3 flex items-start gap-3">
+            <img
+              [src]="form.imageUrl"
+              alt=""
+              referrerpolicy="no-referrer"
+              class="h-20 w-32 rounded-lg object-cover ring-1 ring-zinc-200"
+            />
+            <button
+              type="button"
+              (click)="removeHeroImage()"
+              class="text-sm font-medium text-zinc-600 underline hover:text-zinc-900"
+            >
+              Remove image
+            </button>
+          </div>
+        }
+
+        @if (!isEdit()) {
+          <button
+            type="button"
+            (click)="toggleHeroImageMode()"
+            class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            @if (heroImageMode() === 'upload') {
+              or use a link
+            } @else {
+              or upload a file
+            }
+          </button>
+        }
       </div>
 
       <div>
@@ -339,6 +413,45 @@ export class EventFormComponent {
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
 
+  /**
+   * Which way the organizer is giving us a hero image.
+   *
+   * Uploading is the default; the URL field it replaced is still reachable
+   * behind the "or use a link" toggle, because organizers hosting images on
+   * their own CDN were doing that before uploads existed and nothing should
+   * take it away from them.
+   */
+  private readonly chosenImageMode = signal<'upload' | 'link'>('upload');
+
+  /**
+   * Uploading is offered on the create form only.
+   *
+   * Replacing or removing an uploaded image on an event that already exists
+   * needs the old object deleted once the new URL is stored, which is a
+   * separate ticket; until it lands, the edit form keeps exactly the URL field
+   * it always had rather than an upload that would write bytes nothing cleans
+   * up.
+   */
+  readonly heroImageMode = computed<'upload' | 'link'>(() =>
+    this.isEdit() ? 'link' : this.chosenImageMode(),
+  );
+
+  /** An upload is in flight. Blocks a second one and shows progress. */
+  readonly uploadingImage = signal(false);
+
+  /** Why the last upload or file choice failed. Cleared on the next attempt. */
+  readonly imageUploadError = signal<string | null>(null);
+
+  /**
+   * Storage bookkeeping for an uploaded image, or `null` when the current
+   * `form.imageUrl` is a pasted link (or empty).
+   *
+   * Held beside `form.imageUrl` rather than inside it because `imageUrl`
+   * remains the single source of truth for rendering — this only records where
+   * the bytes came from, and the two are posted together or not at all.
+   */
+  readonly heroImage = signal<HeroImage | null>(null);
+
   readonly timezones = CANADIAN_TIME_ZONES;
 
   /**
@@ -396,6 +509,7 @@ export class EventFormComponent {
     this.form.timezone = workshop.timezone;
     this.form.location = workshop.location ?? '';
     this.form.imageUrl = workshop.imageUrl ?? '';
+    this.heroImage.set(null);
     this.form.price = centsToDollars(workshop.price);
     this.form.maxGuests = String(workshop.maxGuests);
 
@@ -532,6 +646,105 @@ export class EventFormComponent {
     throw new Error('slug walk ended without a result');
   }
 
+  /**
+   * Upload the chosen file straight away, rather than on save.
+   *
+   * Uploading on selection is what lets the URL land in the form and the
+   * preview render while the form is still open. It also means the bytes are
+   * already stored before the event exists, which is why the object path is
+   * keyed by org and media id rather than by event id.
+   *
+   * The parameter is not called `event` on purpose: this component has an
+   * `event` input, and shadowing it here has broken a run on this repo before.
+   */
+  async onHeroImageSelected(changeEvent: Event): Promise<void> {
+    const input = changeEvent.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (file === undefined) {
+      return;
+    }
+
+    const problem = heroImageFileError(file);
+    if (problem !== null) {
+      // Refused in the browser, so no request is made at all. The input is
+      // cleared so choosing the same file again still fires a change event.
+      this.imageUploadError.set(problem);
+      input.value = '';
+      return;
+    }
+
+    this.imageUploadError.set(null);
+    this.uploadingImage.set(true);
+
+    try {
+      const body = new FormData();
+      body.append('file', file);
+
+      const uploaded = await firstValueFrom(
+        this.http.post<{
+          url: string;
+          storagePath: string;
+          contentType: string;
+          sizeBytes: number;
+        }>(dashboardEventImageUploadEndpoint(this.orgId()), body, {
+          withCredentials: true,
+        }),
+      );
+
+      this.form.imageUrl = uploaded.url;
+      this.heroImage.set({
+        storagePath: uploaded.storagePath,
+        contentType: uploaded.contentType,
+        sizeBytes: uploaded.sizeBytes,
+        // Client-stamped: the upload route does not return a timestamp. Close
+        // enough for bookkeeping, and never used to order anything.
+        uploadedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      // Everything else in the form is untouched, so the organizer can retry,
+      // choose a different file, or switch to a link without losing work.
+      this.imageUploadError.set(
+        heroImageUploadErrorMessage(apiErrorStatus(error)),
+      );
+    } finally {
+      this.uploadingImage.set(false);
+      input.value = '';
+    }
+  }
+
+  /**
+   * The URL field is one-way bound plus this handler, not `[(ngModel)]`.
+   *
+   * `form` is a plain object, and `ngModel` does not re-read one it did not
+   * see change: assigning `form.imageUrl` after an upload would leave the
+   * input showing the old value. That exact bug has shipped twice on this
+   * repo. One-way `[value]` re-renders whenever the component does, so the
+   * programmatic write after an upload is visible.
+   */
+  onImageUrlInput(inputEvent: Event): void {
+    this.form.imageUrl = (inputEvent.target as HTMLInputElement).value;
+    // A hand-typed URL is no longer described by the upload bookkeeping, and
+    // the two must never disagree.
+    this.heroImage.set(null);
+    this.imageUploadError.set(null);
+  }
+
+  /** Clear the image entirely — both the URL and its bookkeeping. */
+  removeHeroImage(): void {
+    this.form.imageUrl = '';
+    this.heroImage.set(null);
+    this.imageUploadError.set(null);
+  }
+
+  /** Swap between uploading a file and pasting a link. */
+  toggleHeroImageMode(): void {
+    this.chosenImageMode.update((mode) =>
+      mode === 'upload' ? 'link' : 'upload',
+    );
+    this.imageUploadError.set(null);
+  }
+
   private buildBody(
     status: 'draft' | 'published',
     isEdit: boolean,
@@ -539,6 +752,7 @@ export class EventFormComponent {
     const endsAt = this.form.endsAt.trim();
     const location = this.form.location.trim();
     const imageUrl = this.form.imageUrl.trim();
+    const heroImage = this.heroImage();
 
     return {
       title: this.form.title.trim(),
@@ -560,6 +774,13 @@ export class EventFormComponent {
       // value for an absent field to preserve.
       ...(isEdit || location !== '' ? { location } : {}),
       ...(isEdit || imageUrl !== '' ? { imageUrl } : {}),
+      // Bookkeeping travels with the URL it describes or not at all —
+      // `CreateEventSchema` rejects the pair split apart. Create only: adding
+      // an uploaded image to an existing event is #205's job, and
+      // `UpdateEventSchema` has no `heroImage` yet.
+      ...(!isEdit && heroImage !== null && imageUrl !== ''
+        ? { heroImage }
+        : {}),
       price: dollarsToCents(Number(this.form.price)),
       currency: 'cad',
       maxGuests: Number(this.form.maxGuests),

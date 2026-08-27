@@ -88,6 +88,17 @@ export function dashboardEventCreateEndpoint(orgId: string): string {
   return `/api/v1/dashboard/events?orgId=${encodeURIComponent(orgId)}`;
 }
 
+/**
+ * `POST` — upload a hero image for one org before the event is saved.
+ *
+ * Same `orgId` encoding as `dashboardEventsEndpoint`: the query value names
+ * the org the upload will belong to, and it must not be able to smuggle URL
+ * delimiters into the request.
+ */
+export function dashboardEventImageUploadEndpoint(orgId: string): string {
+  return `/api/v1/dashboard/events/image?orgId=${encodeURIComponent(orgId)}`;
+}
+
 /** `GET` — one event owned by one org. */
 export function dashboardEventDetailEndpoint(
   orgId: string,

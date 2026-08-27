@@ -5,6 +5,7 @@ export type { OrgInvite, OrgInviteStatus } from './lib/org-invite';
 export type {
   Currency,
   EventStatus,
+  HeroImage,
   WorkshopEvent,
 } from './lib/workshop-event';
 export type { Guest, GuestStatus } from './lib/guest';

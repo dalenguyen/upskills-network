@@ -11,6 +11,29 @@ import {
 } from './primitives';
 
 /**
+ * Storage bookkeeping for an uploaded event hero image.
+ *
+ * Mirrors the shape of `HeroImage` on `WorkshopEvent`. The uploaded bytes are
+ * already constrained by the upload route before a save ever runs; this schema
+ * keeps the stored record just as tight so a malformed write cannot be handed
+ * to the rest of the app.
+ */
+export const HeroImageSchema = z.object({
+  /** Non-empty storage object path. */
+  storagePath: z.string().trim().min(1),
+  /** MIME type the upload route accepted. */
+  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  /** Size of the uploaded bytes; the upload route rejects anything over 5 MB. */
+  sizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(5 * 1024 * 1024),
+  /** ISO-8601 instant with an offset, recorded when the upload completed. */
+  uploadedAt: IsoDateTimeSchema,
+});
+
+/**
  * Body fields for creating an event.
  *
  * `orgId` and `eventId` are deliberately absent: they come from the route path
@@ -57,13 +80,49 @@ function endsAfterStart(
   }
 }
 
+/**
+ * `heroImage` is bookkeeping *about* `imageUrl`, so it cannot travel alone.
+ *
+ * `imageUrl` stays the single source of truth for rendering: nothing reads
+ * `heroImage` to decide what to show. An event carrying bookkeeping for bytes
+ * that nothing renders is not a harmless inconsistency — it is an uploaded
+ * object no page references and no delete path will ever be asked to clean up,
+ * which is exactly the orphan the sweeper exists to catch. Rejecting it here
+ * keeps the pair honest at the only point where both fields are written.
+ *
+ * The converse is deliberately allowed: `imageUrl` without `heroImage` is the
+ * pasted-link case every existing event already uses.
+ */
+function heroImageAccompaniesUrl(
+  value: { imageUrl?: string; heroImage?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  // Only absence is checked. A present-but-malformed `imageUrl` never reaches
+  // here: `HttpsUrlSchema` fails the object parse first, and `superRefine`
+  // runs only on a successful one.
+  if (value.heroImage !== undefined && value.imageUrl === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['heroImage'],
+      message: 'heroImage requires imageUrl: the two are written together',
+    });
+  }
+}
+
 export const CreateEventSchema = z
   .object({
     ...eventFields,
+    /**
+     * Bookkeeping for an image uploaded before the event was saved. Optional,
+     * like `imageUrl`; when it is present the two fields were written together
+     * — see {@link heroImageAccompaniesUrl}.
+     */
+    heroImage: HeroImageSchema.optional(),
     /** New events default to `draft`; `cancelled` is not a creation state. */
     status: z.enum(['draft', 'published']).default('draft'),
   })
-  .superRefine(endsAfterStart);
+  .superRefine(endsAfterStart)
+  .superRefine(heroImageAccompaniesUrl);
 
 /**
  * Partial update. Every field optional, but at least one must be present so an

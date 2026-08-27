@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CreateEventSchema, UpdateEventSchema } from './event.schema';
+import {
+  CreateEventSchema,
+  HeroImageSchema,
+  UpdateEventSchema,
+} from './event.schema';
 
 /** Builds a copy of `source` without the given keys. */
 function without<T extends object, K extends keyof T>(
@@ -25,12 +29,141 @@ const validEvent = {
   maxGuests: 30,
 };
 
+const validHeroImage = {
+  // Shaped like what the upload route actually writes: keyed by org and by an
+  // unguessable media id, with no event id in the path (the event does not
+  // exist yet when the upload happens).
+  storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
+  contentType: 'image/jpeg',
+  sizeBytes: 1_000_000,
+  uploadedAt: '2026-09-01T18:00:00Z',
+};
+
+/** `heroImage` is bookkeeping about `imageUrl`, so the two travel together. */
+const validUploadedEvent = {
+  ...validEvent,
+  imageUrl: 'https://storage.googleapis.com/upskills-network-media/x.jpg',
+  heroImage: validHeroImage,
+};
+
+describe('HeroImageSchema', () => {
+  it('accepts a valid uploaded hero image', () => {
+    expect(HeroImageSchema.parse(validHeroImage)).toEqual(validHeroImage);
+  });
+
+  it('rejects an empty storagePath', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      storagePath: '   ',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['storagePath']);
+  });
+
+  it('rejects a disallowed content type', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      contentType: 'image/gif',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['contentType']);
+  });
+
+  it('rejects a non-positive size', () => {
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: 0 }).success,
+    ).toBe(false);
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: -1 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a non-integer size', () => {
+    expect(
+      HeroImageSchema.safeParse({ ...validHeroImage, sizeBytes: 1_000.5 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('rejects a size over 5 MB', () => {
+    expect(
+      HeroImageSchema.safeParse({
+        ...validHeroImage,
+        sizeBytes: 5 * 1024 * 1024 + 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an uploadedAt without an offset', () => {
+    const result = HeroImageSchema.safeParse({
+      ...validHeroImage,
+      uploadedAt: '2026-09-01T18:00:00',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['uploadedAt']);
+  });
+});
+
 describe('CreateEventSchema', () => {
   it('accepts a fully specified event', () => {
     const parsed = CreateEventSchema.parse(validEvent);
 
     expect(parsed.title).toBe('Intro to Networking');
     expect(parsed.price).toBe(2500);
+  });
+
+  it('accepts a valid heroImage alongside the URL it describes', () => {
+    const parsed = CreateEventSchema.parse(validUploadedEvent);
+
+    expect(parsed.heroImage).toEqual(validHeroImage);
+    expect(parsed.imageUrl).toBe(validUploadedEvent.imageUrl);
+  });
+
+  it('allows heroImage to be omitted', () => {
+    expect(CreateEventSchema.parse(validEvent).heroImage).toBeUndefined();
+  });
+
+  it('still accepts a pasted imageUrl with no heroImage', () => {
+    const parsed = CreateEventSchema.parse({
+      ...validEvent,
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+
+    expect(parsed.imageUrl).toBe('https://example.com/poster.jpg');
+    expect(parsed.heroImage).toBeUndefined();
+  });
+
+  it('rejects heroImage without the imageUrl it is bookkeeping for', () => {
+    const result = CreateEventSchema.safeParse({
+      ...validEvent,
+      heroImage: validHeroImage,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((i) => i.path[0] === 'heroImage')).toBe(
+      true,
+    );
+  });
+
+  it('rejects a heroImage with an oversized upload', () => {
+    expect(
+      CreateEventSchema.safeParse({
+        ...validUploadedEvent,
+        heroImage: { ...validHeroImage, sizeBytes: 5 * 1024 * 1024 + 1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a heroImage with a disallowed content type', () => {
+    expect(
+      CreateEventSchema.safeParse({
+        ...validUploadedEvent,
+        heroImage: { ...validHeroImage, contentType: 'image/gif' },
+      }).success,
+    ).toBe(false);
   });
 
   it('defaults status to draft', () => {
