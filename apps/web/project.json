@@ -124,7 +124,8 @@
             "NODE_ENV": "production",
             "GCP_PROJECT_ID": "upskills-network",
             "SITE_URL": "https://upskillsnetwork.com",
-            "EMAIL_FROM": "Upskills Network <dale@updates.upskillsnetwork.com>"
+            "EMAIL_FROM": "Upskills Network <dale@updates.upskillsnetwork.com>",
+            "MEDIA_BUCKET": "upskills-network-media"
           }
         }
       }
