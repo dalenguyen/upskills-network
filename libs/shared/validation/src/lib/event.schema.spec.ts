@@ -30,10 +30,20 @@ const validEvent = {
 };
 
 const validHeroImage = {
-  storagePath: 'events/intro-to-networking/hero.jpg',
+  // Shaped like what the upload route actually writes: keyed by org and by an
+  // unguessable media id, with no event id in the path (the event does not
+  // exist yet when the upload happens).
+  storagePath: 'orgs/org-1/event-media/7f3c9a2b4d.jpg',
   contentType: 'image/jpeg',
   sizeBytes: 1_000_000,
   uploadedAt: '2026-09-01T18:00:00Z',
+};
+
+/** `heroImage` is bookkeeping about `imageUrl`, so the two travel together. */
+const validUploadedEvent = {
+  ...validEvent,
+  imageUrl: 'https://storage.googleapis.com/upskills-network-media/x.jpg',
+  heroImage: validHeroImage,
 };
 
 describe('HeroImageSchema', () => {
@@ -105,23 +115,43 @@ describe('CreateEventSchema', () => {
     expect(parsed.price).toBe(2500);
   });
 
-  it('accepts a valid heroImage', () => {
-    const parsed = CreateEventSchema.parse({
-      ...validEvent,
-      heroImage: validHeroImage,
-    });
+  it('accepts a valid heroImage alongside the URL it describes', () => {
+    const parsed = CreateEventSchema.parse(validUploadedEvent);
 
     expect(parsed.heroImage).toEqual(validHeroImage);
+    expect(parsed.imageUrl).toBe(validUploadedEvent.imageUrl);
   });
 
   it('allows heroImage to be omitted', () => {
     expect(CreateEventSchema.parse(validEvent).heroImage).toBeUndefined();
   });
 
+  it('still accepts a pasted imageUrl with no heroImage', () => {
+    const parsed = CreateEventSchema.parse({
+      ...validEvent,
+      imageUrl: 'https://example.com/poster.jpg',
+    });
+
+    expect(parsed.imageUrl).toBe('https://example.com/poster.jpg');
+    expect(parsed.heroImage).toBeUndefined();
+  });
+
+  it('rejects heroImage without the imageUrl it is bookkeeping for', () => {
+    const result = CreateEventSchema.safeParse({
+      ...validEvent,
+      heroImage: validHeroImage,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((i) => i.path[0] === 'heroImage')).toBe(
+      true,
+    );
+  });
+
   it('rejects a heroImage with an oversized upload', () => {
     expect(
       CreateEventSchema.safeParse({
-        ...validEvent,
+        ...validUploadedEvent,
         heroImage: { ...validHeroImage, sizeBytes: 5 * 1024 * 1024 + 1 },
       }).success,
     ).toBe(false);
@@ -130,7 +160,7 @@ describe('CreateEventSchema', () => {
   it('rejects a heroImage with a disallowed content type', () => {
     expect(
       CreateEventSchema.safeParse({
-        ...validEvent,
+        ...validUploadedEvent,
         heroImage: { ...validHeroImage, contentType: 'image/gif' },
       }).success,
     ).toBe(false);

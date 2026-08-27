@@ -105,11 +105,11 @@ describe('heroImageUploadErrorMessage', () => {
   });
 
   it('maps any other status to a generic retryable message', () => {
-    expect(heroImageUploadErrorMessage(500)).toContain('try again');
-    expect(heroImageUploadErrorMessage(422)).toContain('try again');
+    expect(heroImageUploadErrorMessage(500)).toContain('Try again');
+    expect(heroImageUploadErrorMessage(422)).toContain('Try again');
   });
 
   it('maps a missing status to the generic retryable message', () => {
-    expect(heroImageUploadErrorMessage(null)).toContain('try again');
+    expect(heroImageUploadErrorMessage(null)).toContain('Try again');
   });
 });
