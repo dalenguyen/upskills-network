@@ -82,6 +82,7 @@
     "@angular/platform-browser-dynamic": "~22.0.4",
     "@angular/platform-server": "~22.0.4",
     "@angular/router": "~22.0.4",
+    "@google-cloud/storage": "^8.0.1",
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
     "front-matter": "^4.0.2",
