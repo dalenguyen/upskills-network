@@ -484,6 +484,28 @@ export async function listOrgEvents(
   return (await query.get()).docs.map(eventFromQueryDoc);
 }
 
+/**
+ * Every event in the database, across every organizer and every status.
+ *
+ * The media sweep is the only caller and it needs exactly this: an object in
+ * the bucket is garbage only if *no* event anywhere still points at it, so a
+ * read that misses any event would delete a live image. Draft and cancelled
+ * events are included deliberately — both still carry an `imageUrl` and a
+ * cancelled event's page still renders it.
+ *
+ * A collection-group query with no filter and no ordering, so it needs **no
+ * composite index**; the unfiltered group scan is served automatically.
+ *
+ * Deliberately unpaginated. The sweep has to hold the whole referenced set in
+ * memory anyway to answer "is this path referenced", so paging would add a
+ * cursor without lowering the peak. If the event count ever outgrows one
+ * request, the sweep needs redesigning around a per-org pass rather than this
+ * read growing a page size.
+ */
+export async function listAllEvents(): Promise<WorkshopEvent[]> {
+  return (await eventsGroup().get()).docs.map(eventFromQueryDoc);
+}
+
 export interface ListEventGuestsOptions {
   /** Restrict to one registration status; omit for all guests. */
   status?: GuestStatus;

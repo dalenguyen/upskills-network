@@ -118,6 +118,7 @@
             "STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest",
             "STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
             "LOOKUP_TOKEN_SECRET=LOOKUP_TOKEN_SECRET:latest",
+            "MEDIA_SWEEP_SECRET=MEDIA_SWEEP_SECRET:latest",
             "RESEND_API_KEY=RESEND_API_KEY:latest"
           ],
           "envVars": {

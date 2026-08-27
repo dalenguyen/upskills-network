@@ -42,6 +42,7 @@ export {
   getOrgSlugs,
   getUser,
   getUserEmails,
+  listAllEvents,
   listEventGuests,
   listOrgEvents,
   listOrgs,
