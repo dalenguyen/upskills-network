@@ -51,6 +51,11 @@ export class CloudStorageMediaStorage implements MediaStorage {
   ) {}
 
   async upload(input: UploadMediaInput): Promise<string> {
+    // Build the URL first, because doing so validates the path. Called after
+    // `save`, a rejected path would leave a real object in the bucket while the
+    // caller saw only a thrown error — an orphan nothing knows to clean up.
+    const url = publicUrlForPath(this.bucketName, input.path);
+
     const file = this.client.bucket(this.bucketName).file(input.path);
 
     await file.save(input.data, {
@@ -60,7 +65,7 @@ export class CloudStorageMediaStorage implements MediaStorage {
       },
     });
 
-    return publicUrlForPath(this.bucketName, input.path);
+    return url;
   }
 
   async delete(path: string): Promise<void> {

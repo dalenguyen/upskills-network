@@ -119,6 +119,24 @@ describe('CloudStorageMediaStorage.upload', () => {
     expect(state.saved[0].options.metadata.contentType).toBe('image/webp');
   });
 
+  // The path is validated by publicUrlForPath. Validating only after the write
+  // would leave a real object in the bucket that the caller believes failed —
+  // an orphan no later cleanup knows about.
+  it('writes nothing when the path is rejected', async () => {
+    const { client, state } = fakeClient({});
+    const storage = new CloudStorageMediaStorage(client, BUCKET);
+
+    await expect(
+      storage.upload({
+        path: 'orgs/org-1/../org-2/abc.jpg',
+        data: Buffer.from('bytes'),
+        contentType: 'image/jpeg',
+      }),
+    ).rejects.toThrow('Invalid object path');
+
+    expect(state.saved).toEqual([]);
+  });
+
   it('returns the public URL of the stored object', async () => {
     const { client } = fakeClient({});
     const storage = new CloudStorageMediaStorage(client, BUCKET);
