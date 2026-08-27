@@ -4,6 +4,7 @@ import {
   MEDIA_BUCKET_ENV,
   MEDIA_CACHE_CONTROL,
   mediaBucketName,
+  objectPathForPublicUrl,
   publicUrlForPath,
 } from './config';
 
@@ -82,6 +83,89 @@ describe('publicUrlForPath', () => {
     expect(publicUrlForPath('bucket', 'orgs/org-1/a.b.jpg')).toBe(
       'https://storage.googleapis.com/bucket/orgs/org-1/a.b.jpg',
     );
+  });
+});
+
+describe('objectPathForPublicUrl', () => {
+  it('returns the object path inside the given bucket', () => {
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/orgs/org-1/event-media/abc.jpg',
+      ),
+    ).toBe('orgs/org-1/event-media/abc.jpg');
+  });
+
+  it('round-trips a path that publicUrlForPath had to encode', () => {
+    const objectPath = 'orgs/org-1/event-media/hero #1 & poster.jpg';
+
+    expect(
+      objectPathForPublicUrl('bucket', publicUrlForPath('bucket', objectPath)),
+    ).toBe(objectPath);
+  });
+
+  it('returns null for a URL that is not served by Cloud Storage', () => {
+    expect(
+      objectPathForPublicUrl('bucket', 'https://images.example.com/x.jpg'),
+    ).toBeNull();
+  });
+
+  it('returns null when the first path segment is a different bucket', () => {
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/other-bucket/orgs/org-1/x.jpg',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for a malformed URL rather than throwing', () => {
+    expect(objectPathForPublicUrl('bucket', 'not a url')).toBeNull();
+    expect(objectPathForPublicUrl('bucket', 'https://')).toBeNull();
+  });
+
+  it('returns null for a non-absolute URL rather than throwing', () => {
+    expect(objectPathForPublicUrl('bucket', '/orgs/org-1/x.jpg')).toBeNull();
+    expect(objectPathForPublicUrl('bucket', 'orgs/org-1/x.jpg')).toBeNull();
+  });
+
+  it('returns null when a decoded segment is empty, "." or ".."', () => {
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/orgs//x.jpg',
+      ),
+    ).toBeNull();
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/orgs/./x.jpg',
+      ),
+    ).toBeNull();
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/orgs/a/../x.jpg',
+      ),
+    ).toBeNull();
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/orgs/%2E%2E/x.jpg',
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when the URL names no object path after the bucket', () => {
+    expect(
+      objectPathForPublicUrl('bucket', 'https://storage.googleapis.com/bucket'),
+    ).toBeNull();
+    expect(
+      objectPathForPublicUrl(
+        'bucket',
+        'https://storage.googleapis.com/bucket/',
+      ),
+    ).toBeNull();
   });
 });
 

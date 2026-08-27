@@ -1,5 +1,6 @@
 import type { AuthContext, OrgContext } from '@upskills/auth';
 import type { OrgRole, WorkshopEvent } from '@upskills/models';
+import { objectPathForPublicUrl, type MediaStorage } from '@upskills/storage';
 import {
   defineEventHandler,
   getRouterParam,
@@ -55,6 +56,10 @@ export interface DashboardEventsDeleteDeps {
   getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
   /** `deleteDraftEvent` from `@upskills/firestore`. */
   deleteDraftEvent(orgId: string, eventId: string): Promise<void>;
+  /** The media storage port from `@upskills/storage`. */
+  storage: MediaStorage;
+  /** The configured media bucket name, read at request time. */
+  mediaBucketName(): string;
 }
 
 export function createDashboardEventsDeleteHandler(
@@ -89,6 +94,12 @@ export function createDashboardEventsDeleteHandler(
 
       await deps.deleteDraftEvent(orgId, eventId);
 
+      // The document is gone before the object delete is attempted. A failure
+      // to remove the bytes is logged and never changes the response: the
+      // delete itself succeeded, and a 500 would tell the organizer to retry
+      // an operation that no longer has a document to find.
+      await deleteUploadedHeroImage(eventId, found.imageUrl, deps);
+
       return {
         eventId,
         slug: found.slug,
@@ -98,4 +109,39 @@ export function createDashboardEventsDeleteHandler(
       throw toHttpError(error);
     }
   });
+}
+
+/**
+ * Best-effort delete of the uploaded hero image object behind `imageUrl`.
+ *
+ * `imageUrl` is the single source of truth for what the event shows.
+ * `heroImage` bookkeeping is deliberately ignored here: it is dropped from the
+ * stored document on unrelated edits, so an event that was uploaded to and
+ * then edited before being deleted may no longer carry it even though the
+ * object still exists. The URL survives, and this derives the object path from
+ * it.
+ */
+async function deleteUploadedHeroImage(
+  eventId: string,
+  imageUrl: string | undefined,
+  deps: DashboardEventsDeleteDeps,
+): Promise<void> {
+  if (imageUrl === undefined) {
+    return;
+  }
+
+  try {
+    const objectPath = objectPathForPublicUrl(deps.mediaBucketName(), imageUrl);
+
+    if (objectPath === null) {
+      return;
+    }
+
+    await deps.storage.delete(objectPath);
+  } catch (error) {
+    console.error(
+      `Failed to delete the uploaded hero image object for event ${eventId}`,
+      error,
+    );
+  }
 }

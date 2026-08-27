@@ -97,3 +97,119 @@ export function publicUrlForPath(bucket: string, objectPath: string): string {
 
   return `https://storage.googleapis.com/${encodeURIComponent(bucket)}/${encodedPath}`;
 }
+
+/**
+ * The object path inside `bucket` that a public media URL names, or `null`
+ * when the URL is not an object in that bucket.
+ *
+ * This is the inverse of {@link publicUrlForPath}, used by the delete path to
+ * turn the URL an event still renders back into the object it must remove.
+ * Because the caller is about to delete, the failure mode is the opposite of
+ * `publicUrlForPath`: anything that is not recognisably an object in the
+ * configured bucket yields `null` rather than throwing, and the caller leaves
+ * it alone.
+ */
+export function objectPathForPublicUrl(
+  bucket: string,
+  url: string,
+): string | null {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  if (parsed.origin !== 'https://storage.googleapis.com') {
+    return null;
+  }
+
+  // `new URL` validates the URL, but it also resolves `.` and `..` segments
+  // out of the pathname. That normalisation would turn
+  // `https://storage.googleapis.com/bucket/orgs/a/../x.jpg` into
+  // `.../bucket/orgs/x.jpg`, which is a different object and exactly the kind
+  // of silent wrong delete `publicUrlForPath` refuses to mint. Read the raw
+  // pathname instead so those segments are seen and rejected, not resolved.
+  const pathname = rawPathname(url);
+
+  if (pathname === null) {
+    return null;
+  }
+
+  // A pathname is at least `/bucket/object`, so `split` gives
+  // `['', bucket, ...object segments]`.
+  const segments = pathname.split('/');
+
+  if (segments[0] !== '' || segments.length < 3) {
+    return null;
+  }
+
+  const decoded: string[] = [];
+
+  for (const segment of segments.slice(1)) {
+    let value: string;
+
+    try {
+      value = decodeURIComponent(segment);
+    } catch {
+      return null;
+    }
+
+    if (value === '' || value === '.' || value === '..') {
+      return null;
+    }
+
+    decoded.push(value);
+  }
+
+  if (decoded[0] !== bucket) {
+    return null;
+  }
+
+  return decoded.slice(1).join('/');
+}
+
+/**
+ * The pathname exactly as it appeared in `url`, with dot segments still in
+ * place.
+ *
+ * `url` has already been accepted by `new URL`, so this does not need to
+ * re-validate the URL; it only needs to avoid the WHATWG parser's path
+ * normalisation. The authority of an http(s) URL runs from just after `://` to
+ * the first `/`, `?`, or `#`, so the raw path is simply the following slice.
+ */
+function rawPathname(url: string): string | null {
+  const schemeEnd = url.indexOf('://');
+
+  if (schemeEnd === -1) {
+    return null;
+  }
+
+  const authorityStart = schemeEnd + 3;
+  let pathStart = authorityStart;
+
+  while (pathStart < url.length) {
+    const char = url[pathStart];
+
+    if (char === '/' || char === '?' || char === '#') {
+      break;
+    }
+
+    pathStart += 1;
+  }
+
+  // No path at all: `https://storage.googleapis.com` or the same URL with a
+  // query/hash. It cannot name an object.
+  if (pathStart === url.length || url[pathStart] !== '/') {
+    return '/';
+  }
+
+  let pathEnd = pathStart;
+
+  while (pathEnd < url.length && url[pathEnd] !== '?' && url[pathEnd] !== '#') {
+    pathEnd += 1;
+  }
+
+  return url.slice(pathStart, pathEnd);
+}
