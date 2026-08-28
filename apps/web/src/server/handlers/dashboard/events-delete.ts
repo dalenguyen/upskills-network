@@ -134,6 +134,12 @@ export function createDashboardEventsDeleteHandler(
  * `orgs/{orgId}/event-media/…` is the prefix the upload route mints, and
  * `orgId` here is the org the caller has just been authorized as an admin of,
  * so a path outside it is never this caller's to delete.
+ *
+ * The whole prefix is matched, `event-media` included, rather than just the
+ * org segment. Nothing else lives under an org's path today, but anything that
+ * later does — a logo, a member avatar — would otherwise be destroyable by
+ * pointing a throwaway draft at it. Only an uploaded hero image is this path's
+ * to remove.
  */
 async function deleteUploadedHeroImage(
   orgId: string,
@@ -152,7 +158,7 @@ async function deleteUploadedHeroImage(
       return;
     }
 
-    if (!objectPath.startsWith(`orgs/${orgId}/`)) {
+    if (!objectPath.startsWith(`orgs/${orgId}/event-media/`)) {
       return;
     }
 

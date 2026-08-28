@@ -129,6 +129,66 @@ describe('DELETE /api/v1/dashboard/events/:eventId/permanent', () => {
     });
   });
 
+  it('touches no bucket object outside the event-media prefix', async () => {
+    // Within the caller's own org, but not something this route mints. Only an
+    // uploaded hero image is its to delete; anything else that later lives
+    // under an org's path would otherwise be destroyable by pointing a
+    // throwaway draft at it.
+    const d = deps({
+      getEvent: vi.fn(async () =>
+        fakeEvent({
+          status: 'draft',
+          imageUrl:
+            'https://storage.googleapis.com/test-bucket/orgs/org-1/org-logo/logo.png',
+        }),
+      ),
+    });
+
+    await createDashboardEventsDeleteHandler(d)(request());
+
+    expect(d.storage.delete).not.toHaveBeenCalled();
+  });
+
+  it('touches no bucket object when the caller is not authenticated', async () => {
+    const denied = new Error('unauthorized');
+    const d = deps({
+      requireAuth: vi.fn(async () => {
+        throw denied;
+      }),
+    });
+
+    await expect(
+      createDashboardEventsDeleteHandler(d)(request()),
+    ).rejects.toBeDefined();
+    expect(d.deleteDraftEvent).not.toHaveBeenCalled();
+    expect(d.storage.delete).not.toHaveBeenCalled();
+  });
+
+  it('touches no bucket object when the caller is not an org admin', async () => {
+    const denied = new Error('forbidden');
+    const d = deps({
+      requireOrgRole: vi.fn(async () => {
+        throw denied;
+      }),
+    });
+
+    await expect(
+      createDashboardEventsDeleteHandler(d)(request()),
+    ).rejects.toBeDefined();
+    expect(d.deleteDraftEvent).not.toHaveBeenCalled();
+    expect(d.storage.delete).not.toHaveBeenCalled();
+  });
+
+  it('touches no bucket object when the event does not exist', async () => {
+    const d = deps({ getEvent: vi.fn(async () => null) });
+
+    await expect(
+      createDashboardEventsDeleteHandler(d)(request()),
+    ).rejects.toBeDefined();
+    expect(d.deleteDraftEvent).not.toHaveBeenCalled();
+    expect(d.storage.delete).not.toHaveBeenCalled();
+  });
+
   it('touches no bucket object when the event has no image URL', async () => {
     const d = deps({
       getEvent: vi.fn(async () => fakeEvent({ status: 'draft' })),
