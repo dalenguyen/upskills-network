@@ -1,5 +1,6 @@
 import type { AuthContext, OrgContext } from '@upskills/auth';
 import type { OrgRole, WorkshopEvent } from '@upskills/models';
+import { objectPathForPublicUrl, type MediaStorage } from '@upskills/storage';
 import {
   defineEventHandler,
   getRouterParam,
@@ -55,6 +56,10 @@ export interface DashboardEventsDeleteDeps {
   getEvent(orgId: string, eventId: string): Promise<WorkshopEvent | null>;
   /** `deleteDraftEvent` from `@upskills/firestore`. */
   deleteDraftEvent(orgId: string, eventId: string): Promise<void>;
+  /** The media storage port from `@upskills/storage`. */
+  storage: MediaStorage;
+  /** The configured media bucket name, read at request time. */
+  mediaBucketName(): string;
 }
 
 export function createDashboardEventsDeleteHandler(
@@ -89,6 +94,12 @@ export function createDashboardEventsDeleteHandler(
 
       await deps.deleteDraftEvent(orgId, eventId);
 
+      // The document is gone before the object delete is attempted. A failure
+      // to remove the bytes is logged and never changes the response: the
+      // delete itself succeeded, and a 500 would tell the organizer to retry
+      // an operation that no longer has a document to find.
+      await deleteUploadedHeroImage(orgId, eventId, found.imageUrl, deps);
+
       return {
         eventId,
         slug: found.slug,
@@ -98,4 +109,64 @@ export function createDashboardEventsDeleteHandler(
       throw toHttpError(error);
     }
   });
+}
+
+/**
+ * Best-effort delete of the uploaded hero image object behind `imageUrl`.
+ *
+ * `imageUrl` is the single source of truth for what the event shows.
+ * `heroImage` bookkeeping is deliberately ignored here: it is dropped from the
+ * stored document on unrelated edits, so an event that was uploaded to and
+ * then edited before being deleted may no longer carry it even though the
+ * object still exists. The URL survives, and this derives the object path from
+ * it.
+ *
+ * ## Why the path is checked against the caller's own org
+ *
+ * `imageUrl` is a value an organizer supplies — `HttpsUrlSchema` accepts any
+ * `https:` URL, with no host or path allowlist — and the object URL of any
+ * event is public and rendered on its page. Being inside our bucket is
+ * therefore not evidence that the object belongs to the event being deleted.
+ * Without this check an admin of one org could point a throwaway draft at
+ * another org's object URL, permanently delete the draft, and destroy that
+ * organizer's image.
+ *
+ * `orgs/{orgId}/event-media/…` is the prefix the upload route mints, and
+ * `orgId` here is the org the caller has just been authorized as an admin of,
+ * so a path outside it is never this caller's to delete.
+ *
+ * The whole prefix is matched, `event-media` included, rather than just the
+ * org segment. Nothing else lives under an org's path today, but anything that
+ * later does — a logo, a member avatar — would otherwise be destroyable by
+ * pointing a throwaway draft at it. Only an uploaded hero image is this path's
+ * to remove.
+ */
+async function deleteUploadedHeroImage(
+  orgId: string,
+  eventId: string,
+  imageUrl: string | undefined,
+  deps: DashboardEventsDeleteDeps,
+): Promise<void> {
+  if (imageUrl === undefined) {
+    return;
+  }
+
+  try {
+    const objectPath = objectPathForPublicUrl(deps.mediaBucketName(), imageUrl);
+
+    if (objectPath === null) {
+      return;
+    }
+
+    if (!objectPath.startsWith(`orgs/${orgId}/event-media/`)) {
+      return;
+    }
+
+    await deps.storage.delete(objectPath);
+  } catch (error) {
+    console.error(
+      `Failed to delete the uploaded hero image object for event ${eventId}`,
+      error,
+    );
+  }
 }
