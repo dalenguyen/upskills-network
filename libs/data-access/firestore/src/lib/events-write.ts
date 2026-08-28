@@ -50,6 +50,17 @@ export interface CreateEventDraft {
   sourceName?: string;
   /** Hero image, absolute https URL. */
   imageUrl?: string;
+  /**
+   * Storage bookkeeping for an uploaded hero image. Written only alongside the
+   * `imageUrl` it describes, the same rule {@link UpdateEventPatch} follows.
+   *
+   * Without this field the value never reaches the document: the create
+   * handler spreads a parsed body into this type, and a spread carries no
+   * excess-property check, so an undeclared `heroImage` is dropped silently.
+   * An event created that way shows an uploaded image it has no record of, and
+   * every later replacement leaks the object it superseded.
+   */
+  heroImage?: HeroImage;
   /** The source published a date but no time of day — see the model field. */
   startTimeTbd?: boolean;
   /** Price in **minor units** (cents). `0` means free. */
@@ -169,6 +180,13 @@ export async function createEvent(
         : {}),
       ...(input.imageUrl !== undefined
         ? { imageUrl: input.imageUrl.trim() }
+        : {}),
+      // Bookkeeping travels with the URL it describes, never alone. The same
+      // rule `updateEvent` enforces: bookkeeping for bytes the event does not
+      // show is an orphan the sweeper cannot see, because the reference that
+      // would spare it points somewhere else.
+      ...(input.heroImage !== undefined && input.imageUrl?.trim()
+        ? { heroImage: input.heroImage }
         : {}),
       // Only stored when true. `false` and absent mean the same thing — the
       // start time is known — so writing the `false` would add a field that
