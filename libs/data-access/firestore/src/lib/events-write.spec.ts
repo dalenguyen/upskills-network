@@ -112,6 +112,55 @@ describe('createEvent', () => {
     expect(stored && 'startTimeTbd' in stored).toBe(false);
   });
 
+  it('stores the heroImage bookkeeping for an uploaded image', async () => {
+    // The create path used to drop this. The document still showed the image,
+    // so nothing looked wrong until the organizer replaced it: the replace
+    // deletes the superseded object by reading `heroImage.storagePath` off the
+    // stored event, and bookkeeping that was never written leaks every object
+    // it should have removed.
+    const heroImage = {
+      storagePath: 'orgs/org-1/event-media/a.png',
+      contentType: 'image/png',
+      sizeBytes: 1024,
+      uploadedAt: '2026-09-01T18:00:00Z',
+    };
+
+    const created = await createEvent('org-1', {
+      ...draft,
+      slug: 'uploaded-hero',
+      imageUrl:
+        'https://storage.googleapis.com/upskills-network-media/orgs/org-1/event-media/a.png',
+      heroImage,
+    });
+
+    expect(await getEvent('org-1', created.eventId)).toMatchObject({
+      imageUrl:
+        'https://storage.googleapis.com/upskills-network-media/orgs/org-1/event-media/a.png',
+      heroImage,
+    });
+  });
+
+  it('refuses to store heroImage with no imageUrl to describe', async () => {
+    // `CreateEventSchema` rejects this pair, but `createEvent` is a write path
+    // the seed script reaches without a schema in between. Bookkeeping alone
+    // names an object the event does not show, which is the orphan the sweeper
+    // exists to reclaim — and a stored reference to it is what would keep the
+    // sweeper away.
+    const created = await createEvent('org-1', {
+      ...draft,
+      slug: 'orphan-bookkeeping',
+      heroImage: {
+        storagePath: 'orgs/org-1/event-media/a.png',
+        contentType: 'image/png',
+        sizeBytes: 1024,
+        uploadedAt: '2026-09-01T18:00:00Z',
+      },
+    });
+
+    const stored = await getEvent('org-1', created.eventId);
+    expect(stored && 'heroImage' in stored).toBe(false);
+  });
+
   it('refuses to store a sourceName with no externalUrl to name', async () => {
     const created = await createEvent('org-1', {
       ...draft,
