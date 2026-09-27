@@ -1,6 +1,7 @@
 import type { EventTimeframe } from '@upskills/validation';
 import type { RegisterResponse } from '../../server/handlers/registration/register';
 import type { CancelResponse } from '../../server/handlers/registration/cancel';
+import type { OrgDetailResponse } from '../../server/handlers/public/org-detail';
 import type {
   PublicEvent,
   PublicOrg,
@@ -18,7 +19,13 @@ import type {
  * adding a case to `RegisterResponse.status`, breaks the type-check here
  * instead of producing an `undefined` on a rendered page.
  */
-export type { PublicEvent, PublicOrg, RegisterResponse, CancelResponse };
+export type {
+  PublicEvent,
+  PublicOrg,
+  RegisterResponse,
+  CancelResponse,
+  OrgDetailResponse,
+};
 
 /**
  * `GET` — one published event, named the way its URL names it. 404 for anything
@@ -52,6 +59,16 @@ export function eventPath(
  * `when` with it.
  */
 export function eventsEndpoint(cursor?: string, when?: EventTimeframe): string {
+  return `/api/v1/events${listingQuery(cursor, when)}`;
+}
+
+/** The public page an organizer lives on: `/{orgSlug}`. */
+export function orgPath(orgSlug: string): string {
+  return `/${encodeURIComponent(orgSlug)}`;
+}
+
+/** Shared by the two listing endpoints: `?when=past&cursor=…`, or nothing. */
+function listingQuery(cursor?: string, when?: EventTimeframe): string {
   const params = new URLSearchParams();
 
   if (when === 'past') {
@@ -63,7 +80,19 @@ export function eventsEndpoint(cursor?: string, when?: EventTimeframe): string {
   }
 
   const query = params.toString();
-  return query === '' ? '/api/v1/events' : `/api/v1/events?${query}`;
+  return query === '' ? '' : `?${query}`;
+}
+
+/**
+ * `GET` — one organizer and a page of their published events. 404 for an
+ * unknown slug. `cursor` and `when` work as for {@link eventsEndpoint}.
+ */
+export function orgEndpoint(
+  orgSlug: string,
+  cursor?: string,
+  when?: EventTimeframe,
+): string {
+  return `/api/v1/orgs/${encodeURIComponent(orgSlug)}${listingQuery(cursor, when)}`;
 }
 
 /**

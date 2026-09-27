@@ -10,8 +10,10 @@ import {
   apiErrorStatus,
   eventDetailEndpoint,
   eventPath,
+  orgPath,
   type EventDetailResponse,
   type PublicEvent,
+  type PublicOrg,
 } from '../../events/event-api';
 import { CLOCK } from '../../events/clock';
 import { EventDetailComponent } from '../../events/event-detail.component';
@@ -65,7 +67,7 @@ import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 type PageState =
   | { status: 'loading' }
-  | { status: 'ready'; event: PublicEvent }
+  | { status: 'ready'; event: PublicEvent; org: PublicOrg | null }
   | { status: 'not-found' }
   | { status: 'error' };
 
@@ -93,6 +95,16 @@ type PageState =
           @case ('ready') {
             <div class="grid gap-10 lg:grid-cols-5 lg:gap-16">
               <div class="lg:col-span-3">
+                @if (org(); as host) {
+                  <p class="mb-4 text-sm text-zinc-600">
+                    Hosted by
+                    <a
+                      [href]="hostPath(host)"
+                      class="font-semibold text-indigo-600 hover:text-indigo-500"
+                      >{{ host.name }}</a
+                    >
+                  </p>
+                }
                 <app-event-detail [event]="event()!" />
               </div>
 
@@ -164,6 +176,16 @@ export default class EventPageComponent implements OnInit {
     return state.status === 'ready' ? state.event : null;
   }
 
+  /** The event's organizer, or `null` in every state that has none. */
+  org(): PublicOrg | null {
+    const state = this.state();
+    return state.status === 'ready' ? state.org : null;
+  }
+
+  hostPath(org: PublicOrg): string {
+    return orgPath(org.slug);
+  }
+
   /** `true` once the loaded event has left the upcoming list. */
   ended(): boolean {
     const event = this.event();
@@ -188,7 +210,11 @@ export default class EventPageComponent implements OnInit {
         ),
       );
 
-      this.state.set({ status: 'ready', event: response.event });
+      this.state.set({
+        status: 'ready',
+        event: response.event,
+        org: response.org ?? null,
+      });
       this.applyEventMeta(response.event);
     } catch (error) {
       this.state.set({

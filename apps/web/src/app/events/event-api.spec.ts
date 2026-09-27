@@ -6,6 +6,8 @@ import {
   apiErrorStatus,
   eventDetailEndpoint,
   eventsEndpoint,
+  orgEndpoint,
+  orgPath,
 } from './event-api';
 
 /**
@@ -132,5 +134,27 @@ describe('eventsEndpoint', () => {
     expect(eventsEndpoint('a/b?c=d')).toBe(
       '/api/v1/events?cursor=a%2Fb%3Fc%3Dd',
     );
+  });
+});
+
+describe('orgEndpoint', () => {
+  it('asks for the upcoming first page by default', () => {
+    expect(orgEndpoint('toronto-ai')).toBe('/api/v1/orgs/toronto-ai');
+  });
+
+  it('carries the timeframe and cursor', () => {
+    expect(orgEndpoint('toronto-ai', 'a/b', 'past')).toBe(
+      '/api/v1/orgs/toronto-ai?when=past&cursor=a%2Fb',
+    );
+  });
+
+  it('encodes the slug so it cannot climb into another route', () => {
+    expect(orgEndpoint('../admin')).toBe('/api/v1/orgs/..%2Fadmin');
+  });
+});
+
+describe('orgPath', () => {
+  it('is the org slug at the root', () => {
+    expect(orgPath('toronto-ai')).toBe('/toronto-ai');
   });
 });
