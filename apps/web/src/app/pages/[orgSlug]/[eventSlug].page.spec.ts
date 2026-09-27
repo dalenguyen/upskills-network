@@ -111,6 +111,21 @@ describe('EventPageComponent', () => {
     http.verify();
   });
 
+  it('links to the organizer page', async () => {
+    const fixture = await setup('intro-to-kubernetes');
+    http
+      .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
+      .flush({ event, org: { orgId: 'org_1', name: 'Acme', slug: 'acme' } });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector(
+      'a[href="/acme"]',
+    );
+    expect(link?.textContent?.trim()).toBe('Acme');
+  });
+
   describe('once the event is over', () => {
     const afterTheEvent = new Date('2026-09-11T13:30:00.000Z');
 
