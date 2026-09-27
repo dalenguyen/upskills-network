@@ -5,7 +5,11 @@ import type {
   User,
   WorkshopEvent,
 } from '@upskills/models';
-import { normalizeEmail } from '@upskills/validation';
+import {
+  normalizeEmail,
+  upcomingCutoff,
+  type EventTimeframe,
+} from '@upskills/validation';
 import {
   FieldPath,
   Timestamp,
@@ -331,6 +335,14 @@ export interface ListPublishedEventsOptions {
   cursor?: string | null;
   /** Page size; defaults to {@link DEFAULT_PAGE_SIZE}, capped at {@link MAX_PAGE_SIZE}. */
   limit?: number;
+  /**
+   * `'upcoming'` (the default) lists events soonest first; `'past'` lists the
+   * ones that have left that list, most recent first. See `event-timing.ts` in
+   * `@upskills/validation` for where the cut falls.
+   */
+  when?: EventTimeframe;
+  /** The clock the cut is measured from. Defaults to now; tests pin it. */
+  now?: Date;
 }
 
 export interface PublishedEventsPage {
@@ -340,8 +352,8 @@ export interface PublishedEventsPage {
 }
 
 /**
- * Public browse: every org's published events, soonest first, one page at a
- * time.
+ * Public browse: every org's published events, one page at a time — upcoming
+ * soonest first by default, or past most recent first with `when: 'past'`.
  *
  * The one read that genuinely spans organizers, so the one that pays for the
  * subcollection: a **collection-group** query backed by the
@@ -359,7 +371,8 @@ export async function listPublishedEvents(
 }
 
 /**
- * The public organizer page: one org's published events, soonest first.
+ * The public organizer page: one org's published events — upcoming soonest
+ * first by default, or past most recent first with `when: 'past'`.
  *
  * Reads `organizers/{orgId}/events` directly, so the organizer is the path
  * rather than an equality filter. Backed by the **COLLECTION**-scoped
@@ -389,15 +402,6 @@ export async function listPublishedOrgEvents(
 }
 
 /**
- * Apply the shared public ordering, cursor, and page size to an already-filtered
- * event query.
- *
- * The explicit `__name__` ordering is the tie-breaker that makes the total order
- * stable — Firestore appends it to the index anyway, so naming it costs nothing
- * and lets the cursor address an exact position rather than a `startsAt` that
- * several events may share.
- */
-/**
  * Which form of query a page is being read from — they take different
  * `__name__` cursor values. See {@link documentIdCursor}.
  */
@@ -420,6 +424,28 @@ function documentIdCursor(cursor: EventCursor, scope: EventQueryScope): string {
     : cursor.eventId;
 }
 
+/**
+ * Apply the shared public date filter, ordering, cursor, and page size to an
+ * already-filtered event query.
+ *
+ * The explicit `__name__` ordering is the tie-breaker that makes the total order
+ * stable — Firestore appends it to the index anyway, so naming it costs nothing
+ * and lets the cursor address an exact position rather than a `startsAt` that
+ * several events may share.
+ *
+ * ## Both timeframes read the same ascending index
+ *
+ * The range filter on `startsAt` is served by the `(status ASC, startsAt ASC)`
+ * index the listing already had, so hiding past events needed no new index.
+ *
+ * The past list wants the most recent event first, which looks like it needs a
+ * `startsAt DESC` index. It does not: `limitToLast` on the ascending order
+ * returns the *last* `limit` events before the cutoff, and `endBefore` pages
+ * backwards from there. The page arrives oldest first and is reversed here.
+ * This matters because the deploy workflow never runs `firebase deploy`, so a
+ * new index would exist in the emulator and fail in production until someone
+ * deployed it by hand.
+ */
 async function pageOfEvents(
   filtered: Query<WorkshopEvent>,
   options: ListPublishedEventsOptions,
@@ -429,21 +455,32 @@ async function pageOfEvents(
     Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE),
     MAX_PAGE_SIZE,
   );
+  const past = options.when === 'past';
+  const cutoff = Timestamp.fromDate(upcomingCutoff(options.now ?? new Date()));
 
   let query = filtered
+    .where('startsAt', past ? '<' : '>=', cutoff)
     .orderBy('startsAt', 'asc')
     .orderBy(FieldPath.documentId(), 'asc');
 
   if (options.cursor) {
     const cursor = decodeEventCursor(options.cursor);
-    query = query.startAfter(
+    const position = [
       Timestamp.fromMillis(cursor.startsAtMs),
       documentIdCursor(cursor, scope),
-    );
+    ];
+    query = past ? query.endBefore(...position) : query.startAfter(...position);
   }
 
-  const snapshot = await query.limit(limit).get();
+  const snapshot = await (
+    past ? query.limitToLast(limit) : query.limit(limit)
+  ).get();
   const events = snapshot.docs.map(eventFromQueryDoc);
+
+  if (past) {
+    events.reverse();
+  }
+
   const last = events[events.length - 1];
 
   return {

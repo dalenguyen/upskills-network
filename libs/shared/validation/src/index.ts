@@ -1,6 +1,13 @@
 export { normalizeEmail } from './lib/normalize-email';
 
 export {
+  UPCOMING_GRACE_MS,
+  isPastEvent,
+  upcomingCutoff,
+} from './lib/event-timing';
+export type { EventTimeframe } from './lib/event-timing';
+
+export {
   CancelTokenSchema,
   CurrencySchema,
   EmailSchema,

@@ -15,7 +15,8 @@ import { LandingHeaderComponent } from '../../landing/landing-header.component';
 import { LoadingStateComponent } from '../../landing/loading-state.component';
 
 /**
- * `/events` — the public browse page: every published workshop, soonest first.
+ * `/events` — the public browse page: every upcoming workshop, soonest first,
+ * then the past ones, most recent first.
  *
  * The fetch runs in `ngOnInit` for the same reason as the event detail page:
  * SSR waits for it, renders the finished list, and the hydration transfer cache
@@ -25,6 +26,14 @@ import { LoadingStateComponent } from '../../landing/loading-state.component';
  * An offset would shift under the reader as events are published mid-browse; the
  * cursor addresses a fixed `(startsAt, eventId)` position, so pages stay
  * disjoint no matter what changes between requests.
+ *
+ * ## Past events are a second, quieter list
+ *
+ * Both lists are fetched in parallel, so SSR renders the whole page in one
+ * pass. The past list is secondary: it only appears once it has events, and a
+ * failure to load it hides it rather than putting an error on a page whose
+ * main list worked. See `event-timing.ts` in `@upskills/validation` for where
+ * an event moves from one list to the other.
  */
 
 type PageState =
@@ -35,6 +44,12 @@ type PageState =
       events: PublicEvent[];
       nextCursor: string | null;
     };
+
+/** The past list: absent until its first page arrives, and on any failure. */
+interface PastState {
+  events: PublicEvent[];
+  nextCursor: string | null;
+}
 
 @Component({
   selector: 'app-events-page',
@@ -95,7 +110,7 @@ type PageState =
                 class="mt-12 rounded-xl border border-dashed border-zinc-300 py-16 text-center"
               >
                 <h2 class="text-lg font-semibold text-zinc-900">
-                  No events yet
+                  No upcoming events
                 </h2>
                 <p class="mt-2 text-sm text-zinc-600">
                   Workshops are on the way. Join the waitlist to hear first.
@@ -131,6 +146,45 @@ type PageState =
             }
           }
         }
+
+        @if (past(); as pastList) {
+          @if (pastList.events.length > 0) {
+            <section class="mt-20" aria-labelledby="past-events-heading">
+              <h2
+                id="past-events-heading"
+                class="text-2xl font-bold tracking-tight text-zinc-900"
+              >
+                Past events
+              </h2>
+              <p class="mt-2 text-zinc-600">
+                Workshops that have already happened.
+              </p>
+
+              <div
+                class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                @for (event of pastList.events; track event.eventId) {
+                  <app-event-card [event]="event" [ended]="true" />
+                }
+              </div>
+
+              @if (pastList.nextCursor) {
+                <div class="mt-12 text-center">
+                  <button
+                    type="button"
+                    [disabled]="loadingMorePast()"
+                    (click)="loadMorePast()"
+                    class="inline-flex h-11 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-200 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                  >
+                    {{
+                      loadingMorePast() ? 'Loading…' : 'Load more past events'
+                    }}
+                  </button>
+                </div>
+              }
+            </section>
+          }
+        }
       </div>
     </main>
 
@@ -144,10 +198,12 @@ export default class EventsPageComponent implements OnInit {
 
   readonly state = signal<PageState>({ status: 'loading' });
   readonly loadingMore = signal(false);
+  readonly past = signal<PastState | null>(null);
+  readonly loadingMorePast = signal(false);
 
   async ngOnInit(): Promise<void> {
     this.title.setTitle('Events · Upskills');
-    await this.loadFirstPage();
+    await Promise.all([this.loadFirstPage(), this.loadPast()]);
   }
 
   events(): PublicEvent[] {
@@ -186,6 +242,47 @@ export default class EventsPageComponent implements OnInit {
       this.state.set({
         status: isPlatformServer(this.platformId) ? 'loading' : 'error',
       });
+    }
+  }
+
+  private async loadPast(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<EventsListResponse>(eventsEndpoint(undefined, 'past')),
+      );
+
+      this.past.set({
+        events: response.events,
+        nextCursor: response.nextCursor,
+      });
+    } catch {
+      // Secondary list: leave it hidden rather than show an error next to a
+      // main list that loaded fine.
+    }
+  }
+
+  async loadMorePast(): Promise<void> {
+    const past = this.past();
+    if (past === null || past.nextCursor === null || this.loadingMorePast()) {
+      return;
+    }
+
+    this.loadingMorePast.set(true);
+    try {
+      const response = await firstValueFrom(
+        this.http.get<EventsListResponse>(
+          eventsEndpoint(past.nextCursor, 'past'),
+        ),
+      );
+
+      this.past.set({
+        events: [...past.events, ...response.events],
+        nextCursor: response.nextCursor,
+      });
+    } catch {
+      // Same as `loadMore`: keep what is on screen, leave the button to retry.
+    } finally {
+      this.loadingMorePast.set(false);
     }
   }
 

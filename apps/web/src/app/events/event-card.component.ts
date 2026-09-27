@@ -31,6 +31,12 @@ import { EventImageComponent } from './event-image.component';
  * The card still links to the event's own page here, not straight out. That
  * page carries the description and names the destination before handing the
  * visitor over.
+ *
+ * ## A past event shows no availability
+ *
+ * With `ended` set, the seat count and "Sold out" give way to an "Ended" chip.
+ * "3 spots left" on something that happened last week reads as an invitation
+ * the page behind it will not honour.
  */
 @Component({
   selector: 'app-event-card',
@@ -58,7 +64,13 @@ import { EventImageComponent } from './event-image.component';
 
           <!-- Capacity is suppressed on a listed event: the seat count lives
                wherever the registrations do, and this one has none. -->
-          @if (!isExternal()) {
+          @if (ended()) {
+            <span
+              class="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 ring-1 ring-inset ring-zinc-200"
+            >
+              Ended
+            </span>
+          } @else if (!isExternal()) {
             @if (event().soldOut) {
               <span
                 class="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 ring-1 ring-inset ring-zinc-200"
@@ -125,6 +137,8 @@ import { EventImageComponent } from './event-image.component';
 })
 export class EventCardComponent {
   readonly event = input.required<PublicEvent>();
+  /** Set for a card in the past-events list — see the class comment. */
+  readonly ended = input(false);
 
   /**
    * `/{orgSlug}/{eventSlug}` — built here rather than concatenated in the
