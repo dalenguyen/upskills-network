@@ -241,17 +241,5 @@
     "externalUrl": "https://www.eventbrite.ca/e/ai-community-conference-toronto-2026-tickets-1997522115419",
     "sourceName": "AICO",
     "imageUrl": "https://img.evbuc.com/https%3A%2F%2Fcdn.evbuc.com%2Fimages%2F1190770050%2F34234825936%2F1%2Foriginal.20260811-040548"
-  },
-  {
-    "title": "Ontario Supabase Meetup: Live n8n + AI Demos",
-    "slug": "ontario-supabase-meetup-nov-2026",
-    "description": "A Supabase community meetup hosted by TorontoStarts, on the 25th floor at Workhaus on Dundas West.\n\nLive demos show globally distributed serverless logic being deployed, and Supabase, Lovable and n8n being wired together for rapid builds. Aimed at developers working with Postgres, automation and open-source backends. Supabase sponsors refreshments and swag.\n\nThe listing publishes the date but no start time — check the event page.",
-    "startsAt": "2026-11-18T18:00:00-05:00",
-    "startTimeTbd": true,
-    "timezone": "America/Toronto",
-    "location": "Workhaus, 180 Dundas Street West, 25th Floor, Toronto, ON M5G 1Z8",
-    "externalUrl": "https://luma.com/pm408yiv",
-    "sourceName": "TorontoStarts",
-    "imageUrl": "https://images.lumacdn.com/cdn-cgi/image/format=auto,fit=cover,dpr=2,background=white,quality=75,width=400,height=400/event-covers/m7/a3d53162-a60d-410f-8df0-007d48102728.png"
   }
 ]
