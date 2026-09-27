@@ -78,6 +78,7 @@ const GENERIC_ERROR_MESSAGE =
 /** Error codes the API produces that are worth their own sentence. */
 const ERROR_MESSAGES: Record<string, string> = {
   'event-cancelled': 'This workshop has been cancelled.',
+  'event-ended': 'This workshop has already taken place.',
   'event-not-found': 'This workshop is no longer available.',
   'payment-required':
     'This is a paid workshop, and payment is not open yet. Contact the organizer to hold a spot.',

@@ -372,6 +372,21 @@ describe('POST /api/v1/registration/:orgId/:eventId/register', () => {
       });
     });
 
+    it('refuses an event that has already taken place', async () => {
+      await expect(
+        createRegisterHandler(
+          deps({
+            reserveSpot: vi.fn(async () => {
+              throw reserveError('EventEndedError');
+            }),
+          }),
+        )(post(VALID)),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        data: { error: 'event-ended' },
+      });
+    });
+
     it('refuses an event Upskills only lists, and names where to register', async () => {
       await expect(
         createRegisterHandler(

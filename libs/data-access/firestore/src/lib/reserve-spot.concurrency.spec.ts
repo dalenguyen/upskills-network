@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { seedEvent } from '../testing/seed';
+import { T0, seedEvent } from '../testing/seed';
 import { getEvent, listEventGuests } from './reads';
-import { reserveSpot } from './reserve-spot';
+import { reserveSpot as reserveSpotAt } from './reserve-spot';
+
+/** Events here are seeded at `T0`; judge "past" from there, not from today. */
+const reserveSpot: typeof reserveSpotAt = (
+  orgId,
+  eventId,
+  draft,
+  mode,
+  now = T0.toDate(),
+) => reserveSpotAt(orgId, eventId, draft, mode, now);
 
 /**
  * Issue #36 — the test the whole capacity design exists for.
