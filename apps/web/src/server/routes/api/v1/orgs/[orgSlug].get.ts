@@ -25,6 +25,9 @@ export default guardPublicRead(
     limiter: publicReadLimiter,
     cache: createResponseCache({ ttlMs: PUBLIC_READ_TTL_MS }),
     keyOf: (event) =>
-      `${getRouterParam(event, 'orgSlug') ?? ''}|${listingKey(event)}`,
+      JSON.stringify([
+        getRouterParam(event, 'orgSlug') ?? '',
+        listingKey(event),
+      ]),
   },
 );

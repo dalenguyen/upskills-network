@@ -149,6 +149,14 @@ describe('listingKey', () => {
     expect(listingKey(padded)).toBe(listingKey(plain));
   });
 
+  it('cannot be forged into another query by a separator in the cursor', () => {
+    const key = (url: string) => listingKey(createTestEvent({ url }).event);
+
+    expect(key('/api/v1/events?cursor=a%7C5')).not.toBe(
+      key('/api/v1/events?cursor=a&limit=5'),
+    );
+  });
+
   it('tells timeframes, cursors, and limits apart', () => {
     const keys = [
       '/api/v1/events',

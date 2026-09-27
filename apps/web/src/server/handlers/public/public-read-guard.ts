@@ -254,5 +254,8 @@ export function listingKey(event: H3Event): string {
   const part = (name: string) =>
     typeof query[name] === 'string' ? query[name] : '';
 
-  return [part('when'), part('cursor'), part('limit')].join('|');
+  // JSON rather than a joined string: `cursor` is arbitrary caller input, and
+  // with a plain separator two different queries could build the same key and
+  // be served each other's cached page.
+  return JSON.stringify([part('when'), part('cursor'), part('limit')]);
 }
