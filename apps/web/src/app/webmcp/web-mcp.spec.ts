@@ -1,4 +1,4 @@
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, PLATFORM_ID, type Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -38,7 +38,7 @@ describe('registerWebMcpTools', () => {
   let fake: FakeModelContext;
   let uninstall: () => void;
 
-  function setup(providers: unknown[] = []) {
+  function setup(providers: Provider[] = []) {
     TestBed.configureTestingModule({
       providers: [{ provide: WEB_MCP_ENABLED, useValue: true }, ...providers],
     });
