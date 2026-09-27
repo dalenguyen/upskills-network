@@ -13,6 +13,7 @@ import { EventCardComponent } from '../../events/event-card.component';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
 import { LandingHeaderComponent } from '../../landing/landing-header.component';
 import { LoadingStateComponent } from '../../landing/loading-state.component';
+import { EventsPageWebMcpDirective } from '../../webmcp/events-page-web-mcp.directive';
 
 /**
  * `/events` — the public browse page: every upcoming workshop, soonest first,
@@ -58,11 +59,12 @@ interface PastState {
     LandingHeaderComponent,
     LandingFooterComponent,
     LoadingStateComponent,
+    EventsPageWebMcpDirective,
   ],
   template: `
     <app-landing-header />
 
-    <main class="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+    <main appEventsPageWebMcp class="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div class="mx-auto w-full max-w-6xl">
         <div class="mx-auto max-w-2xl text-center">
           <p
