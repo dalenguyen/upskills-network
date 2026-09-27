@@ -115,8 +115,12 @@ export async function reserveSpot(
   eventId: string,
   draft: GuestDraft,
   mode: ReserveMode,
-  /** The moment "past" is judged against. Specs pin it; callers omit it. */
-  now: Date = new Date(),
+  /**
+   * The moment "past" is judged against. Specs pin it; callers omit it, and
+   * the clock is then read inside each transaction attempt, so a retry that
+   * lands after the cutoff is judged by when it actually commits.
+   */
+  now?: Date,
 ): Promise<ReserveSpotResult> {
   const email = normalizeEmail(draft.email);
   const documents = {
@@ -151,7 +155,7 @@ export async function reserveSpot(
     // After the status check, so a past *draft* still answers like any draft.
     // Before the external and price checks: for an event that is over, "it has
     // ended" is the answer, whoever runs it and whatever it cost.
-    if (isPastEvent(event.startsAt.toDate(), now)) {
+    if (isPastEvent(event.startsAt.toDate(), now ?? new Date())) {
       throw new EventEndedError(eventId);
     }
 
