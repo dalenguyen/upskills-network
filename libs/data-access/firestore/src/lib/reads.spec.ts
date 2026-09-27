@@ -1,7 +1,14 @@
 import type { Guest } from '@upskills/models';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { at, seedEvent, seedGuest, seedOrg, seedUser } from '../testing/seed';
+import {
+  T0,
+  at,
+  seedEvent,
+  seedGuest,
+  seedOrg,
+  seedUser,
+} from '../testing/seed';
 import { eventSlugRef, guestRef, orgSlugRef } from './collections';
 import {
   AmbiguousUserEmailError,
@@ -22,6 +29,12 @@ import {
 } from './reads';
 
 beforeEach(clearFirestore);
+
+/**
+ * The clock the public listings are read at. Fixtures start at `T0`, so pinning
+ * `now` there keeps them upcoming no matter when the suite runs.
+ */
+const now = T0.toDate();
 
 describe('getUser', () => {
   it('returns the user with the doc id as its uid', async () => {
@@ -247,7 +260,7 @@ describe('listPublishedEvents', () => {
   it('returns published events only, soonest first', async () => {
     await seedBrowseFixtures();
 
-    const page = await listPublishedEvents();
+    const page = await listPublishedEvents({ now });
 
     expect(page.events.map((event) => event.eventId)).toEqual([
       'evt-0',
@@ -267,7 +280,7 @@ describe('listPublishedEvents', () => {
     let pages = 0;
 
     do {
-      const page = await listPublishedEvents({ cursor, limit: 2 });
+      const page = await listPublishedEvents({ cursor, limit: 2, now });
       seen.push(...page.events.map((event) => event.eventId));
       cursor = page.nextCursor;
       pages++;
@@ -283,10 +296,11 @@ describe('listPublishedEvents', () => {
       await seedEvent({ eventId: id, slug: id, startsAt: at(0) });
     }
 
-    const first = await listPublishedEvents({ limit: 2 });
+    const first = await listPublishedEvents({ limit: 2, now });
     const second = await listPublishedEvents({
       cursor: first.nextCursor,
       limit: 2,
+      now,
     });
 
     expect(
@@ -298,16 +312,95 @@ describe('listPublishedEvents', () => {
   it('returns an empty page when nothing is published', async () => {
     await seedEvent({ eventId: 'evt-draft', slug: 'draft', status: 'draft' });
 
-    expect(await listPublishedEvents()).toEqual({
+    expect(await listPublishedEvents({ now })).toEqual({
       events: [],
       nextCursor: null,
     });
   });
 
+  describe('upcoming vs past', () => {
+    /**
+     * Two events well past, one just outside the three-hour grace window, one
+     * exactly on it, one inside it, and one still ahead. `now` is `T0`, so
+     * `at(-180)` is the cutoff itself.
+     */
+    async function seedTimelineFixtures(): Promise<void> {
+      const starts: Record<string, number> = {
+        'evt-long-ago': -10_000,
+        'evt-last-week': -5_000,
+        'evt-just-ended': -181,
+        'evt-on-cutoff': -180,
+        'evt-running': -60,
+        'evt-ahead': 60,
+      };
+
+      for (const [eventId, minutes] of Object.entries(starts)) {
+        await seedEvent({ eventId, slug: eventId, startsAt: at(minutes) });
+      }
+
+      // Past, but never public: must not show up in the past list either.
+      await seedEvent({
+        eventId: 'evt-old-draft',
+        slug: 'old-draft',
+        startsAt: at(-5_000),
+        status: 'draft',
+      });
+    }
+
+    it('lists upcoming events only, keeping ones inside the grace window', async () => {
+      await seedTimelineFixtures();
+
+      const page = await listPublishedEvents({ now });
+
+      expect(page.events.map((event) => event.eventId)).toEqual([
+        'evt-on-cutoff',
+        'evt-running',
+        'evt-ahead',
+      ]);
+    });
+
+    it('lists past events most recent first', async () => {
+      await seedTimelineFixtures();
+
+      const page = await listPublishedEvents({ when: 'past', now });
+
+      expect(page.events.map((event) => event.eventId)).toEqual([
+        'evt-just-ended',
+        'evt-last-week',
+        'evt-long-ago',
+      ]);
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('pages backwards through past events with the cursor, without repeats', async () => {
+      await seedTimelineFixtures();
+
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      let pages = 0;
+
+      do {
+        const page = await listPublishedEvents({
+          cursor,
+          limit: 2,
+          when: 'past',
+          now,
+        });
+        seen.push(...page.events.map((event) => event.eventId));
+        cursor = page.nextCursor;
+        pages++;
+        expect(pages).toBeLessThan(10); // guard against a cursor that never moves
+      } while (cursor);
+
+      expect(seen).toEqual(['evt-just-ended', 'evt-last-week', 'evt-long-ago']);
+      expect(pages).toBe(2); // 2 + 1, the short page ends it
+    });
+  });
+
   it('rejects a malformed cursor', async () => {
-    await expect(listPublishedEvents({ cursor: 'garbage' })).rejects.toThrow(
-      'Invalid cursor',
-    );
+    await expect(
+      listPublishedEvents({ cursor: 'garbage', now }),
+    ).rejects.toThrow('Invalid cursor');
   });
 });
 
@@ -337,7 +430,7 @@ describe('listPublishedOrgEvents', () => {
   it("returns only that org's published events, soonest first", async () => {
     await seedOrgPageFixtures();
 
-    const page = await listPublishedOrgEvents('org-1');
+    const page = await listPublishedOrgEvents('org-1', { now });
 
     expect(page.events.map((event) => event.eventId)).toEqual([
       'evt-1',
@@ -349,7 +442,8 @@ describe('listPublishedOrgEvents', () => {
   it('orders soonest-first, the opposite of the dashboard listing', async () => {
     await seedOrgPageFixtures();
 
-    const [publicFirst] = (await listPublishedOrgEvents('org-1')).events;
+    const [publicFirst] = (await listPublishedOrgEvents('org-1', { now }))
+      .events;
     const [dashboardFirst] = await listOrgEvents('org-1');
 
     // The two reads answer different questions off the same collection; this
@@ -366,7 +460,11 @@ describe('listPublishedOrgEvents', () => {
     let pages = 0;
 
     do {
-      const page = await listPublishedOrgEvents('org-1', { cursor, limit: 1 });
+      const page = await listPublishedOrgEvents('org-1', {
+        cursor,
+        limit: 1,
+        now,
+      });
       seen.push(...page.events.map((event) => event.eventId));
       cursor = page.nextCursor;
       pages++;
@@ -379,10 +477,33 @@ describe('listPublishedOrgEvents', () => {
     expect(pages).toBe(3);
   });
 
+  it("lists that org's past events most recent first", async () => {
+    await seedEvent({ eventId: 'evt-old', slug: 'old', startsAt: at(-5_000) });
+    await seedEvent({
+      eventId: 'evt-recent',
+      slug: 'recent',
+      startsAt: at(-500),
+    });
+    await seedEvent({ eventId: 'evt-next', slug: 'next', startsAt: at(60) });
+    await seedEvent({
+      eventId: 'evt-other-old',
+      slug: 'other-old',
+      orgId: 'org-2',
+      startsAt: at(-500),
+    });
+
+    const page = await listPublishedOrgEvents('org-1', { when: 'past', now });
+
+    expect(page.events.map((event) => event.eventId)).toEqual([
+      'evt-recent',
+      'evt-old',
+    ]);
+  });
+
   it('returns an empty page for an org with nothing published', async () => {
     await seedEvent({ eventId: 'evt-draft', slug: 'draft', status: 'draft' });
 
-    expect(await listPublishedOrgEvents('org-1')).toEqual({
+    expect(await listPublishedOrgEvents('org-1', { now })).toEqual({
       events: [],
       nextCursor: null,
     });

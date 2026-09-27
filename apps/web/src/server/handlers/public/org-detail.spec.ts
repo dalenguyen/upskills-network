@@ -108,6 +108,31 @@ describe('GET /api/v1/orgs/:orgSlug', () => {
     expect(result).toMatchObject({ nextCursor: 'cursor-2' });
   });
 
+  it("lists the org's past events for when=past", async () => {
+    const listPublishedOrgEvents = vi.fn(async () => ({
+      events: [],
+      nextCursor: null,
+    }));
+
+    await createOrgDetailHandler(deps({ listPublishedOrgEvents }))(
+      request('upskills-toronto', '?when=past'),
+    );
+
+    expect(listPublishedOrgEvents).toHaveBeenCalledWith('org-1', {
+      cursor: null,
+      when: 'past',
+    });
+  });
+
+  it('rejects an unknown when with a 400', async () => {
+    await expect(
+      createOrgDetailHandler(deps())(request('upskills-toronto', '?when=soon')),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-when' },
+    });
+  });
+
   it('answers 400 for a malformed cursor, same code as the browse route', async () => {
     const d = deps({
       listPublishedOrgEvents: vi.fn(async () => {

@@ -1,3 +1,4 @@
+import type { EventTimeframe } from '@upskills/validation';
 import type { RegisterResponse } from '../../server/handlers/registration/register';
 import type { CancelResponse } from '../../server/handlers/registration/cancel';
 import type {
@@ -45,12 +46,24 @@ export function eventPath(
  *
  * `cursor` names the position after the last event of the previous page, so a
  * passed cursor fetches the *next* page. Omit it for the first page.
+ *
+ * `when` picks the list: upcoming (the default, soonest first) or past (most
+ * recent first). A cursor belongs to the list that issued it, so pass the same
+ * `when` with it.
  */
-export function eventsEndpoint(cursor?: string): string {
-  const base = '/api/v1/events';
-  return cursor === undefined
-    ? base
-    : `${base}?cursor=${encodeURIComponent(cursor)}`;
+export function eventsEndpoint(cursor?: string, when?: EventTimeframe): string {
+  const params = new URLSearchParams();
+
+  if (when === 'past') {
+    params.set('when', when);
+  }
+
+  if (cursor !== undefined) {
+    params.set('cursor', cursor);
+  }
+
+  const query = params.toString();
+  return query === '' ? '/api/v1/events' : `/api/v1/events?${query}`;
 }
 
 /**

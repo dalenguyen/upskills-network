@@ -5,7 +5,11 @@ import type {
   User,
   WorkshopEvent,
 } from '@upskills/models';
-import { normalizeEmail } from '@upskills/validation';
+import {
+  normalizeEmail,
+  upcomingCutoff,
+  type EventTimeframe,
+} from '@upskills/validation';
 import {
   FieldPath,
   Timestamp,
@@ -331,6 +335,14 @@ export interface ListPublishedEventsOptions {
   cursor?: string | null;
   /** Page size; defaults to {@link DEFAULT_PAGE_SIZE}, capped at {@link MAX_PAGE_SIZE}. */
   limit?: number;
+  /**
+   * `'upcoming'` (the default) lists events soonest first; `'past'` lists the
+   * ones that have left that list, most recent first. See `event-timing.ts` in
+   * `@upskills/validation` for where the cut falls.
+   */
+  when?: EventTimeframe;
+  /** The clock the cut is measured from. Defaults to now; tests pin it. */
+  now?: Date;
 }
 
 export interface PublishedEventsPage {
@@ -340,8 +352,8 @@ export interface PublishedEventsPage {
 }
 
 /**
- * Public browse: every org's published events, soonest first, one page at a
- * time.
+ * Public browse: every org's published events, one page at a time — upcoming
+ * soonest first by default, or past most recent first with `when: 'past'`.
  *
  * The one read that genuinely spans organizers, so the one that pays for the
  * subcollection: a **collection-group** query backed by the
@@ -359,7 +371,8 @@ export async function listPublishedEvents(
 }
 
 /**
- * The public organizer page: one org's published events, soonest first.
+ * The public organizer page: one org's published events — upcoming soonest
+ * first by default, or past most recent first with `when: 'past'`.
  *
  * Reads `organizers/{orgId}/events` directly, so the organizer is the path
  * rather than an equality filter. Backed by the **COLLECTION**-scoped
@@ -389,15 +402,6 @@ export async function listPublishedOrgEvents(
 }
 
 /**
- * Apply the shared public ordering, cursor, and page size to an already-filtered
- * event query.
- *
- * The explicit `__name__` ordering is the tie-breaker that makes the total order
- * stable — Firestore appends it to the index anyway, so naming it costs nothing
- * and lets the cursor address an exact position rather than a `startsAt` that
- * several events may share.
- */
-/**
  * Which form of query a page is being read from — they take different
  * `__name__` cursor values. See {@link documentIdCursor}.
  */
@@ -420,6 +424,30 @@ function documentIdCursor(cursor: EventCursor, scope: EventQueryScope): string {
     : cursor.eventId;
 }
 
+/**
+ * Apply the shared public date filter, ordering, cursor, and page size to an
+ * already-filtered event query.
+ *
+ * The explicit `__name__` ordering is the tie-breaker that makes the total order
+ * stable — Firestore appends it to the index anyway, so naming it costs nothing
+ * and lets the cursor address an exact position rather than a `startsAt` that
+ * several events may share.
+ *
+ * ## Each timeframe has its own index
+ *
+ * Upcoming reads `(status ASC, startsAt ASC)`, the index the listing already
+ * had. Past reads most recent first, so it needs `(status ASC, startsAt DESC)`.
+ * Both are declared in `firestore.indexes.json`, for both scopes.
+ *
+ * `limitToLast` on the ascending order looks like a way to avoid the second
+ * index. It is not: Firestore runs it as the reversed query, so it needs the
+ * DESC index all the same. The emulator does not enforce indexes, so only a
+ * run against real Firestore shows this.
+ *
+ * The deploy workflow never runs `firebase deploy`, so a new index here must be
+ * deployed by hand (`firebase deploy --only firestore:indexes`) before the code
+ * that needs it ships.
+ */
 async function pageOfEvents(
   filtered: Query<WorkshopEvent>,
   options: ListPublishedEventsOptions,
@@ -429,10 +457,14 @@ async function pageOfEvents(
     Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE),
     MAX_PAGE_SIZE,
   );
+  const past = options.when === 'past';
+  const direction = past ? 'desc' : 'asc';
+  const cutoff = Timestamp.fromDate(upcomingCutoff(options.now ?? new Date()));
 
   let query = filtered
-    .orderBy('startsAt', 'asc')
-    .orderBy(FieldPath.documentId(), 'asc');
+    .where('startsAt', past ? '<' : '>=', cutoff)
+    .orderBy('startsAt', direction)
+    .orderBy(FieldPath.documentId(), direction);
 
   if (options.cursor) {
     const cursor = decodeEventCursor(options.cursor);

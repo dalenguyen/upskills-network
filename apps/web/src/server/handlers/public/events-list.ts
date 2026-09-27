@@ -1,8 +1,10 @@
 import type { PublishedEventsPage } from '@upskills/firestore';
+import type { EventTimeframe } from '@upskills/validation';
 import { defineEventHandler, getQuery, type EventHandler } from 'h3';
 import { badRequest, toHttpError } from '../http-error';
 import { rethrowAsBadCursor } from './cursor-error';
 import { toPublicEvent, type PublicEvent } from './public-view';
+import { parseTimeframe } from './timeframe';
 
 /**
  * `GET /api/v1/events` — the public browse listing.
@@ -17,6 +19,12 @@ import { toPublicEvent, type PublicEvent } from './public-view';
  * fixed `(startsAt, eventId)` position, so pages stay disjoint.
  *
  * A malformed cursor answers 400 — see {@link rethrowAsBadCursor}.
+ *
+ * ## Upcoming by default, `?when=past` for the archive
+ *
+ * Without `?when=` the listing is what a visitor can still attend. `?when=past`
+ * lists the rest, most recent first. A cursor belongs to the timeframe that
+ * issued it; pass the same `when` with it.
  */
 
 export interface EventsListResponse {
@@ -30,6 +38,7 @@ export interface EventsListDeps {
   listPublishedEvents(options: {
     cursor?: string | null;
     limit?: number;
+    when?: EventTimeframe;
   }): Promise<PublishedEventsPage>;
   /**
    * `getOrgSlugs` from `@upskills/firestore` — orgId → slug for one page.
@@ -70,11 +79,13 @@ export function createEventsListHandler(deps: EventsListDeps): EventHandler {
       const cursor =
         typeof query['cursor'] === 'string' ? query['cursor'] : null;
       const limit = parseLimit(query['limit']);
+      const when = parseTimeframe(query['when']);
 
       const page = await deps
         .listPublishedEvents({
           cursor,
           ...(limit === undefined ? {} : { limit }),
+          ...(when === undefined ? {} : { when }),
         })
         .catch(rethrowAsBadCursor);
 

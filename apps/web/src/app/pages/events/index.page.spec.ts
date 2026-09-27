@@ -32,6 +32,19 @@ function event(overrides: Partial<PublicEvent> = {}): PublicEvent {
   };
 }
 
+const emptyPage = { events: [], nextCursor: null };
+
+/**
+ * Answer the past-events request the page fires alongside the upcoming one.
+ * Empty by default, which leaves the past section hidden.
+ */
+function flushPast(
+  http: HttpTestingController,
+  response: { events: PublicEvent[]; nextCursor: string | null } = emptyPage,
+): void {
+  http.expectOne(eventsEndpoint(undefined, 'past')).flush(response);
+}
+
 describe('EventsPageComponent', () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -52,6 +65,7 @@ describe('EventsPageComponent', () => {
 
   it('renders every event as a card linking to its detail page', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http.expectOne(eventsEndpoint()).flush({
       events: [
@@ -85,6 +99,7 @@ describe('EventsPageComponent', () => {
 
   it('sets the document title', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http.expectOne(eventsEndpoint()).flush({ events: [], nextCursor: null });
     await fixture.whenStable();
@@ -94,6 +109,7 @@ describe('EventsPageComponent', () => {
 
   it('shows an empty state when no events are published', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http.expectOne(eventsEndpoint()).flush({ events: [], nextCursor: null });
 
@@ -101,7 +117,8 @@ describe('EventsPageComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('No events yet');
+    expect(root.textContent).toContain('No upcoming events');
+    expect(root.textContent).not.toContain('Past events');
     expect(root.querySelector('app-event-card')).toBeNull();
     expect(root.querySelector('main button')).toBeNull();
     http.verify();
@@ -109,6 +126,7 @@ describe('EventsPageComponent', () => {
 
   it('shows only a failure message when the list request fails', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http
       .expectOne(eventsEndpoint())
@@ -138,6 +156,7 @@ describe('EventsPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(EventsPageComponent);
     fixture.detectChanges();
+    flushPast(http);
 
     http
       .expectOne(eventsEndpoint())
@@ -154,6 +173,7 @@ describe('EventsPageComponent', () => {
 
   it('offers Try again from the error state and recovers', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http
       .expectOne(eventsEndpoint())
@@ -183,6 +203,7 @@ describe('EventsPageComponent', () => {
 
   it('offers Load more while a cursor remains and appends the next page', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http.expectOne(eventsEndpoint()).flush({
       events: [event()],
@@ -216,6 +237,7 @@ describe('EventsPageComponent', () => {
 
   it('hides Load more when the last page reports no cursor', async () => {
     const { fixture, http } = await setup();
+    flushPast(http);
 
     http.expectOne(eventsEndpoint()).flush({
       events: [event()],
@@ -229,5 +251,115 @@ describe('EventsPageComponent', () => {
       (fixture.nativeElement as HTMLElement).querySelector('main button'),
     ).toBeNull();
     http.verify();
+  });
+  describe('past events', () => {
+    async function setupWithPast(past: {
+      events: PublicEvent[];
+      nextCursor: string | null;
+    }) {
+      await TestBed.configureTestingModule({
+        imports: [EventsPageComponent],
+        providers: [provideHttpClient(), provideHttpClientTesting()],
+      }).compileComponents();
+
+      const http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(EventsPageComponent);
+      fixture.detectChanges();
+
+      http.expectOne(eventsEndpoint()).flush({
+        events: [event()],
+        nextCursor: null,
+      });
+      flushPast(http, past);
+
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      return { fixture, http, root: fixture.nativeElement as HTMLElement };
+    }
+
+    it('lists them below the upcoming events, marked as ended', async () => {
+      const { http, root } = await setupWithPast({
+        events: [
+          event({
+            eventId: 'evt_old',
+            title: 'Last month meetup',
+            slug: 'last-month-meetup',
+            spotsRemaining: 3,
+          }),
+        ],
+        nextCursor: null,
+      });
+
+      const section = root.querySelector(
+        'section[aria-labelledby="past-events-heading"]',
+      );
+      expect(section?.textContent).toContain('Past events');
+      expect(section?.textContent).toContain('Last month meetup');
+      expect(section?.textContent).toContain('Ended');
+      // A seat count on a past event reads as an invitation it cannot honour.
+      expect(section?.textContent).not.toContain('spots left');
+      expect(section?.querySelector('h2 a')?.getAttribute('href')).toBe(
+        '/acme/last-month-meetup',
+      );
+      expect(root.querySelectorAll('app-event-card').length).toBe(2);
+      http.verify();
+    });
+
+    it('pages the past list with its own cursor', async () => {
+      const { fixture, http, root } = await setupWithPast({
+        events: [event({ eventId: 'evt_old', title: 'Last month meetup' })],
+        nextCursor: 'past-2',
+      });
+
+      const button = [
+        ...root.querySelectorAll<HTMLButtonElement>('main button'),
+      ].find((candidate) =>
+        candidate.textContent?.includes('Load more past events'),
+      );
+      button?.click();
+
+      const next = http.expectOne(eventsEndpoint('past-2', 'past'));
+      expect(next.request.url).toBe('/api/v1/events?when=past&cursor=past-2');
+      next.flush({
+        events: [event({ eventId: 'evt_older', title: 'Spring workshop' })],
+        nextCursor: null,
+      });
+
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Spring workshop');
+      expect(root.textContent).not.toContain('Load more past events');
+      http.verify();
+    });
+
+    it('stays hidden when the past list fails, without touching the main list', async () => {
+      await TestBed.configureTestingModule({
+        imports: [EventsPageComponent],
+        providers: [provideHttpClient(), provideHttpClientTesting()],
+      }).compileComponents();
+
+      const http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(EventsPageComponent);
+      fixture.detectChanges();
+
+      http.expectOne(eventsEndpoint()).flush({
+        events: [event()],
+        nextCursor: null,
+      });
+      http
+        .expectOne(eventsEndpoint(undefined, 'past'))
+        .flush({}, { status: 500, statusText: 'Server Error' });
+
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.textContent).toContain('Intro to Kubernetes');
+      expect(root.textContent).not.toContain('Past events');
+      expect(root.textContent).not.toContain('Something went wrong');
+      http.verify();
+    });
   });
 });

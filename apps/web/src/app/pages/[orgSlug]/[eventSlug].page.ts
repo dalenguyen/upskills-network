@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
+import { isPastEvent } from '@upskills/validation';
 import { firstValueFrom } from 'rxjs';
 
 import {
@@ -12,7 +13,9 @@ import {
   type EventDetailResponse,
   type PublicEvent,
 } from '../../events/event-api';
+import { CLOCK } from '../../events/clock';
 import { EventDetailComponent } from '../../events/event-detail.component';
+import { EventEndedComponent } from '../../events/event-ended.component';
 import { ExternalCtaComponent } from '../../events/external-cta.component';
 import { RegistrationFormComponent } from '../../events/registration-form.component';
 import { LandingFooterComponent } from '../../landing/landing-footer.component';
@@ -50,6 +53,14 @@ import { LoadingStateComponent } from '../../landing/loading-state.component';
  * than trying to be more specific than the route it called; the "went wrong"
  * state is reserved for a genuine transport or server failure, where inviting a
  * retry is the useful thing to say.
+ *
+ * ## A past event keeps its page, loses its form
+ *
+ * Once an event drops off the upcoming list (see `event-timing.ts` in
+ * `@upskills/validation`), the page still renders — confirmation emails and
+ * search results link here — but the registration form or external link is
+ * replaced with a note that it has ended. The same cut decides both, so an
+ * event is never listed as upcoming while its page says it is over.
  */
 
 type PageState =
@@ -62,6 +73,7 @@ type PageState =
   selector: 'app-event-page',
   imports: [
     EventDetailComponent,
+    EventEndedComponent,
     ExternalCtaComponent,
     RegistrationFormComponent,
     LandingHeaderComponent,
@@ -90,7 +102,9 @@ type PageState =
                        elsewhere, so there is nothing for a form to submit to.
                        Cosmetic only: the register endpoint refuses these on its
                        own, which is what makes the swap safe to get wrong. -->
-                  @if (event()!.externalUrl) {
+                  @if (ended()) {
+                    <app-event-ended />
+                  } @else if (event()!.externalUrl) {
                     <app-external-cta [event]="event()!" />
                   } @else {
                     <app-registration-form [event]="event()!" />
@@ -140,6 +154,7 @@ export default class EventPageComponent implements OnInit {
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
+  private readonly clock = inject(CLOCK);
 
   readonly state = signal<PageState>({ status: 'loading' });
 
@@ -147,6 +162,14 @@ export default class EventPageComponent implements OnInit {
   event(): PublicEvent | null {
     const state = this.state();
     return state.status === 'ready' ? state.event : null;
+  }
+
+  /** `true` once the loaded event has left the upcoming list. */
+  ended(): boolean {
+    const event = this.event();
+    return (
+      event !== null && isPastEvent(new Date(event.startsAt), this.clock())
+    );
   }
 
   async ngOnInit(): Promise<void> {

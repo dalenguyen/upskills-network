@@ -123,6 +123,35 @@ describe('GET /api/v1/events', () => {
     },
   );
 
+  it('forwards when=past, and leaves the default to the read helper', async () => {
+    const listPublishedEvents = vi.fn(async () => ({
+      events: [],
+      nextCursor: null,
+    }));
+    const handler = createEventsListHandler(deps({ listPublishedEvents }));
+
+    await handler(request('?when=past&cursor=cursor-1'));
+    await handler(request('?when=upcoming'));
+
+    expect(listPublishedEvents).toHaveBeenNthCalledWith(1, {
+      cursor: 'cursor-1',
+      when: 'past',
+    });
+    expect(listPublishedEvents).toHaveBeenNthCalledWith(2, {
+      cursor: null,
+      when: 'upcoming',
+    });
+  });
+
+  it('rejects an unknown when with a 400', async () => {
+    await expect(
+      createEventsListHandler(deps())(request('?when=yesterday')),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      data: { error: 'invalid-when' },
+    });
+  });
+
   it('answers 400 for a malformed cursor instead of a 500', async () => {
     const d = deps({
       listPublishedEvents: vi.fn(async () => {

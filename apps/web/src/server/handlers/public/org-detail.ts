@@ -1,5 +1,6 @@
 import type { PublishedEventsPage } from '@upskills/firestore';
 import type { Organizer } from '@upskills/models';
+import type { EventTimeframe } from '@upskills/validation';
 import {
   defineEventHandler,
   getQuery,
@@ -15,6 +16,7 @@ import {
   type PublicEvent,
   type PublicOrg,
 } from './public-view';
+import { parseTimeframe } from './timeframe';
 
 /**
  * `GET /api/v1/orgs/:orgSlug` — an organizer's public page: who they are, plus
@@ -28,7 +30,8 @@ import {
  * benefit. The page answers 200 with an empty `events` array.
  *
  * The events themselves are filtered to `published` in the query, not here, so
- * drafts never leave Firestore.
+ * drafts never leave Firestore. `?when=past` swaps the upcoming list for the
+ * org's past events, most recent first.
  */
 
 export interface OrgDetailResponse {
@@ -44,7 +47,7 @@ export interface OrgDetailDeps {
   /** `listPublishedOrgEvents` from `@upskills/firestore`. */
   listPublishedOrgEvents(
     orgId: string,
-    options: { cursor?: string | null },
+    options: { cursor?: string | null; when?: EventTimeframe },
   ): Promise<PublishedEventsPage>;
 }
 
@@ -66,9 +69,13 @@ export function createOrgDetailHandler(deps: OrgDetailDeps): EventHandler {
       const query = getQuery(event);
       const cursor =
         typeof query['cursor'] === 'string' ? query['cursor'] : null;
+      const when = parseTimeframe(query['when']);
 
       const page = await deps
-        .listPublishedOrgEvents(org.orgId, { cursor })
+        .listPublishedOrgEvents(org.orgId, {
+          cursor,
+          ...(when === undefined ? {} : { when }),
+        })
         .catch(rethrowAsBadCursor);
 
       return {

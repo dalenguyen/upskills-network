@@ -16,6 +16,7 @@ import { throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService, type AuthUser } from '../../auth/auth-service';
+import { CLOCK } from '../../events/clock';
 import type { PublicEvent } from '../../events/event-api';
 import { eventDetailEndpoint } from '../../events/event-api';
 import EventPageComponent from './[eventSlug].page';
@@ -47,9 +48,13 @@ function authServiceStub() {
 describe('EventPageComponent', () => {
   let http: HttpTestingController;
 
+  /** A week before the fixture event, so it is upcoming unless a spec says otherwise. */
+  const beforeTheEvent = new Date('2026-09-03T12:00:00.000Z');
+
   async function setup(
     eventSlug: string | null,
     orgSlug: string | null = 'acme',
+    now: Date = beforeTheEvent,
   ) {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -70,6 +75,7 @@ describe('EventPageComponent', () => {
           },
         },
         { provide: AuthService, useValue: authServiceStub() },
+        { provide: CLOCK, useValue: () => now },
       ],
     }).compileComponents();
 
@@ -103,6 +109,66 @@ describe('EventPageComponent', () => {
       fixture.nativeElement.querySelector('#registration-email'),
     ).toBeTruthy();
     http.verify();
+  });
+
+  describe('once the event is over', () => {
+    const afterTheEvent = new Date('2026-09-11T13:30:00.000Z');
+
+    async function renderEnded(loaded: PublicEvent) {
+      const fixture = await setup('intro-to-kubernetes', 'acme', afterTheEvent);
+      http
+        .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
+        .flush({ event: loaded });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('keeps the page but swaps the form for an ended notice', async () => {
+      const fixture = await renderEnded(event);
+
+      const text = fixture.nativeElement.textContent;
+      expect(text).toContain('Intro to Kubernetes');
+      expect(text).toContain('This event has ended');
+      expect(
+        fixture.nativeElement.querySelector('#registration-email'),
+      ).toBeNull();
+      http.verify();
+    });
+
+    it('drops the external registration link too', async () => {
+      const fixture = await renderEnded({
+        ...event,
+        externalUrl: 'https://www.meetup.com/example/events/1',
+        sourceName: 'Meetup',
+      });
+
+      expect(fixture.nativeElement.textContent).toContain(
+        'This event has ended',
+      );
+      expect(
+        fixture.nativeElement.querySelector(
+          'a[href^="https://www.meetup.com"]',
+        ),
+      ).toBeNull();
+    });
+
+    it('still offers the form while inside the three-hour grace window', async () => {
+      const fixture = await setup(
+        'intro-to-kubernetes',
+        'acme',
+        new Date('2026-09-10T15:30:00.000Z'),
+      );
+      http
+        .expectOne(eventDetailEndpoint('acme', 'intro-to-kubernetes'))
+        .flush({ event });
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(
+        fixture.nativeElement.querySelector('#registration-email'),
+      ).toBeTruthy();
+    });
   });
 
   it('sets the document title from the loaded event', async () => {
