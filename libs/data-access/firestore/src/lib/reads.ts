@@ -433,18 +433,20 @@ function documentIdCursor(cursor: EventCursor, scope: EventQueryScope): string {
  * and lets the cursor address an exact position rather than a `startsAt` that
  * several events may share.
  *
- * ## Both timeframes read the same ascending index
+ * ## Each timeframe has its own index
  *
- * The range filter on `startsAt` is served by the `(status ASC, startsAt ASC)`
- * index the listing already had, so hiding past events needed no new index.
+ * Upcoming reads `(status ASC, startsAt ASC)`, the index the listing already
+ * had. Past reads most recent first, so it needs `(status ASC, startsAt DESC)`.
+ * Both are declared in `firestore.indexes.json`, for both scopes.
  *
- * The past list wants the most recent event first, which looks like it needs a
- * `startsAt DESC` index. It does not: `limitToLast` on the ascending order
- * returns the *last* `limit` events before the cutoff, and `endBefore` pages
- * backwards from there. The page arrives oldest first and is reversed here.
- * This matters because the deploy workflow never runs `firebase deploy`, so a
- * new index would exist in the emulator and fail in production until someone
- * deployed it by hand.
+ * `limitToLast` on the ascending order looks like a way to avoid the second
+ * index. It is not: Firestore runs it as the reversed query, so it needs the
+ * DESC index all the same. The emulator does not enforce indexes, so only a
+ * run against real Firestore shows this.
+ *
+ * The deploy workflow never runs `firebase deploy`, so a new index here must be
+ * deployed by hand (`firebase deploy --only firestore:indexes`) before the code
+ * that needs it ships.
  */
 async function pageOfEvents(
   filtered: Query<WorkshopEvent>,
@@ -456,31 +458,24 @@ async function pageOfEvents(
     MAX_PAGE_SIZE,
   );
   const past = options.when === 'past';
+  const direction = past ? 'desc' : 'asc';
   const cutoff = Timestamp.fromDate(upcomingCutoff(options.now ?? new Date()));
 
   let query = filtered
     .where('startsAt', past ? '<' : '>=', cutoff)
-    .orderBy('startsAt', 'asc')
-    .orderBy(FieldPath.documentId(), 'asc');
+    .orderBy('startsAt', direction)
+    .orderBy(FieldPath.documentId(), direction);
 
   if (options.cursor) {
     const cursor = decodeEventCursor(options.cursor);
-    const position = [
+    query = query.startAfter(
       Timestamp.fromMillis(cursor.startsAtMs),
       documentIdCursor(cursor, scope),
-    ];
-    query = past ? query.endBefore(...position) : query.startAfter(...position);
+    );
   }
 
-  const snapshot = await (
-    past ? query.limitToLast(limit) : query.limit(limit)
-  ).get();
+  const snapshot = await query.limit(limit).get();
   const events = snapshot.docs.map(eventFromQueryDoc);
-
-  if (past) {
-    events.reverse();
-  }
-
   const last = events[events.length - 1];
 
   return {
