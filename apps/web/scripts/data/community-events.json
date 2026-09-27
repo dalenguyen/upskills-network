@@ -195,5 +195,51 @@
     "sourceName": "MongoDB",
     "startTimeTbd": true,
     "imageUrl": "https://webimages.mongodb.com/_com_assets/cms/mm3tm73hm7ynrfc0w-MongoDBlocal2026-624%201.png?auto=format%252Ccompress"
+  },
+  {
+    "title": "Impact AI Toronto 2026",
+    "slug": "impact-ai-toronto-2026",
+    "description": "A half-day enterprise AI conference from Vooban, held at the MaRS Waterfront Lake Lounge.\n\nThe programme is built around practitioners describing AI already in production rather than pilots: what was deployed, what it cost and what it changed. Sessions run from 10:00 AM to 3:00 PM.",
+    "startsAt": "2026-10-14T10:00:00-04:00",
+    "endsAt": "2026-10-14T15:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "MaRS Waterfront, Lake Lounge, 155 Queens Quay East, Toronto, ON M5A 1B6",
+    "externalUrl": "https://impact-ia.ca/en/toronto",
+    "sourceName": "Vooban"
+  },
+  {
+    "title": "Toronto Tech Summit 2026",
+    "slug": "toronto-tech-summit-2026",
+    "description": "A one-day summit on \"Engineering Trust: Security, Privacy, and AI at Scale\", for engineers, security and privacy leaders, and the executives accountable for AI systems.\n\nThe day is aimed at building trustworthy AI inside Canada's regulatory framework. Registration opens at 8:30 AM, the first keynote is at 9:00 AM, and a networking reception follows the closing session at 5:00 PM. Two hundred seats.",
+    "startsAt": "2026-10-15T08:30:00-04:00",
+    "endsAt": "2026-10-15T17:00:00-04:00",
+    "timezone": "America/Toronto",
+    "location": "EY Tower, 100 Adelaide Street West, Toronto, ON M5H 0B3",
+    "externalUrl": "https://torontotechsummit.ca/",
+    "sourceName": "Toronto Tech Summit"
+  },
+  {
+    "title": "Web Unleashed 2026",
+    "slug": "web-unleashed-2026",
+    "description": "FITC's front-end developer conference, running two days — October 27 and 28 — at Humber's downtown graduate school campus at Yonge and Bloor.\n\nTalks cover the working end of modern web development: frameworks, performance, tooling and the browser platform. A ticket can be bought for the room in Toronto or for the online stream.\n\nFITC publishes the dates but not the daily hours, so check the schedule on the event page before making travel plans.",
+    "startsAt": "2026-10-27T09:00:00-04:00",
+    "startTimeTbd": true,
+    "timezone": "America/Toronto",
+    "location": "Humber International Graduate School, 59 Hayden Street, Unit 400, Toronto, ON M4Y 0E7",
+    "externalUrl": "https://fitc.ca/event/webu26/",
+    "sourceName": "FITC",
+    "imageUrl": "https://media-library.fitc.ca/wp-content/uploads/2026/07/07185618/WebU-26-KeyArt-16x9_LEFT-PURPLE_FINAL-1.png"
+  },
+  {
+    "title": "AI Community Conference - Toronto 2026",
+    "slug": "ai-community-conference-toronto-2026",
+    "description": "A full day of AI talks, panels and demos run by AICO, hosted in the Microsoft offices at CIBC Square.\n\nKeynotes and speaker sessions sit alongside a panel on AI ethics, a sponsor showcase, live demonstrations and interactive exhibits, with networking time built into the day. The programme is pitched at both working AI practitioners and people starting out. Doors at 8:30 AM, close at 5:00 PM.",
+    "startsAt": "2026-11-13T08:30:00-05:00",
+    "endsAt": "2026-11-13T17:00:00-05:00",
+    "timezone": "America/Toronto",
+    "location": "Microsoft, CIBC Square, 81 Bay Street, Toronto, ON M5J 0E7",
+    "externalUrl": "https://www.eventbrite.ca/e/ai-community-conference-toronto-2026-tickets-1997522115419",
+    "sourceName": "AICO",
+    "imageUrl": "https://img.evbuc.com/https%3A%2F%2Fcdn.evbuc.com%2Fimages%2F1190770050%2F34234825936%2F1%2Foriginal.20260811-040548"
   }
 ]
