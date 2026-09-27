@@ -380,6 +380,30 @@ export class EventNotRegisterableError extends Error {
 }
 
 /**
+ * Raised when someone registers for an event that has already happened.
+ *
+ * "Already happened" is `isPastEvent` from `@upskills/validation` — the same
+ * rule that drops the event from the public listing and shows "This event has
+ * ended" on its page. The page hides the form, so reaching here means a tab
+ * left open past the grace window or a scripted post. Without this check both
+ * would get a seat, a cancel token, and a confirmation email for an event that
+ * is over.
+ *
+ * Checked inside the reservation transaction against the `startsAt` read
+ * there, for the same reason as {@link EventNotRegisterableError}: an organizer
+ * can move the date while the request is in flight.
+ *
+ * A route maps this to **409**: the caller could already see the event, so
+ * saying it has ended hides nothing.
+ */
+export class EventEndedError extends Error {
+  constructor(readonly eventId: string) {
+    super(`Event "${eventId}" has already taken place.`);
+    this.name = 'EventEndedError';
+  }
+}
+
+/**
  * Raised when a free seat is claimed outright on an event that costs money.
  *
  * Checked inside the reservation transaction against the price read there, so a

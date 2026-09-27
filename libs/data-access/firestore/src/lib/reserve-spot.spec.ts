@@ -1,15 +1,25 @@
 import type { WorkshopEvent } from '@upskills/models';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearFirestore } from '../testing/emulator';
-import { at, seedEvent, seedGuest } from '../testing/seed';
+import { T0, at, seedEvent, seedGuest } from '../testing/seed';
 import { getEvent, getGuest, listEventGuests } from './reads';
-import { reserveSpot } from './reserve-spot';
+import { reserveSpot as reserveSpotAt, type ReserveMode } from './reserve-spot';
 import {
+  EventEndedError,
   EventIsExternalError,
   EventNotFoundError,
   EventNotRegisterableError,
   PaymentRequiredError,
 } from './transactions';
+
+/** Events here are seeded at `T0`; judge "past" from there, not from today. */
+const reserveSpot: typeof reserveSpotAt = (
+  orgId,
+  eventId,
+  draft,
+  mode,
+  now = T0.toDate(),
+) => reserveSpotAt(orgId, eventId, draft, mode, now);
 
 beforeEach(clearFirestore);
 
@@ -460,5 +470,76 @@ describe('reserveSpot — bad input', () => {
     await expect(
       reserveSpot('org-7', 'evt-1', { email: 'a@e.com', name: 'A' }, 'hold'),
     ).rejects.toBeInstanceOf(EventNotRegisterableError);
+  });
+});
+
+describe('reserveSpot — events that have taken place', () => {
+  /** Four hours after `T0`: one hour past the grace window of an event at `T0`. */
+  const later = new Date(T0.toMillis() + 4 * 60 * 60 * 1000);
+
+  it.each<ReserveMode>(['confirm', 'hold'])(
+    'refuses a %s reservation once the grace window has run out',
+    async (mode) => {
+      await event();
+
+      await expect(
+        reserveSpotAt(
+          'org-7',
+          'evt-1',
+          { email: 'a@e.com', name: 'A' },
+          mode,
+          later,
+        ),
+      ).rejects.toBeInstanceOf(EventEndedError);
+
+      expect(await listEventGuests('org-7', 'evt-1')).toEqual([]);
+      expect(await getEvent('org-7', 'evt-1')).toMatchObject({
+        confirmedCount: 0,
+        heldCount: 0,
+      });
+    },
+  );
+
+  it('still takes a late guest inside the grace window', async () => {
+    await event();
+    const twoHoursIn = new Date(T0.toMillis() + 2 * 60 * 60 * 1000);
+
+    await expect(
+      reserveSpotAt(
+        'org-7',
+        'evt-1',
+        { email: 'a@e.com', name: 'A' },
+        'confirm',
+        twoHoursIn,
+      ),
+    ).resolves.toMatchObject({ outcome: 'confirmed' });
+  });
+
+  it('reports a past draft as unpublished, not as ended', async () => {
+    await event({ status: 'draft' });
+
+    await expect(
+      reserveSpotAt(
+        'org-7',
+        'evt-1',
+        { email: 'a@e.com', name: 'A' },
+        'confirm',
+        later,
+      ),
+    ).rejects.toBeInstanceOf(EventNotRegisterableError);
+  });
+
+  it('reports a past listing as ended, not as external', async () => {
+    await event({ externalUrl: 'https://example.com/events/toronto-ai' });
+
+    await expect(
+      reserveSpotAt(
+        'org-7',
+        'evt-1',
+        { email: 'a@e.com', name: 'A' },
+        'confirm',
+        later,
+      ),
+    ).rejects.toBeInstanceOf(EventEndedError);
   });
 });

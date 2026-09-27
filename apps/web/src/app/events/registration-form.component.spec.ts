@@ -203,6 +203,25 @@ describe('RegistrationFormComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('cancelled');
   });
 
+  it('explains an event that ended while the page was open', async () => {
+    const { fixture, component } = create();
+    fill(component);
+
+    const pending = component.submit();
+    fixture.detectChanges();
+    http
+      .expectOne(registerEndpoint('org_1', 'evt_1'))
+      .flush(
+        { data: { error: 'event-ended' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await pending;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('already taken place');
+  });
+
   it('explains a cancelled event when the failure arrives as an ofetch FetchError', async () => {
     // The production SSR shape — see event-api.ts. The browser normally posts
     // this form, but the classification must not depend on the error class.

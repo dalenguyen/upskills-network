@@ -1,8 +1,9 @@
 import type { Guest, GuestStatus, Timestamp } from '@upskills/models';
-import { normalizeEmail } from '@upskills/validation';
+import { isPastEvent, normalizeEmail } from '@upskills/validation';
 import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
 import { eventRef, guestRef } from './collections';
 import {
+  EventEndedError,
   EventIsExternalError,
   EventNotFoundError,
   EventNotRegisterableError,
@@ -97,13 +98,14 @@ function outcomeFor(status: GuestStatus): ReserveOutcome {
  * their place was already given back, so the document is rebuilt from scratch
  * and capacity is re-evaluated for them like anyone else.
  *
- * Only a `published` event accepts registrations, and in `confirm` mode only a
- * free one. Both are checked here rather than by the caller, against the event
+ * Only a `published` event that has not yet taken place accepts registrations,
+ * and in `confirm` mode only a free one. All three are checked here rather than by the caller, against the event
  * read inside the transaction — see {@link EventNotRegisterableError} and
  * {@link PaymentRequiredError}.
  *
  * @throws EventNotFoundError if `eventId` names no event.
  * @throws EventNotRegisterableError if the event is a draft or cancelled.
+ * @throws EventEndedError if the event is past, by `isPastEvent` against `now`.
  * @throws EventIsExternalError if the event is only *listed* here and takes its
  *   registrations on someone else's site.
  * @throws PaymentRequiredError in `confirm` mode if the event has a price.
@@ -113,6 +115,12 @@ export async function reserveSpot(
   eventId: string,
   draft: GuestDraft,
   mode: ReserveMode,
+  /**
+   * The moment "past" is judged against. Specs pin it; callers omit it, and
+   * the clock is then read inside each transaction attempt, so a retry that
+   * lands after the cutoff is judged by when it actually commits.
+   */
+  now?: Date,
 ): Promise<ReserveSpotResult> {
   const email = normalizeEmail(draft.email);
   const documents = {
@@ -142,6 +150,13 @@ export async function reserveSpot(
     // unannounced event exists leaks through the difference.
     if (event.status !== 'published') {
       throw new EventNotRegisterableError(eventId, event.status);
+    }
+
+    // After the status check, so a past *draft* still answers like any draft.
+    // Before the external and price checks: for an event that is over, "it has
+    // ended" is the answer, whoever runs it and whatever it cost.
+    if (isPastEvent(event.startsAt.toDate(), now ?? new Date())) {
+      throw new EventEndedError(eventId);
     }
 
     // After the status check, for the same leak argument: a *draft* listing

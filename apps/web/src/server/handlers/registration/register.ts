@@ -26,8 +26,8 @@ import { conflict } from './registration-errors';
  *
  * ## What this route does not decide
  *
- * Capacity, publication status, and price are all decided inside
- * `reserveSpot`'s transaction, not here. This handler reads the event once
+ * Capacity, publication status, whether the event is over, and price are all
+ * decided inside `reserveSpot`'s transaction, not here. This handler reads the event once
  * beforehand, but only to answer a cheap 404 and to have the content of the
  * email it sends afterwards; nothing it reads is allowed to gate the write.
  *
@@ -141,6 +141,12 @@ function asRegistrationError(error: unknown): unknown {
     return status === 'cancelled'
       ? conflict('event-cancelled', 'This event has been cancelled.')
       : eventNotFound();
+  }
+
+  if (error.name === 'EventEndedError') {
+    // The page swaps the form for "This event has ended" once the grace window
+    // runs out, so this is a tab left open too long or a scripted post.
+    return conflict('event-ended', 'This event has already taken place.');
   }
 
   if (error.name === 'EventIsExternalError') {
